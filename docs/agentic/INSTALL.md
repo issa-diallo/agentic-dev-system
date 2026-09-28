@@ -18,6 +18,7 @@ L'installateur ajoute :
 
 ```text
 AGENTS.md
+COMMITS.md
 docs/agentic/
 docs/product/PRD.md
 docs/product/STORIES.md
@@ -32,6 +33,7 @@ docs/agentic/work/
 L'installateur refuse d'écraser :
 
 - un `AGENTS.md` existant ;
+- un `COMMITS.md` existant ;
 - un dossier `docs/agentic` existant.
 
 Pour remplacer volontairement une installation existante :
@@ -46,7 +48,20 @@ Utiliser `FORCE=1` avec prudence.
 
 Une fois installé :
 
-> Lis AGENTS.md et docs/agentic/METHOD.md. Applique strictement PRD → Stories → Story Review → Architecture → Design System → Research → Design → Plan → Execute → Review → Ship. Identifie la première phase qui n'est pas PASS et commence uniquement par celle-ci.
+> Lis AGENTS.md, COMMITS.md et docs/agentic/METHOD.md. Applique strictement PRD → Stories → Story Review → Architecture → Design System → Research → Design → Plan → Execute → Review → Ship. Identifie la première phase qui n'est pas PASS et commence uniquement par celle-ci. Pour chaque commit, utilise le Gitmoji approprié et respecte COMMITS.md.
+
+## Commits
+
+Chaque projet installé reçoit `COMMITS.md`.
+
+Les agents doivent :
+
+- choisir le Gitmoji correspondant à l'intention réelle ;
+- utiliser un titre impératif court ;
+- expliquer le pourquoi dans le corps ;
+- ajouter `Fixes #<issue_number>`.
+
+La référence Gitmoji est https://gitmoji.dev/.
 
 ## Mise à jour
 

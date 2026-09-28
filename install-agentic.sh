@@ -12,13 +12,16 @@ fail() {
 
 [ -d "$TARGET" ] || fail "Target directory does not exist: $TARGET"
 [ -f "$SCRIPT_DIR/AGENTS.md" ] || fail "AGENTS.md not found next to installer."
+[ -f "$SCRIPT_DIR/COMMITS.md" ] || fail "COMMITS.md not found next to installer."
 [ -d "$SCRIPT_DIR/docs/agentic" ] || fail "docs/agentic not found next to installer."
 
 mkdir -p "$TARGET/docs"
 
-if [ -e "$TARGET/AGENTS.md" ] && [ "$FORCE" != "1" ]; then
-  fail "AGENTS.md already exists in target. Re-run with FORCE=1 only if you intentionally want to replace it."
-fi
+for protected in AGENTS.md COMMITS.md; do
+  if [ -e "$TARGET/$protected" ] && [ "$FORCE" != "1" ]; then
+    fail "$protected already exists in target. Re-run with FORCE=1 only if you intentionally want to replace it."
+  fi
+done
 
 if [ -e "$TARGET/docs/agentic" ] && [ "$FORCE" != "1" ]; then
   fail "docs/agentic already exists in target. Re-run with FORCE=1 only if you intentionally want to replace it."
@@ -29,6 +32,7 @@ if [ "$FORCE" = "1" ]; then
 fi
 
 cp "$SCRIPT_DIR/AGENTS.md" "$TARGET/AGENTS.md"
+cp "$SCRIPT_DIR/COMMITS.md" "$TARGET/COMMITS.md"
 cp -R "$SCRIPT_DIR/docs/agentic" "$TARGET/docs/agentic"
 
 mkdir -p "$TARGET/docs/product"
@@ -54,7 +58,10 @@ echo
 echo "Pipeline:"
 echo "PRD -> Stories -> Story Review -> Architecture -> Design System -> Research -> Design -> Plan -> Execute -> Review -> Ship"
 echo
+echo "Commit convention:"
+echo "Read COMMITS.md and use the appropriate Gitmoji in every commit."
+echo
 echo "Next:"
 echo "1. Open the target project."
-echo "2. Ask the agent to read AGENTS.md and docs/agentic/METHOD.md."
+echo "2. Ask the agent to read AGENTS.md, COMMITS.md and docs/agentic/METHOD.md."
 echo "3. Tell it to start from the first phase not marked PASS."

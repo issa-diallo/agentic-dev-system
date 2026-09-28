@@ -19,9 +19,10 @@ Lire dans cet ordre :
 1. `README.md`
 2. `docs/agentic/METHOD.md`
 3. `docs/agentic/WORKFLOW.md`
-4. les documents projet dans `docs/product/`
-5. le ticket/story concerné
-6. les artefacts de travail de la story
+4. `COMMITS.md`
+5. les documents projet dans `docs/product/`
+6. le ticket/story concerné
+7. les artefacts de travail de la story
 
 ## Gates
 
@@ -68,6 +69,47 @@ Branche :
 `feat/<ticket>-<slug>`, `fix/<ticket>-<slug>`, `chore/<ticket>-<slug>`.
 
 Deux agents ne modifient jamais le même worktree simultanément.
+
+## Commits
+
+Avant tout commit, lire et appliquer `COMMITS.md`.
+
+Chaque commit doit :
+
+- utiliser le **Gitmoji approprié** à l'intention principale du changement ;
+- utiliser l'emoji Unicode officiel de https://gitmoji.dev/ ;
+- avoir un titre court à l'impératif ;
+- expliquer le pourquoi dans le corps lorsque nécessaire ;
+- référencer le ticket associé avec `Fixes #<issue_number>` ;
+- rester atomique et limité à une intention principale.
+
+Format attendu :
+
+```text
+<gitmoji> <Imperative title>
+
+<Why this change was needed>
+<What changed at a high level>
+<Any important consequence>
+
+Fixes #<issue_number>
+```
+
+Exemples :
+
+```text
+✨ Add artisan assignment workflow
+🐛 Fix tenant filter on conversations
+♻️ Refactor email parsing service
+✅ Add tests for claim routing
+📝 Document deployment workflow
+🔒️ Fix cross-tenant access check
+🏗️ Separate domain and integration layers
+```
+
+Ne jamais choisir un Gitmoji décoratif ou arbitraire. Si l'intention du
+commit est ambiguë, consulter `COMMITS.md` et https://gitmoji.dev/ avant de
+committer.
 
 ## Artefacts attendus
 
