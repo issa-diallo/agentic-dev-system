@@ -3,7 +3,9 @@
 ## Preconditions
 
 - [ ] Execute PASS
+- [ ] Verify PASS
 - [ ] Review PASS ou PASS_WITH_MINOR
+- [ ] Goal SATISFIED si applicable
 - [ ] aucun Critical/Major ouvert
 
 ## Git
@@ -17,13 +19,16 @@
 - URL :
 - issue liée :
 - description complète :
+- evidence liée :
 - screenshots si UI :
 
 ## CI
 
 | Check | Result |
 |---|---|
-| … | PASS/FAIL |
+| Agentic method | PASS/FAIL |
+| Tests | PASS/FAIL |
+| Build | PASS/FAIL |
 
 ## Deployment / migration
 
@@ -44,10 +49,9 @@
 ## Cleanup
 
 - [ ] worktree supprimé
+- [ ] ressources temporaires nettoyées
 - [ ] branche locale nettoyée
 - [ ] STATUS mis à jour
 - [ ] issue fermée
-
-## Ship Gate
 
 Verdict : DONE / BLOCKED

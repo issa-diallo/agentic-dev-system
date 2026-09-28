@@ -5,8 +5,10 @@
 - [ ] Research PASS
 - [ ] Design PASS
 - [ ] Plan PASS
-- [ ] worktree correct
-- [ ] branch correcte
+- [ ] architecture/ADR compatibles
+- [ ] worktree correct si requis
+- [ ] environnement prêt
+- [ ] aucun blocker
 
 ## Implementation checklist
 
@@ -17,6 +19,7 @@
 - [ ] respecter architecture
 - [ ] respecter design system
 - [ ] respecter sécurité/authz/tenant
+- [ ] ne pas modifier silencieusement la stack
 
 ## Commands executed
 
@@ -26,12 +29,18 @@
 
 ## Deviations from plan
 
+Toute déviation doit être justifiée.
+
 - …
+
+## Handoff
+
+Préparer `handoff.md` pour Verify et Review.
 
 ## Execute Gate
 
 - [ ] implémentation complète
-- [ ] tests locaux pertinents PASS
+- [ ] tests locaux pertinents exécutés
 - [ ] diff inspecté
 - [ ] handoff prêt
 

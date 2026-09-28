@@ -1,8 +1,18 @@
 # Agentic Dev System
 
-Système privé et réutilisable de développement multi-agents.
+Système privé et réutilisable pour préparer, exécuter et vérifier le développement multi-agents.
 
-## Pipeline canonique
+## Objectif
+
+**Préparer les tâches assez clairement pour gagner du temps pendant
+l'implémentation.**
+
+Le même système fonctionne pour :
+- petit projet → mode LIGHT ;
+- projet normal → mode STANDARD ;
+- gros projet / multi-agents / production sensible → mode LARGE.
+
+## Pipeline
 
 ```text
 PRD
@@ -21,56 +31,37 @@ Design
  ↓
 Plan
  ↓
+Worktree Setup
+ ↓
 Execute
  ↓
+Verify / Evidence
+ ↓
 Review
+ ↓
+Goal satisfied?
  ↓
 Ship
 ```
 
-## Installation dans un projet
-
-Clone ce dépôt privé une fois :
+## Installation
 
 ```bash
 git clone git@github.com:issa-diallo/agentic-dev-system.git
-```
-
-Puis installe la méthode dans n'importe quel projet :
-
-```bash
 ./agentic-dev-system/install-agentic.sh /chemin/vers/mon-projet
 ```
 
-Ou depuis le projet cible :
-
-```bash
-/path/to/agentic-dev-system/install-agentic.sh .
-```
-
-L'installateur ajoute :
-
-- `AGENTS.md`
-- `docs/agentic/`
-- `docs/product/PRD.md`
-- `docs/product/STORIES.md`
-- `docs/product/STORY_REVIEW.md`
-- `docs/product/ARCHITECTURE.md`
-- `docs/product/DESIGN_SYSTEM.md`
-- `docs/agentic/work/`
-
-## Prompt de démarrage
-
-> Lis AGENTS.md et docs/agentic/METHOD.md. Applique strictement PRD → Stories → Story Review → Architecture → Design System → Research → Design → Plan → Execute → Review → Ship. Identifie la première phase qui n'est pas PASS et commence uniquement par celle-ci.
-
 ## Principes
 
-- cadrer avant de coder ;
-- une phase produit commune, puis un pipeline par story ;
-- un ticket = une branche = un worktree ;
-- implémentation et review séparées ;
-- artefact + gate PASS/BLOCKED à chaque phase ;
-- parallélisme uniquement lorsque les dépendances le permettent ;
-- validation humaine avant les merges ou actions sensibles.
+- préparer avant de coder ;
+- choisir la profondeur adaptée au risque ;
+- verrouiller les décisions structurantes dans Architecture/ADR ;
+- isoler les stories significatives par worktree ;
+- prouver que le résultat fonctionne ;
+- séparer implémentation et review ;
+- utiliser des goals mesurables pour les longues tâches ;
+- protéger les actions destructrices ;
+- garder le contexte agentique propre ;
+- automatiser les contrôles répétables.
 
-Voir `docs/agentic/METHOD.md` pour la définition complète.
+Commencer par `docs/agentic/METHOD.md` puis `docs/agentic/SCALING.md`.

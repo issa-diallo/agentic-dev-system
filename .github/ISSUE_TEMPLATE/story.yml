@@ -1,0 +1,31 @@
+name: Story
+description: Create an implementation-ready story
+title: "[Story] "
+labels: ["story"]
+body:
+  - type: textarea
+    id: user-story
+    attributes:
+      label: User story
+      description: En tant que..., je veux..., afin de...
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List testable criteria.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+  - type: textarea
+    id: security
+    attributes:
+      label: Security / data / human validation

@@ -16,6 +16,12 @@ fail() {
 [ -d "$SCRIPT_DIR/docs/agentic" ] || fail "docs/agentic not found next to installer."
 
 mkdir -p "$TARGET/docs"
+mkdir -p "$TARGET/docs/product"
+mkdir -p "$TARGET/docs/agentic/work"
+mkdir -p "$TARGET/docs/adr"
+mkdir -p "$TARGET/scripts"
+mkdir -p "$TARGET/hooks"
+mkdir -p "$TARGET/.github/ISSUE_TEMPLATE"
 
 for protected in AGENTS.md COMMITS.md; do
   if [ -e "$TARGET/$protected" ] && [ "$FORCE" != "1" ]; then
@@ -35,10 +41,6 @@ cp "$SCRIPT_DIR/AGENTS.md" "$TARGET/AGENTS.md"
 cp "$SCRIPT_DIR/COMMITS.md" "$TARGET/COMMITS.md"
 cp -R "$SCRIPT_DIR/docs/agentic" "$TARGET/docs/agentic"
 
-mkdir -p "$TARGET/docs/product"
-mkdir -p "$TARGET/docs/agentic/work"
-mkdir -p "$TARGET/docs/adr"
-
 copy_if_missing() {
   local src="$1"
   local dest="$2"
@@ -53,20 +55,47 @@ copy_if_missing "$SCRIPT_DIR/docs/agentic/templates/STORY_REVIEW.md" "$TARGET/do
 copy_if_missing "$SCRIPT_DIR/docs/agentic/templates/ARCHITECTURE.md" "$TARGET/docs/product/ARCHITECTURE.md"
 copy_if_missing "$SCRIPT_DIR/docs/agentic/templates/DESIGN_SYSTEM.md" "$TARGET/docs/product/DESIGN_SYSTEM.md"
 
+if [ -f "$SCRIPT_DIR/scripts/agentic-check.sh" ]; then
+  copy_if_missing "$SCRIPT_DIR/scripts/agentic-check.sh" "$TARGET/scripts/agentic-check.sh"
+  chmod +x "$TARGET/scripts/agentic-check.sh"
+fi
+
+if [ -f "$SCRIPT_DIR/hooks/README.md" ]; then
+  copy_if_missing "$SCRIPT_DIR/hooks/README.md" "$TARGET/hooks/README.md"
+fi
+
+if [ -f "$SCRIPT_DIR/.github/ISSUE_TEMPLATE/story.yml" ]; then
+  copy_if_missing "$SCRIPT_DIR/.github/ISSUE_TEMPLATE/story.yml" "$TARGET/.github/ISSUE_TEMPLATE/story.yml"
+fi
+
+if [ -f "$SCRIPT_DIR/.github/pull_request_template.md" ]; then
+  copy_if_missing "$SCRIPT_DIR/.github/pull_request_template.md" "$TARGET/.github/pull_request_template.md"
+fi
+
 echo
 echo "Agentic Development System installed in: $TARGET"
 echo
 echo "Pipeline:"
-echo "PRD -> Stories -> Story Review -> Architecture -> Design System -> Research -> Design -> Plan -> Execute -> Review -> Ship"
+echo "PRD -> Stories -> Story Review -> Architecture -> Design System -> Research -> Design -> Plan -> Worktree Setup -> Execute -> Verify -> Review -> Goal -> Ship"
+echo
+echo "Scale:"
+echo "Choose LIGHT, STANDARD or LARGE using docs/agentic/SCALING.md."
 echo
 echo "Architecture:"
 echo "Select and justify the technical stack in docs/product/ARCHITECTURE.md."
 echo "Record structural decisions as ADRs in docs/adr/."
 echo
-echo "Commit convention:"
+echo "Verification:"
+echo "After Execute, prove the result using docs/agentic/templates/VERIFY.md."
+echo
+echo "Safety:"
+echo "Read docs/agentic/SAFETY.md and hooks/README.md."
+echo
+echo "Commits:"
 echo "Read COMMITS.md and use the appropriate Gitmoji in every commit."
 echo
 echo "Next:"
 echo "1. Open the target project."
-echo "2. Ask the agent to read AGENTS.md, COMMITS.md and docs/agentic/METHOD.md."
-echo "3. Tell it to start from the first phase not marked PASS."
+echo "2. Read AGENTS.md, COMMITS.md and docs/agentic/METHOD.md."
+echo "3. Select project mode in docs/agentic/STATUS.md."
+echo "4. Start from the first phase not marked PASS."

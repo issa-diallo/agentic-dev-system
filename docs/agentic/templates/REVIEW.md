@@ -1,55 +1,58 @@
-# Review — <ticket> <titre>
+# Review — <story> <titre>
 
 ## Verdict
 
 `PASS | PASS_WITH_MINOR | CHANGES_REQUIRED | BLOCKED`
 
-## Scope reviewed
+## Inputs reviewed
 
-- issue :
-- branch :
-- commit :
+- issue/story :
+- architecture/ADR :
+- research :
+- design :
+- plan :
+- execute handoff :
+- verify evidence :
 - diff :
-- tests :
 
 ## Findings
 
 ### Critical
-
 Aucun / liste.
 
 ### Major
-
 Aucun / liste.
 
 ### Minor
-
 Aucun / liste.
 
 ### Nit
-
 Aucun / liste.
 
-## Critères d'acceptation
+## Acceptance criteria
 
 - [ ] AC1 —
 - [ ] AC2 —
 - [ ] AC3 —
 
-## Sécurité
+## Architecture / security
 
-- [ ] isolation tenant
+- [ ] stack respectée
+- [ ] isolation tenant si applicable
 - [ ] autorisations
 - [ ] validation des entrées
 - [ ] secrets/logs
 - [ ] validation humaine si nécessaire
 
-## Tests vérifiés
+## Evidence assessment
 
-| Commande | Résultat |
-|---|---|
-| `<commande>` | PASS / FAIL / NOT_RUN |
+- [ ] evidence crédible
+- [ ] tests réellement exécutés
+- [ ] runtime vérifié lorsque pertinent
+- [ ] régressions importantes couvertes
 
 ## Conclusion
 
-<Ce qui doit être corrigé ou pourquoi la story peut être livrée.>
+Critical/Major ouvert => CHANGES_REQUIRED.
+
+Verdict : PASS / PASS_WITH_MINOR / CHANGES_REQUIRED / BLOCKED

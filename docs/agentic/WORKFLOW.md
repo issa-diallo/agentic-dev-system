@@ -1,129 +1,106 @@
 # Workflow canonique
 
-Le workflow officiel est :
+`PRD -> Stories -> Story Review -> Architecture -> Design System -> Research -> Design -> Plan -> Worktree Setup -> Execute -> Verify -> Review -> Goal -> Ship`
 
-`PRD -> Stories -> Story Review -> Architecture -> Design System -> Research -> Design -> Plan -> Execute -> Review -> Ship`
+## 0. Choisir le mode
 
-Voir `METHOD.md` pour la logique complète.
+Lire `SCALING.md` et sélectionner :
+- LIGHT
+- STANDARD
+- LARGE
 
-# A. Pipeline Produit
+Le mode détermine la profondeur, pas la qualité minimale.
 
-## 1. PRD
+## Pipeline Produit
 
-Créer `docs/product/PRD.md`.
+1. PRD
+2. Stories
+3. Story Review
+4. Architecture
+5. Design System
 
-Gate PASS si :
-- problème clair ;
-- utilisateurs définis ;
-- scope et non-scope explicites ;
-- parcours/capacités principales ;
-- critères de succès ;
-- contraintes et risques connus.
+Toutes doivent être PASS avant les premières stories d'implémentation structurantes.
 
-## 2. Stories
+## Pipeline par Story
 
-Créer `docs/product/STORIES.md`.
+### Research
+Comprendre le code réel.
 
-Chaque story est une tranche livrable fonctionnelle et testable.
+### Design
+Définir ce qui doit être construit.
 
-## 3. Story Review
+### Plan
+Décider comment l'intégrer avant de coder.
 
-Créer `docs/product/STORY_REVIEW.md`.
+### Worktree Setup
+Isoler l'exécution lorsque la story est significative ou risquée.
 
-La review doit détecter :
-- trous fonctionnels ;
-- dépendances circulaires ;
-- stories trop larges ;
-- critères insuffisants ;
-- ordre incorrect.
+### Execute
+Implémenter sans redécider le produit ni l'architecture.
 
-Si Critical/Major : revenir à Stories.
+### Verify
+Prouver que le résultat fonctionne avec des evidence.
 
-## 4. Architecture
+### Review
+Agent indépendant, findings Critical/Major bloquants.
 
-Créer `docs/product/ARCHITECTURE.md`.
+### Goal
+Pour les tâches longues, continuer jusqu'à critères mesurables SATISFIED ou blocker réel.
 
-Les décisions structurantes doivent être fixées avant la phase story-level.
+### Ship
+PR, CI, validation, merge, cleanup.
 
-## 5. Design System
-
-Créer `docs/product/DESIGN_SYSTEM.md`.
-
-Le système visuel/interface devient une contrainte pour les designs de story.
-
-# B. Pipeline par Story
-
-## 6. Research
-
-Créer :
-
-`docs/agentic/work/<story>/research.md`
-
-Analyser le repo réel, les dépendances, conventions, risques, tests et zones impactées.
-
-## 7. Design
-
-Créer :
-
-`docs/agentic/work/<story>/design.md`
-
-Définir précisément l'expérience, les états, contrats, flux ou écrans.
-
-## 8. Plan
-
-Créer :
-
-`docs/agentic/work/<story>/plan.md`
-
-Le plan doit permettre à un autre agent d'implémenter sans refaire les décisions précédentes.
-
-## 9. Execute
-
-Créer branche + worktree.
-
-Implémenter le plan. Ajouter les tests. Produire `handoff.md`.
-
-## 10. Review
-
-Un agent indépendant produit `review.md`.
-
-Critical/Major => retour Execute.
-
-## 11. Ship
-
-Ship comprend obligatoirement :
-
-- commit(s) ;
-- push ;
-- PR ;
-- CI ;
-- corrections CI si besoin ;
-- validation humaine lorsque prévue ;
-- merge ;
-- cleanup du worktree ;
-- mise à jour STATUS.
-
-# C. Parallélisme
-
-Après Architecture + Design System PASS, plusieurs stories peuvent avancer en parallèle si leurs dépendances le permettent.
+## Boucles
 
 ```text
-Story A: Research -> Design -> Plan -> Execute -> Review -> Ship
-Story B: Research -> Design -> Plan -> Execute -> Review -> Ship
-Story C: Research -> Design -> Plan -> Execute -> Review -> Ship
+Stories <------ Story Review
+
+Architecture <--- Research/Plan
+     si décision structurante invalide
+
+Execute <------- Verify
+Execute <------- Review
+
+Goal FAIL ------> Execute/Verify
+
+Ship -> CI FAIL -> Plan/Execute selon la cause
 ```
 
-Une dépendance structurante doit être stabilisée avant les stories qui en dépendent.
+## Parallélisme
 
-# D. Reprise d'un projet existant
+Après Architecture + Design System PASS :
 
-Un repo existant n'a pas besoin de réécrire artificiellement son histoire.
+```text
+S01 Research -> Design -> Plan -> Worktree -> Execute -> Verify -> Review -> Ship
+S02 Research -> Design -> Plan -> Worktree -> Execute -> Verify -> Review -> Ship
+S03 Research -> Design -> Plan -> Worktree -> Execute -> Verify -> Review -> Ship
+```
 
-Créer :
-- PRD "as-is + target" ;
-- Stories restantes ;
-- Story Review ;
-- Architecture actuelle ;
-- Design System actuel.
+Ne paralléliser que lorsque les dépendances et contrats le permettent.
 
-Puis reprendre chaque nouvelle story à Research.
+## Definition of Ready for Execute
+
+Une story est Ready for Execute si :
+- acceptance criteria clairs ;
+- dépendances connues ;
+- research PASS ;
+- design PASS ;
+- plan PASS ;
+- architecture compatible ;
+- fichiers/zones impactées identifiés ;
+- stratégie de test définie ;
+- risques critiques traités ;
+- aucun blocker ouvert.
+
+Si ce n'est pas vrai, ne pas coder.
+
+## Definition of Done
+
+- Execute PASS
+- Verify PASS
+- Review PASS/PASS_WITH_MINOR
+- Goal SATISFIED si applicable
+- CI PASS
+- validation humaine si requise
+- merge effectué
+- cleanup effectué

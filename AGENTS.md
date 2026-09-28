@@ -25,6 +25,88 @@ Lire dans cet ordre :
 7. le ticket/story concerné
 8. les artefacts de travail de la story
 
+## Project scale
+
+Avant de commencer, lire `docs/agentic/SCALING.md` et choisir :
+
+- LIGHT
+- STANDARD
+- LARGE
+
+Le pipeline reste le même. Seule la profondeur des artefacts change.
+
+Objectif : préparer suffisamment pour réduire le temps d'implémentation,
+sans imposer une bureaucratie disproportionnée aux petits projets.
+
+## Definition of Ready for Execute
+
+Une story ne peut entrer en Execute que si :
+
+- critères d'acceptation clairs ;
+- dépendances identifiées ;
+- Research PASS ;
+- Design PASS ;
+- Plan PASS ;
+- architecture/ADR compatibles ;
+- fichiers/zones impactées identifiés ;
+- stratégie de tests définie ;
+- risques critiques traités ;
+- aucun blocker ouvert.
+
+Si ces conditions ne sont pas réunies, continuer la préparation au lieu de coder.
+
+## Verify / Evidence
+
+Après Execute, l'agent doit passer par Verify.
+
+Règle : **ne pas dire que cela fonctionne, le prouver**.
+
+Utiliser `docs/agentic/templates/VERIFY.md` et joindre selon le projet :
+
+- tests ;
+- build ;
+- appels API ;
+- browser flow ;
+- screenshots ;
+- logs ;
+- mesures de performance.
+
+## Goals
+
+Pour les tâches longues ou complexes, utiliser
+`docs/agentic/templates/GOAL.md`.
+
+Un goal doit être mesurable et basé sur des preuves. L'agent ne s'arrête que
+si les critères sont SATISFIED ou si un blocker réel est documenté.
+
+## Worktree environments
+
+Pour les stories significatives, le worktree doit être reproductible.
+
+Référence : `docs/agentic/templates/WORKTREE_ENVIRONMENT.md`.
+
+Quand le projet en a besoin, fournir :
+
+- `scripts/worktree-setup.sh`
+- `scripts/worktree-dev.sh`
+- `scripts/worktree-test.sh`
+- `scripts/worktree-down.sh`
+
+## Context hygiene
+
+Avant les longues tâches, appliquer `docs/agentic/CONTEXT.md`.
+
+Le main agent conserve les décisions et contraintes. Les explorations lourdes
+sont déléguées à des sub-agents qui renvoient des résumés exploitables.
+
+## Safety
+
+Lire `docs/agentic/SAFETY.md`.
+
+Quand le harness le permet, utiliser des hooks pour bloquer ou contrôler les
+actions destructrices. Les hooks restent une couche de sécurité, pas un
+substitut aux règles de projet.
+
 ## Gates
 
 Chaque phase produit un artefact et un verdict PASS ou BLOCKED. La phase suivante ne démarre que si la précédente est PASS.
@@ -40,9 +122,12 @@ Chaque phase produit un artefact et un verdict PASS ou BLOCKED. La phase suivant
 6. Research
 7. Design
 8. Plan
-9. Execute
-10. Review
-11. Ship
+9. Worktree Setup si requis
+10. Execute
+11. Verify
+12. Review
+13. Goal si applicable
+14. Ship
 
 ## Règle fondamentale
 

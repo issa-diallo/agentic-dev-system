@@ -2,7 +2,13 @@
 
 Cette méthode est conçue pour être copiée dans n'importe quel dépôt logiciel.
 
-## La chaîne à mémoriser
+## Objectif
+
+Préparer suffisamment les tâches pour que l'implémentation soit rapide, claire et presque mécanique.
+
+La méthode doit fonctionner pour les petits comme les gros projets. La profondeur change, pas l'ordre mental.
+
+## Pipeline canonique
 
 ```text
 PRD
@@ -21,284 +27,164 @@ Design
  ↓
 Plan
  ↓
+Worktree Setup
+ ↓
 Execute
  ↓
+Verify
+ ↓
 Review
+ ↓
+Goal satisfied?
  ↓
 Ship
 ```
 
-Acronyme mental possible :
-
-`P-S-S-A-D-R-D-P-E-R-S`
-
-Le nom importe moins que l'ordre.
-
-## Deux niveaux
-
-### Niveau Produit — exécuté au démarrage ou lors d'un changement majeur
-
-1. PRD
-2. Stories
-3. Story Review
-4. Architecture
-5. Design System
-
-Ce niveau transforme une idée en système explicite.
-
-### Niveau Story — répété pour chaque unité livrable
-
-6. Research
-7. Design
-8. Plan
-9. Execute
-10. Review
-11. Ship
-
-Ce niveau transforme une story validée en changement livré.
+Voir `SCALING.md` pour choisir LIGHT, STANDARD ou LARGE.
 
 ## Règle d'or
 
 Aucune phase ne doit inventer ce que la phase précédente devait décider.
-
-Exemples :
 
 - Execute ne redéfinit pas le besoin.
 - Execute ne change pas la stack.
 - Plan ne redéfinit pas l'architecture.
 - Design ne réécrit pas les critères d'acceptation.
 - Research ne modifie pas silencieusement le scope.
-- Ship ne masque pas une review en échec.
+- Verify exige des preuves.
+- Review ne se contente pas des affirmations de l'implementer.
+- Ship ne masque pas une review ou un goal en échec.
 
 ## Gate universel
 
-Chaque phase doit répondre à trois questions :
-
+Chaque phase doit répondre à :
 1. Quel artefact a été produit ?
 2. Quel est le verdict : PASS ou BLOCKED ?
-3. Quelles informations deviennent des contraintes pour la phase suivante ?
+3. Quelles contraintes deviennent obligatoires pour la suite ?
 
-Sans artefact et verdict, la phase n'est pas terminée.
+## Phase Produit
 
-## Phase 1 — PRD
-
-But : définir le produit, le problème, les utilisateurs, la valeur, le périmètre, le non-périmètre et les critères de succès.
+### 1. PRD
+Définir problème, utilisateurs, valeur, scope, non-scope, contraintes, risques et succès.
 
 Sortie : `docs/product/PRD.md`.
 
-## Phase 2 — Stories
-
-But : découper le PRD en tranches fonctionnelles livrables.
-
-Chaque story doit avoir :
-- acteur ;
-- besoin ;
-- valeur ;
-- critères d'acceptation ;
-- dépendances ;
-- hors périmètre ;
-- complexité approximative.
+### 2. Stories
+Découper le PRD en tranches fonctionnelles livrables et testables.
 
 Sortie : `docs/product/STORIES.md`.
 
-## Phase 3 — Story Review
-
-But : challenger le découpage avant tout investissement technique.
-
-Chercher :
-- dépendances circulaires ;
-- stories trop grosses ;
-- stories techniques déguisées en besoin utilisateur ;
-- critères absents ;
-- fonctionnalités oubliées ;
-- doublons ;
-- ordre impossible.
+### 3. Story Review
+Challenger couverture, dépendances, taille, critères et ordre.
 
 Sortie : `docs/product/STORY_REVIEW.md`.
 
-Critical/Major => corriger Stories puis refaire Story Review.
+### 4. Architecture
+Choisir et justifier stack, boundaries, data, API, auth, sécurité, infra, tests et déploiement.
 
-## Phase 4 — Architecture
-
-But : décider les contraintes techniques communes et la stack avant que les agents implémentent chacun leur propre solution.
-
-La phase Architecture doit :
-
-1. partir des contraintes du PRD et des Stories ;
-2. identifier les exigences techniques réelles ;
-3. comparer les options raisonnables ;
-4. sélectionner explicitement la stack ;
-5. expliquer pourquoi elle est retenue ;
-6. documenter les compromis ;
-7. documenter les alternatives rejetées ;
-8. créer des ADR pour les décisions structurantes.
-
-Doit couvrir selon le projet :
-- structure repo ;
-- langages ;
-- frontend/backend ;
-- protocole/style d'API ;
-- données et ORM/data access ;
-- auth/authz ;
-- multi-tenant ;
-- cache ;
-- queues/jobs ;
-- stockage ;
-- sécurité ;
-- intégrations ;
-- observabilité ;
-- CI/CD ;
-- hébergement ;
-- environnements ;
-- stratégie de tests ;
-- conventions ;
-- ADR nécessaires.
+Créer des ADR pour les décisions structurantes.
 
 Sorties :
-
 - `docs/product/ARCHITECTURE.md`
-- `docs/adr/ADR-XXX-*.md` pour les décisions structurantes.
+- `docs/adr/*.md`
 
-La stack n'est pas une préférence implicite de l'agent. Elle devient une contrainte de projet après PASS.
-
-Si une story nécessite de remettre en cause une décision d'architecture :
-- ne pas changer la stack pendant Execute ;
-- marquer la story BLOCKED ;
-- revenir à Architecture ;
-- créer ou modifier l'ADR ;
-- faire valider la nouvelle décision ;
-- reprendre ensuite la story.
-
-## Phase 5 — Design System
-
-But : fixer le langage visuel et les composants réutilisables avant de designer chaque story.
-
-Doit couvrir :
-- couleurs/tokens ;
-- typographie ;
-- spacing ;
-- layout ;
-- composants ;
-- états ;
-- responsive ;
-- accessibilité ;
-- patterns de formulaires/navigation/tableaux.
+### 5. Design System
+Fixer le langage d'interface commun avant les designs de story.
 
 Sortie : `docs/product/DESIGN_SYSTEM.md`.
 
-Pour un projet sans UI, cette phase devient `INTERFACE_SYSTEM` et décrit les conventions d'interface/API/CLI.
+## Phase Story
 
-## Phase 6 — Research
-
-But : analyser le code réel et déterminer où la story s'intègre.
-
-Research est spécifique à une story.
-
-Research doit respecter les décisions acceptées dans Architecture et les ADR.
+### 6. Research
+Analyser le repo réel, les conventions, dépendances, tests, risques et points d'intégration.
 
 Sortie : `research.md`.
 
-## Phase 7 — Design
-
-But : transformer critères + research + design system en expérience/contrat précis.
-
-Pour UI :
-- écrans ;
-- états loading/empty/error/success ;
-- interactions ;
-- champs ;
-- responsive.
-
-Pour API/CLI/backend :
-- endpoints/commands ;
-- payloads ;
-- erreurs ;
-- transitions d'état ;
-- diagrammes de flux.
+### 7. Design
+Définir précisément écrans, états, flux, contrats ou comportements.
 
 Sortie : `design.md`.
 
-## Phase 8 — Plan
+### 8. Plan
+Transformer les décisions précédentes en séquence d'implémentation concrète.
 
-But : produire le plan d'implémentation concret.
-
-Le plan précise :
-- fichiers ;
-- modèles ;
-- contrats ;
-- migrations ;
-- tests ;
-- ordre ;
-- risques ;
-- rollback.
-
-Le plan ne peut pas remplacer silencieusement une décision d'Architecture ou un ADR accepté.
+Un bon plan doit minimiser les décisions restantes pendant Execute.
 
 Sortie : `plan.md`.
 
-## Phase 9 — Execute
+### 9. Worktree Setup
+Pour une story significative, préparer un environnement isolé et reproductible.
 
-But : implémenter le plan, idéalement dans un worktree isolé.
+Référence : `templates/WORKTREE_ENVIRONMENT.md`.
 
-Execute ne doit pas prendre de décision produit majeure ni modifier la stack approuvée.
+### 10. Execute
+Implémenter le plan. Rester dans le scope. Ajouter les tests.
 
-Sortie :
+Sorties :
 - code ;
 - tests ;
-- handoff.
+- `handoff.md`.
 
-## Phase 10 — Review
+### 11. Verify
+Prouver que le résultat fonctionne.
 
-But : faire une revue indépendante contre la story, le plan, l'architecture, les ADR et le diff.
+Evidence possibles :
+- tests ;
+- build ;
+- browser flow ;
+- API calls ;
+- screenshots ;
+- logs ;
+- mesures de performance.
+
+Sortie : `verify.md`.
+
+### 12. Review
+Faire une revue indépendante contre story, architecture, plan, evidence et diff.
 
 Sortie : `review.md`.
 
-Verdicts :
-- PASS
-- PASS_WITH_MINOR
-- CHANGES_REQUIRED
-- BLOCKED
+### 13. Goal satisfied?
+Pour une tâche longue ou complexe, vérifier les critères mesurables du goal.
 
-Critical/Major => retour Execute, ou retour Architecture si le problème provient d'une décision structurante.
+Sortie : `goal.md`.
 
-## Phase 11 — Ship
+Si aucun goal spécifique n'est nécessaire, les critères d'acceptation + Verify + Review font office de goal.
 
-But : livrer proprement.
+### 14. Ship
+Créer commits/PR, passer CI, obtenir validation humaine si requise, merger et nettoyer.
 
-Ship signifie :
-- commit propre ;
-- PR ;
-- tests/CI ;
-- description complète ;
-- validation humaine si requise ;
-- merge ;
-- cleanup worktree ;
-- statut DONE.
+## Préparation vs exécution
 
-## Boucles autorisées
+Le système optimise volontairement le travail avant Execute.
 
 ```text
-Stories <------ Story Review
-                  |
-                  +-- corrections
-
-Architecture <--- Research/Plan
-     |
-     +-- si une décision structurante doit changer
-
-Execute <------- Review
-   |
-   +-- corrections
-
-Ship ---> CI failure ---> Execute/Plan selon cause
+Plus de clarté avant Execute
+        ↓
+moins de décisions pendant Execute
+        ↓
+moins de retours arrière
+        ↓
+moins de tokens gaspillés
+        ↓
+implémentation plus rapide
 ```
+
+## Context hygiene
+
+Avant les longues tâches, appliquer `CONTEXT.md`.
+
+## Safety
+
+Appliquer `SAFETY.md` et utiliser des hooks quand le harness le permet.
 
 ## Ce qui est interdit
 
 - Idea -> Execute
-- PRD -> Execute
-- Story -> Execute sans Research/Plan
+- Story -> Execute sans Research/Design/Plan
 - Execute -> changement silencieux de stack
+- "ça marche" sans Verify/Evidence
 - Implementer -> auto-approval
 - tests non exécutés présentés comme PASS
+- merge avec Critical/Major ouvert
 - merge d'une story BLOCKED
