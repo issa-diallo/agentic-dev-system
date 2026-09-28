@@ -37,6 +37,7 @@ cp -R "$SCRIPT_DIR/docs/agentic" "$TARGET/docs/agentic"
 
 mkdir -p "$TARGET/docs/product"
 mkdir -p "$TARGET/docs/agentic/work"
+mkdir -p "$TARGET/docs/adr"
 
 copy_if_missing() {
   local src="$1"
@@ -57,6 +58,10 @@ echo "Agentic Development System installed in: $TARGET"
 echo
 echo "Pipeline:"
 echo "PRD -> Stories -> Story Review -> Architecture -> Design System -> Research -> Design -> Plan -> Execute -> Review -> Ship"
+echo
+echo "Architecture:"
+echo "Select and justify the technical stack in docs/product/ARCHITECTURE.md."
+echo "Record structural decisions as ADRs in docs/adr/."
 echo
 echo "Commit convention:"
 echo "Read COMMITS.md and use the appropriate Gitmoji in every commit."

@@ -64,6 +64,7 @@ Aucune phase ne doit inventer ce que la phase précédente devait décider.
 Exemples :
 
 - Execute ne redéfinit pas le besoin.
+- Execute ne change pas la stack.
 - Plan ne redéfinit pas l'architecture.
 - Design ne réécrit pas les critères d'acceptation.
 - Research ne modifie pas silencieusement le scope.
@@ -119,25 +120,54 @@ Critical/Major => corriger Stories puis refaire Story Review.
 
 ## Phase 4 — Architecture
 
-But : décider les contraintes techniques communes avant que les agents implémentent chacun leur version.
+But : décider les contraintes techniques communes et la stack avant que les agents implémentent chacun leur propre solution.
+
+La phase Architecture doit :
+
+1. partir des contraintes du PRD et des Stories ;
+2. identifier les exigences techniques réelles ;
+3. comparer les options raisonnables ;
+4. sélectionner explicitement la stack ;
+5. expliquer pourquoi elle est retenue ;
+6. documenter les compromis ;
+7. documenter les alternatives rejetées ;
+8. créer des ADR pour les décisions structurantes.
 
 Doit couvrir selon le projet :
 - structure repo ;
+- langages ;
 - frontend/backend ;
-- données ;
-- API ;
+- protocole/style d'API ;
+- données et ORM/data access ;
 - auth/authz ;
+- multi-tenant ;
+- cache ;
+- queues/jobs ;
+- stockage ;
 - sécurité ;
 - intégrations ;
-- async/jobs ;
 - observabilité ;
 - CI/CD ;
+- hébergement ;
 - environnements ;
-- tests ;
+- stratégie de tests ;
 - conventions ;
 - ADR nécessaires.
 
-Sortie : `docs/product/ARCHITECTURE.md`.
+Sorties :
+
+- `docs/product/ARCHITECTURE.md`
+- `docs/adr/ADR-XXX-*.md` pour les décisions structurantes.
+
+La stack n'est pas une préférence implicite de l'agent. Elle devient une contrainte de projet après PASS.
+
+Si une story nécessite de remettre en cause une décision d'architecture :
+- ne pas changer la stack pendant Execute ;
+- marquer la story BLOCKED ;
+- revenir à Architecture ;
+- créer ou modifier l'ADR ;
+- faire valider la nouvelle décision ;
+- reprendre ensuite la story.
 
 ## Phase 5 — Design System
 
@@ -163,6 +193,8 @@ Pour un projet sans UI, cette phase devient `INTERFACE_SYSTEM` et décrit les co
 But : analyser le code réel et déterminer où la story s'intègre.
 
 Research est spécifique à une story.
+
+Research doit respecter les décisions acceptées dans Architecture et les ADR.
 
 Sortie : `research.md`.
 
@@ -200,13 +232,15 @@ Le plan précise :
 - risques ;
 - rollback.
 
+Le plan ne peut pas remplacer silencieusement une décision d'Architecture ou un ADR accepté.
+
 Sortie : `plan.md`.
 
 ## Phase 9 — Execute
 
 But : implémenter le plan, idéalement dans un worktree isolé.
 
-Execute ne doit pas prendre de décision produit majeure.
+Execute ne doit pas prendre de décision produit majeure ni modifier la stack approuvée.
 
 Sortie :
 - code ;
@@ -215,7 +249,7 @@ Sortie :
 
 ## Phase 10 — Review
 
-But : faire une revue indépendante contre la story, le plan et le diff.
+But : faire une revue indépendante contre la story, le plan, l'architecture, les ADR et le diff.
 
 Sortie : `review.md`.
 
@@ -225,7 +259,7 @@ Verdicts :
 - CHANGES_REQUIRED
 - BLOCKED
 
-Critical/Major => retour Execute.
+Critical/Major => retour Execute, ou retour Architecture si le problème provient d'une décision structurante.
 
 ## Phase 11 — Ship
 
@@ -248,6 +282,10 @@ Stories <------ Story Review
                   |
                   +-- corrections
 
+Architecture <--- Research/Plan
+     |
+     +-- si une décision structurante doit changer
+
 Execute <------- Review
    |
    +-- corrections
@@ -260,6 +298,7 @@ Ship ---> CI failure ---> Execute/Plan selon cause
 - Idea -> Execute
 - PRD -> Execute
 - Story -> Execute sans Research/Plan
+- Execute -> changement silencieux de stack
 - Implementer -> auto-approval
 - tests non exécutés présentés comme PASS
 - merge d'une story BLOCKED

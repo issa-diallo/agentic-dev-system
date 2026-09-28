@@ -21,8 +21,9 @@ Lire dans cet ordre :
 3. `docs/agentic/WORKFLOW.md`
 4. `COMMITS.md`
 5. les documents projet dans `docs/product/`
-6. le ticket/story concerné
-7. les artefacts de travail de la story
+6. les ADR applicables dans `docs/adr/`
+7. le ticket/story concerné
+8. les artefacts de travail de la story
 
 ## Gates
 
@@ -48,6 +49,51 @@ Chaque phase produit un artefact et un verdict PASS ou BLOCKED. La phase suivant
 L'agent principal orchestre. Il ne doit pas coder par réflexe.
 
 L'agent qui implémente ne doit pas être le seul reviewer de son propre travail.
+
+## Architecture et stack technique
+
+La stack technique est décidée pendant la phase `Architecture`, jamais au hasard pendant `Execute`.
+
+`docs/product/ARCHITECTURE.md` doit expliciter au minimum :
+
+- contraintes et besoins ayant influencé le choix ;
+- options envisagées ;
+- stack retenue ;
+- raisons du choix ;
+- alternatives rejetées ;
+- conséquences et compromis ;
+- décisions nécessitant un ADR.
+
+Pour chaque décision structurante importante, créer un ADR dans `docs/adr/`
+à partir de `docs/agentic/templates/ADR.md`.
+
+Exemples de décisions pouvant nécessiter un ADR :
+
+- framework frontend ;
+- langage/framework backend ;
+- base de données ;
+- ORM ;
+- protocole ou style d'API ;
+- authentification ;
+- autorisation ;
+- stratégie multi-tenant ;
+- système de queues/jobs ;
+- stockage de fichiers ;
+- hébergement ;
+- observabilité ;
+- CI/CD ;
+- dépendance externe structurante.
+
+Un agent en phase `Research`, `Design`, `Plan` ou `Execute` ne doit pas
+remplacer silencieusement une décision de stack déjà approuvée.
+
+Si une décision doit changer :
+
+1. marquer la story BLOCKED ;
+2. créer ou mettre à jour l'ADR concerné ;
+3. mettre à jour `ARCHITECTURE.md` ;
+4. faire valider le nouveau choix ;
+5. seulement ensuite reprendre la story.
 
 ## Isolation d'exécution
 
@@ -119,6 +165,7 @@ committer.
 - `docs/product/STORY_REVIEW.md`
 - `docs/product/ARCHITECTURE.md`
 - `docs/product/DESIGN_SYSTEM.md`
+- `docs/adr/*.md` pour les décisions structurantes
 
 ### Story
 - `docs/agentic/work/<story>/research.md`
