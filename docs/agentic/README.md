@@ -18,6 +18,7 @@ METHOD, repérer le dernier PASS et reprendre la phase suivante.
 | Story significative | [WORKTREE_ENVIRONMENT](templates/WORKTREE_ENVIRONMENT.md) | environnement reproductible |
 | Tâche longue / complexe | [GOAL](templates/GOAL.md) | critères mesurables |
 | Commit | [COMMITS](../../COMMITS.md) | Gitmoji et ticket |
+| PR à livrer | [Profil Lead Tech](roles/REVIEWER.md), [Ship](templates/SHIP.md) | avis indépendant sur la révision finale |
 | Suivi | [STATUS](STATUS.md) | état réel sans PASS fictif |
 
 Pour chaque phase charger son template : [PRD](templates/PRD.md),

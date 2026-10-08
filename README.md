@@ -24,8 +24,26 @@ la fusion. Le système définit les règles pour obtenir :
 
 Par exemple, pour ajouter un export CSV : vous décrivez le besoin ; l'agent
 précise les critères et le plan ; l'implémentation se fait dans un worktree dédié ;
-les tests vérifient le résultat ; un autre agent effectue la review ; vous examinez
-la PR et décidez de la fusion. Les étapes et preuves restent dans le dépôt.
+les tests vérifient le résultat ; un autre agent effectue la review ; un agent
+Lead Tech examine la PR et vous remet un avis technique avant votre décision de fusion. Les étapes et preuves restent dans le dépôt.
+
+## Qui examine la PR avant la fusion ?
+
+Le [Lead Tech](docs/agentic/roles/REVIEWER.md) réalise une synthèse indépendante :
+architecture, risques, preuves de test, CI et préparation à la livraison. Son rapport
+indique le verdict, les problèmes concrets, les corrections et les incertitudes.
+
+Sur une PR STANDARD/LARGE, c'est un second agent distinct de l'implementer et du
+premier reviewer. Sur une petite PR LIGHT, le reviewer indépendant peut remplir
+cette mission directement. Le modèle doit être performant et disponible, avec
+raisonnement High ou Extra High selon le risque ; aucun nom de modèle n'est imposé.
+
+L'orchestrateur lui transmet le diff et les preuves pour un commit précis, puis
+fait corriger les problèmes et demande une revalidation. Un problème bloquant ou
+une CI non validée empêche la livraison. Un nouveau commit impose un avis actualisé.
+Vous recevez une recommandation technique argumentée ; l'agent ne fusionne pas
+sans autorisation. Le contrat et le prompt sont fournis dans le rôle Reviewer,
+sans bot GitHub installé automatiquement.
 
 ## Comment l'isolation fonctionne-t-elle ?
 

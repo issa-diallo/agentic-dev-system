@@ -9,3 +9,7 @@ La PR #7 est fusionnée ; aucune fusion de la nouvelle PR n'est autorisée ici.
 Introduction clarifiée pour un nouveau développeur : bénéfices concrets, exemple
 export CSV, limites de l'isolation et préparation des environnements par projet.
 Ajout dans la même PR #8 ; reviewer PASS, tests de contexte PASS.
+
+Extension Lead Tech : profil du Reviewer, déclenchement selon mode, contrat
+base/head/CI, corrections et revalidation. Prompt portable ; aucun service activé.
+19 tests PASS. Ultime attestation sur commit final après publication/CI, hors diff.

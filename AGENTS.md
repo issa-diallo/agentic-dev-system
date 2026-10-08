@@ -27,6 +27,8 @@ architecture/ADR compatibles, fichiers identifiés, tests définis, risques crit
 traités, aucun blocker. Sinon poursuivre la préparation.
 Après Execute, Verify obligatoire : tests réellement exécutés et preuves adaptées
 (build, API, navigateur, captures, logs, performances). Puis review indépendante.
+Pendant Ship, appliquer le profil Lead Tech de [REVIEWER](docs/agentic/roles/REVIEWER.md)
+à la révision finale de la PR.
 DoD : Execute et Verify PASS, Review PASS/PASS_WITH_MINOR, Goal SATISFIED si
 applicable, CI PASS, validation humaine si requise, merge et cleanup effectués.
 Une mission limitée à une PR s’arrête à READY_FOR_HUMAN, jamais DONE.

@@ -77,3 +77,12 @@ Pour chaque délégation : objectif, contraintes, AC, validations et livrable
 explicites. Ne pas lancer plusieurs agents pour une tâche simple. Transmettre
 les chemins ciblés pour éviter une relecture du dépôt entier ; exiger que
 l’agent remonte un blocker plutôt qu’inventer une règle métier.
+
+
+## Examen final de PR
+
+Pendant Ship, appliquer le profil Lead Tech de [REVIEWER](REVIEWER.md) selon le
+mode et le risque. Transmettre les références base/head, preuves et CI. Consigner
+le rapport retourné, faire corriger les findings puis obtenir un avis à jour sur
+la révision finale. Ne pas annoncer READY_FOR_HUMAN avec un avis périmé, un blocker
+ou un Critical/Major ouvert. L'avis d'un agent ne vaut pas autorisation de merge.

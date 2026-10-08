@@ -12,3 +12,11 @@ Précision utilisateur : rendre l'utilité évidente pour un développeur qui d�
 le système. Research PASS : isolation par story/worktree, environnement reproductible
 à adapter au projet, review indépendante. L'installateur ne provisionne aucun
 runtime dev/test/review. Source vérifiée : template WORKTREE_ENVIRONMENT.
+
+## Extension — Lead Tech de PR
+Research PASS, périmètre EXISTING ciblé, profondeur STANDARD pour le contrat.
+Le rôle REVIEWER couvre déjà code, architecture et sécurité, mais pas une synthèse
+finale attachée à la révision de PR. Réutiliser ce rôle et Ship plutôt que créer
+une phase ou un runtime. Modèle performant disponible, raisonnement High/Extra High
+selon risque ; aucune sélection effective garantie par Markdown. Sources officielles
+Codex sous-agents/GitHub consultées ; intégration GitHub non activée.
