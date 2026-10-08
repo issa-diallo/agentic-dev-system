@@ -7,3 +7,7 @@ Minor : commande LOCAL ambiguë sur --existing. Corrigée avec commande explicit
 Revue documentaire ; le reviewer n'a pas relancé de test.
 
 Revalidation ciblée : PASS, Minor clôturé ; aucun finding restant.
+
+Clarification de l'utilité : revue indépendante ciblée PASS. Fichiers, ressources
+d'exécution et review clairement distingués ; scripts conditionnels conformes.
+Aucun finding ; aucun test relancé par le reviewer.

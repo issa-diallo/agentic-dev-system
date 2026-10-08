@@ -1,10 +1,52 @@
 # Agentic Dev System
 
-Une méthode réutilisable pour préparer, exécuter et vérifier le développement
-avec Codex et des agents spécialisés. Elle fournit des instructions, des rôles,
-des templates et un installateur, sans imposer de stack technique.
+Un cadre de travail à installer dans votre dépôt pour développer avec des agents
+IA : cadrer une fonctionnalité, isoler son implémentation, la tester, la faire
+relire indépendamment et préparer une Pull Request vérifiable.
 
-**Préparer clairement, charger le contexte utile et livrer avec des preuves.**
+Il fournit les instructions et les modèles de documents qui organisent ce cycle
+avec Codex, sans imposer la stack de votre application.
+
+## À quoi ça sert pour un développeur ?
+
+Quand vous confiez une fonctionnalité à un agent, vous voulez savoir ce qu'il va
+modifier, éviter qu'il perturbe les autres travaux et vérifier son résultat avant
+la fusion. Le système définit les règles pour obtenir :
+
+- **Un travail cadré** : besoin, critères d'acceptation et plan avant l'implémentation.
+- **Des changements isolés** : branche et worktree dédiés par story non triviale,
+  pour séparer les fichiers de travail des autres fonctionnalités.
+- **Un environnement reproductible** : commandes de préparation, démarrage,
+  test et arrêt définies pour le projet.
+- **Une validation indépendante** : un reviewer distinct de l'auteur confronte
+  le diff aux critères et aux preuves de test.
+- **Une livraison traçable** : ticket, décisions, tests, commits et PR reliés.
+
+Par exemple, pour ajouter un export CSV : vous décrivez le besoin ; l'agent
+précise les critères et le plan ; l'implémentation se fait dans un worktree dédié ;
+les tests vérifient le résultat ; un autre agent effectue la review ; vous examinez
+la PR et décidez de la fusion. Les étapes et preuves restent dans le dépôt.
+
+## Comment l'isolation fonctionne-t-elle ?
+
+| Ce qui doit être séparé | Mécanisme prévu par la méthode |
+|---|---|
+| Code de deux fonctionnalités | Une branche et un worktree Git par story non triviale ; un seul agent écrit dans chaque worktree |
+| Services et données d'exécution | Ports, bases ou schémas, queues et ressources propres au worktree lorsque le projet en a besoin |
+| Implémentation et contrôle | Un reviewer indépendant, avec accès au diff et aux résultats de validation |
+
+Un worktree isole les fichiers de travail ; il n'isole pas à lui seul une base de
+données ou un service partagé. Dev, test et review sont les activités du cycle :
+elles ne nécessitent pas systématiquement trois environnements distincts.
+Leur organisation dépend du projet et des risques.
+
+**L'installation ajoute la méthode au dépôt.** Elle ne crée pas automatiquement
+les worktrees, conteneurs, bases de données ou environnements de preview.
+L'agent prépare les worktrees pendant l'exécution des stories ; les scripts
+`worktree-setup.sh`, `worktree-dev.sh`, `worktree-test.sh` et `worktree-down.sh`
+sont à fournir dans `scripts/` lorsque le projet en a besoin, selon le
+[contrat d'environnement](docs/agentic/templates/WORKTREE_ENVIRONMENT.md).
+Les agents et leur orchestration s'appuient sur les capacités de votre outil.
 
 ## Une méthode, trois échelles
 
