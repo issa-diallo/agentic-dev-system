@@ -4,6 +4,15 @@
 
 `PASS | PASS_WITH_MINOR | CHANGES_REQUIRED | BLOCKED`
 
+## Révision et indépendance
+
+- mission : revue de code / Lead Tech PR
+- reviewer, modèle/niveau réellement utilisés ou limite :
+- indépendance vis-à-vis de l'implementer (et premier reviewer si requis) :
+- URL PR, SHA base, SHA tête examinés :
+- CI : lien, révision, statut observé :
+- date et périmètre vérifié :
+
 ## Inputs reviewed
 
 - issue/story :

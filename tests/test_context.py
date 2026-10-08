@@ -73,6 +73,24 @@ class ContextTests(unittest.TestCase):
                           'PASS non prouvé', 'non exécuté', 'Aucun de ces outils']:
             self.assertIn(safeguard, context)
 
+    def test_lead_tech_review_contract(self):
+        role = (SOURCE/'docs/agentic/roles/REVIEWER.md').read_text()
+        for rule in ['Profil Lead Tech', 'STANDARD/LARGE', 'LIGHT',
+                     "distinct de l'implementer et du premier reviewer",
+                     'Extra High', 'SHA de base et de tête', 'CI en attente/échec',
+                     'BLOCKED', 'verdict précédent périmé', 'sans autorisation explicite',
+                     'lead-tech-review.md', 'sans nouveau commit',
+                     'ne lancent pas un service autonome']:
+            self.assertIn(rule, role)
+        review = (SOURCE/'docs/agentic/templates/REVIEW.md').read_text()
+        ship = (SOURCE/'docs/agentic/templates/SHIP.md').read_text()
+        self.assertIn('SHA base, SHA tête examinés', review)
+        self.assertIn('Examen final Lead Tech', ship)
+        self.assertIn('identiques à la PR actuelle', ship)
+        self.assertIn('profil Lead Tech', (SOURCE/'AGENTS.md').read_text())
+        self.assertEqual({p.stem for p in (SOURCE/'docs/agentic/roles').glob('*.md')},
+                         {'ORCHESTRATOR', 'IMPLEMENTER', 'REVIEWER'})
+
     def test_all_modes_and_project_sizes(self):
         for mode in ['PRODUCT', 'EXISTING', 'LOCAL']:
             for scale in ['LIGHT', 'LARGE']:
