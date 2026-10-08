@@ -41,7 +41,8 @@ class ContextTests(unittest.TestCase):
 
     def test_root_invariants_and_size(self):
         text = (SOURCE / 'AGENTS.md').read_text()
-        self.assertLess(len(text.encode()), 4600)
+        # Includes the native communication policy; remains below the 8,764-byte baseline.
+        self.assertLess(len(text.encode()), 5400)
         for rule in ['Research/Design/Plan PASS', 'Verify obligatoire', 'review indépendante',
                      'Critical/Major', 'merge et cleanup', 'READY_FOR_HUMAN',
                      'BLOCKED, ADR et ARCHITECTURE', 'Fixes #<issue_number>',
@@ -52,6 +53,25 @@ class ContextTests(unittest.TestCase):
         self.assertIn(phases, (SOURCE/'docs/agentic/WORKFLOW.md').read_text())
         context = (SOURCE / 'docs/agentic/CONTEXT.md').read_text()
         self.assertEqual(re.findall(r'^\| (\d\d) \|', context, re.M), [f'{n:02}' for n in range(1, 27)])
+
+    def test_native_communication_contract(self):
+        text = (SOURCE/'AGENTS.md').read_text()
+        policy = text.split('## Communication commune à tous les agents', 1)[1]
+        labels = re.findall(r'\*\*([^*]+) :\*\*', policy)
+        self.assertEqual(labels, ['Résultat', 'Modifications', 'Validation',
+                                  'Attention', 'Prochaine étape'])
+        for obligation in ['résultat ou la réponse principale', 'Phrases courtes',
+                           'ne pas recopier', 'chemins', 'erreurs pertinentes',
+                           'blocages, risques, incertitudes et validations manquantes',
+                           'étapes internes', 'sections vides omises',
+                           'Instructions prioritaires', 'formats spécifiques PRD → Ship',
+                           'Exactitude, sécurité, qualité et complétude',
+                           'rapports techniques et', 'métier restent complets']:
+            self.assertIn(obligation, policy)
+        context = (SOURCE/'docs/agentic/CONTEXT.md').read_text()
+        for safeguard in ['retours des sous-agents', 'ne remplace ni un artefact',
+                          'PASS non prouvé', 'non exécuté', 'Aucun de ces outils']:
+            self.assertIn(safeguard, context)
 
     def test_all_modes_and_project_sizes(self):
         for mode in ['PRODUCT', 'EXISTING', 'LOCAL']:

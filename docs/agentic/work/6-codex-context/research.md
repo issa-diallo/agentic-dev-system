@@ -39,3 +39,12 @@ cache dégradé, chiffres non comparables. Tests et reviewer indépendant requis
 Aucun blocker ; pas de quota observable, donc mesures en octets seulement.
 
 Verdict : PASS
+
+## Complément — communication native
+Research PASS. Même ticket/PR, approfondissement LIGHT du périmètre déjà cadré.
+AGENTS est copié à l'identique dans les trois modes ; CONTEXT contient déjà une
+règle concise et le tableau Caveman/I Have ADHD. Aucun nouveau fichier de
+politique ni dépendance nécessaire. Risque : appliquer le format conversationnel
+aux rapports structurés et supprimer une information critique. Valider héritage,
+exceptions et exemples de réponse par revue indépendante ; pas de garantie
+universelle sur le comportement d'un modèle.

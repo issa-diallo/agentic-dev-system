@@ -26,3 +26,8 @@ Revert des commits pour le socle ; comparer et restaurer sélectivement les
 installations générées sans écraser les personnalisations ou notes de travail.
 Pas de service tiers à retirer. L'humain examine puis décide du merge.
 Cleanup branche/worktree après merge selon règles projet, pas pendant la review.
+
+
+Complément communication native : même branche/PR, aucune dépendance externe.
+Revue indépendante PASS, 18 tests locaux PASS. Les liens CI ci-dessus concernent
+la publication initiale ; les checks de la PR indiquent la validation du complément.

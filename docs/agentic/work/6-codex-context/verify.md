@@ -27,7 +27,7 @@ symlinks, exclusions Git, worktree, FORCE et options invalides.
 CI existante exécute syntaxe et découverte unittest, donc inclut les nouveaux tests.
 Build/API/browser sans objet pour cette méthode Bash/Markdown.
 
-## Mesures et limites
+## Mesures initiales et limites
 
 Différence AGENTS : -4 924 octets (-56,2 %), -264 lignes. Mesure de texte statique,
 pas mesure du contexte total ni économie de tokens/quota. Le corpus détaillé
@@ -48,3 +48,31 @@ contrôle explicite de cette destination avant copie ; test de refus et restaura
 exacte des exclusions, puis succès sans négation. Inventaire de test indépendant,
 parité des listes, ordre complet des phases et copies exactes également vérifiés.
 Review finale : PASS, aucun finding ouvert.
+
+## Complément — communication native
+
+Verify PASS. 18 tests PASS (reviewer : 4,174 s), syntaxe Bash PASS et
+`git diff --check 7c9afec` PASS. Le contrat natif est présent et les six générations
+copient AGENTS/CONTEXT exactement. Aucun changement des templates de phase,
+du workflow ou de l'installateur dans ce complément (diff depuis 7c9afec vide
+pour ces chemins). Aucun outil, plugin, MCP ou package ajouté.
+
+Mesure finale : AGENTS 5 044 octets / 85 lignes, contre 8 764 / 327 initialement
+(-42,4 % en octets). Le complément ajoute 1 204 octets d'instructions universelles
+explicitement demandées ; aucun gain de tokens de sortie mesuré.
+
+### Probes qualitatives du reviewer
+
+Scénarios synthétiques, pas des résultats applicatifs réels :
+- Terminé, documentation et 18 tests fournis : réponse en deux sections,
+  Résultat puis Validation ; aucune section vide ni action inventée.
+- Partiel, unitaires réussis, intégration impossible sans identifiants : réponse
+  conserve « non exécutés », raison, risque de régression et validation manquante ;
+  prochaine étape avec accès aux identifiants par mécanisme sécurisé.
+- Review structurée demandée, Major de fuite tenant non corrigée : format REVIEW
+  conservé (inputs, findings, AC, architecture/sécurité, evidence, conclusion),
+  verdict CHANGES_REQUIRED ; aucune preuve, localisation ou exécution inventée.
+
+Les probes vérifient ponctuellement concision, informations critiques et exception
+pour un rapport complet. Elles ne garantissent pas le comportement de chaque
+modèle/session. Les tests automatiques valident contrats et héritage statiques.

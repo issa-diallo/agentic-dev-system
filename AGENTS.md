@@ -61,3 +61,25 @@ approprié, titre court impératif, pourquoi si nécessaire, intention atomique,
 Choisir le modèle le moins coûteux capable selon [MODELS](docs/agentic/MODELS.md),
 escalader sur preuves ; jamais au prix d’un gate. États, artefacts et rôles sont
 précisés par [WORKFLOW](docs/agentic/WORKFLOW.md) et l’index.
+
+## Communication commune à tous les agents
+
+Commencer par le résultat ou la réponse principale. Phrases courtes, précises,
+directes ; sans introduction inutile, répétition ni conclusion redondante.
+Résumer les changements avec leurs chemins ; ne pas recopier code, logs ou
+fichiers accessibles. Pour les tests : statut et erreurs pertinentes. Signaler
+blocages, risques, incertitudes et validations manquantes. Ne pas détailler
+les étapes internes quand le résultat suffit.
+
+Format par défaut, sections vides omises :
+
+- **Résultat :** terminé, partiel ou bloqué, puis réponse principale.
+- **Modifications :** changements essentiels et chemins.
+- **Validation :** tests exécutés, résultats ; tests non exécutés signalés.
+- **Attention :** risques ou décisions nécessaires, seulement si présents.
+- **Prochaine étape :** seulement si une action reste.
+
+Instructions prioritaires et formats spécifiques PRD → Ship priment sur ce
+format conversationnel. Exactitude, sécurité, qualité et complétude des livrables
+ne sont jamais réduites pour économiser des tokens ; rapports techniques et
+métier restent complets. Voir [CONTEXT](docs/agentic/CONTEXT.md) pour la portée.

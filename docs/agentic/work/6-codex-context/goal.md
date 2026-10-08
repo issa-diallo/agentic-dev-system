@@ -15,3 +15,8 @@ limité à la mission est satisfait à READY_FOR_HUMAN.
 Preuves : verify.md et review.md (17 tests, revue PASS) ; PR #7 ouverte,
 CI push et pull_request PASS sur 7269f88. Voir ship.md pour les liens.
 Aucun merge : la mission autorisée est achevée à READY_FOR_HUMAN.
+
+
+Complément : politique native, neuf règles et format court présents ; 18 tests
+et probes qualitatives PASS, formats de phase inchangés. Même PR #7 ; CI finale
+consultable sur la PR après publication du complément. Aucun merge autorisé.

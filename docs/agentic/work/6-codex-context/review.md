@@ -30,3 +30,11 @@ Invariants historiques conservés : gates, DoR/DoD, ADR, Gitmoji, isolation,
 sécurité, fallback modèles, READY_FOR_HUMAN distinct de DONE. Les 26 rubriques
 correspondent au guide fourni. Aucun tiers activé. AC1–AC6 validés ; AC7 relève
 ensuite de Ship/CI. Aucune validation runtime du modèle ni gain de quota revendiqué.
+
+## Complément — communication native
+
+Reviewer /root/reviewer : PASS, aucun finding. Neuf principes présents, formats
+spécifiques et instructions prioritaires préservés. 18 tests réellement relancés
+PASS et diff --check PASS. Probes synthétiques terminé/partiel/Review structurée
+conformes ; limites et résultats consignés dans verify.md. Aucun fichier modifié
+par le reviewer. Les templates et le workflow restent inchangés.

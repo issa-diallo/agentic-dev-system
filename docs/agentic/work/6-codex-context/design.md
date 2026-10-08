@@ -25,3 +25,11 @@ Conserver collisions/symlinks et LOCAL. Sans UI : mêmes conventions Markdown/CL
 que DESIGN_SYSTEM. Sans outil optionnel : fonctionnement normal, testé.
 
 Verdict : PASS
+
+## Complément — communication native
+Design PASS après Research. Règles universelles et format court dans AGENTS,
+précisions de portée dans CONTEXT. Résultat en tête ; changements et chemins ;
+statut des tests et erreurs pertinentes ; blocages, risques, incertitudes et
+validations manquantes explicites. Sections vides omises. Instructions prioritaires
+et formats de phase priment : seuls les comptes rendus conversationnels utilisent
+ce format par défaut, les documents métier/techniques restent complets.

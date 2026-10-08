@@ -3,9 +3,25 @@
 Le main agent garde objectif, contraintes, décisions, blockers et evidence.
 Avant une longue tâche, déléguer les explorations lourdes avec un contrat étroit ;
 le retour contient faits sourcés, chemins utiles, risques et décision attendue,
-pas le journal complet. Les réponses restent concises : décisions, modifications,
-tests, risques et prochaines actions. Éviter longs logs et code répété tout en
-préservant les diagnostics utiles. Aucun dump de secrets, logs ou documents sans nécessité.
+pas le journal complet. La politique de communication commune est définie dans
+[AGENTS](../../AGENTS.md) et s'applique aussi aux retours des sous-agents.
+
+## Portée de la communication concise
+
+Le format conversationnel résume le livrable ; il ne remplace ni un artefact de
+phase, ni un schéma de sortie demandé, ni les sections des templates. Conserver
+les analyses, critères d'acceptation, diagnostics utiles, preuves, risques et
+validations nécessaires dans les rapports techniques et documents métier.
+Une réponse brève ne justifie jamais un livrable incomplet ou un PASS non prouvé.
+Lier les fichiers accessibles ; si un extrait est indispensable au diagnostic,
+limiter la citation à cet extrait sans exposer de secrets. Pour un test non lancé,
+dire « non exécuté » et pourquoi ; un blocker ou une incertitude reste visible,
+même si aucune modification n'a été faite. Adapter la longueur au besoin réel.
+
+Cette politique retient la sobriété de Caveman et la réponse principale en tête
+d'I Have ADHD sous forme de règles natives. Aucun de ces outils, dépôt, plugin,
+MCP ou package n'est installé. L'héritage passe par les fichiers déjà copiés par
+l'installateur ; le mode LOCAL garde son activation explicite.
 
 ## Recherche ciblée
 
@@ -61,8 +77,8 @@ signifie évaluer seulement sur demande/besoin ; aucune installation automatique
 | 05 | Choisir avant de commencer | Adapter : stabilité par phase, pas de promesse cache client. |
 | 06 | Désactiver vitesse 1,5x | Reporter : arbitrage utilisateur latence/coût, aucune config globale modifiée. |
 | 07 | Corriger en cours de travail | Retenir : intégrer les précisions sans perdre l’objectif initial. |
-| 08 | Caveman | Rejeter : prose concise suffit ; ne pas sacrifier précision et preuves. |
-| 09 | I Have ADHD | Reporter : besoin individuel, pas de plugin imposé à tous les projets. |
+| 08 | Caveman | Adapter : sobriété native dans AGENTS, précision et preuves préservées ; aucune installation. |
+| 09 | I Have ADHD | Adapter : réponse principale en tête et sections utiles seulement ; aucune installation. |
 | 10 | Identifier la consommation | Adapter : mesures observables, aucune attribution de quota inventée. |
 | 11 | Fournir un chemin | Retenir : point de départ précis réduit les recherches inutiles. |
 | 12 | Cartographier le workspace | Adapter : carte courte et actualisée selon les changements. |

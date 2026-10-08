@@ -4,7 +4,7 @@ IMPLEMENTATION_COMPLETE. Execute PASS ; Verify/Review indépendants PASS après 
 
 ## Résultat
 
-AGENTS réduit de 8 764 octets / 327 lignes à 3 840 octets / 63 lignes.
+AGENTS réduit de 8 764 octets / 327 lignes à 5 044 octets / 85 lignes.
 Mesure statique `wc -c -l`, aucune équivalence tokens/quota revendiquée.
 Index conditionnel, MODELS sans noms figés, CONTEXT avec les 26 décisions du
 guide, OPTIONAL_TOOLS qualifié sans activation. Rôles et quatre templates
@@ -29,9 +29,9 @@ Dans /tmp/agentic-codex-context, branche feat/codex-context, 2026-10-08 :
 | Commande | Résultat |
 |---|---|
 | bash -n install-agentic.sh scripts/agentic-check.sh | PASS |
-| python3 -m unittest discover -s tests -v | PASS, 17 tests dont les 10 existants |
+| python3 -m unittest discover -s tests -v | PASS, 18 tests dont les 10 existants |
 | git diff --check | PASS |
-| wc -c -l AGENTS.md | 63 lignes, 3 840 octets |
+| wc -c -l AGENTS.md | 85 lignes, 5 044 octets |
 
 Nouveaux tests stdlib : liens Markdown locaux source/générations ; invariants
 racine et 26 conseils ; 6 installations modes × échelles ; personnalisation
@@ -49,3 +49,9 @@ non mesurés ; seuls tailles et contrats statiques sont prouvés ici.
 Verify et review indépendante des invariants et du diff sont terminés ;
 PR #7 ouverte et CI PASS ; prochaine action : examen humain, sans merge automatique. Mission PR seule :
 READY_FOR_HUMAN ; DONE exige merge et cleanup. Aucun merge autorisé ici.
+
+
+Complément utilisateur : politique de communication native dans AGENTS/CONTEXT,
+format court par défaut, exceptions pour les livrables complets et formats de
+phase. Caveman/I Have ADHD non installés. Contrat, héritage et probes qualitatives
+revus ; voir verify.md/review.md. Publication dans la même PR #7.
