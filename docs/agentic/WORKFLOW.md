@@ -11,6 +11,14 @@ Lire `SCALING.md` et sélectionner :
 
 Le mode détermine la profondeur, pas la qualité minimale.
 
+## Entrée projet existant
+
+Pour un ticket cadré, suivre [EXISTING_PROJECT.md](EXISTING_PROJECT.md).
+Les documents produit absents ou vides ne bloquent pas à eux seuls : consigner
+le socle observé et la justification dans Research, puis suivre le pipeline par
+story et ses gates. Ne pas marquer les phases produit PASS sans les avoir réalisées.
+Nouveau produit ou gros périmètre : pipeline produit complet.
+
 ## Pipeline Produit
 
 1. PRD
@@ -68,7 +76,9 @@ Ship -> CI FAIL -> Plan/Execute selon la cause
 
 ## Parallélisme
 
-Après Architecture + Design System PASS :
+Pour PRODUCT, après Architecture + Design System PASS. Pour EXISTING, après
+Research PASS des stories concernées, avec socle observé compatible et contrats
+stabilisés. Dans les deux cas, respecter les dépendances et isoler les worktrees :
 
 ```text
 S01 Research -> Design -> Plan -> Worktree -> Execute -> Verify -> Review -> Ship

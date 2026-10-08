@@ -18,6 +18,15 @@ docs/product/
 docs/agentic/work/
 ```
 
+## Projet existant
+
+Après copie du socle (y compris COMMITS.md et scripts/agentic-check.sh), suivre
+[EXISTING_PROJECT.md](EXISTING_PROJECT.md). Choisir EXISTING dans STATUS.md et
+le mode selon le risque. Pour un ticket cadré, les étapes 2 et 3 ci-dessous sont
+remplacées par le prompt de cette entrée. La checklist produit ne s’applique pas
+à ce parcours ; le socle, les artefacts de story et les gates restent requis.
+Contrôle de présence : `bash scripts/agentic-check.sh --existing`.
+
 ## 2. Initialiser les documents produit
 
 Copier les templates :

@@ -1,101 +1,126 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-TARGET="${1:-.}"
-FORCE="${FORCE:-0}"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-fail() {
-  echo "ERROR: $*" >&2
-  exit 1
-}
-
+fail() { echo "ERROR: $*" >&2; exit 1; }
+usage() { echo "Usage: $0 [--existing | --local] [target-directory]"; }
+MODE=PRODUCT
+TARGET=.
+target_set=0
+for arg in "$@"; do
+  case "$arg" in
+    --local) MODE=LOCAL ;;
+    --existing) [ "$MODE" = LOCAL ] || MODE=EXISTING ;;
+    --help|-h) usage; exit 0 ;;
+    -*) usage >&2; fail "Unknown option: $arg" ;;
+    *) [ "$target_set" = 0 ] || fail "Only one target is allowed."
+       TARGET="$arg"; target_set=1 ;;
+  esac
+done
+[ "${FORCE:-0}" = 0 ] || fail "FORCE is no longer supported. Compare and back up existing files before a manual update."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 [ -d "$TARGET" ] || fail "Target directory does not exist: $TARGET"
-[ -f "$SCRIPT_DIR/AGENTS.md" ] || fail "AGENTS.md not found next to installer."
-[ -f "$SCRIPT_DIR/COMMITS.md" ] || fail "COMMITS.md not found next to installer."
-[ -d "$SCRIPT_DIR/docs/agentic" ] || fail "docs/agentic not found next to installer."
-
-mkdir -p "$TARGET/docs"
-mkdir -p "$TARGET/docs/product"
-mkdir -p "$TARGET/docs/agentic/work"
-mkdir -p "$TARGET/docs/adr"
-mkdir -p "$TARGET/scripts"
-mkdir -p "$TARGET/hooks"
-mkdir -p "$TARGET/.github/ISSUE_TEMPLATE"
-
-for protected in AGENTS.md COMMITS.md; do
-  if [ -e "$TARGET/$protected" ] && [ "$FORCE" != "1" ]; then
-    fail "$protected already exists in target. Re-run with FORCE=1 only if you intentionally want to replace it."
-  fi
+TARGET="$(cd "$TARGET" && pwd -P)"
+[ "$TARGET" != "$SCRIPT_DIR" ] || fail "Cannot install into the source repository."
+for source in AGENTS.md COMMITS.md docs/agentic/METHOD.md scripts/agentic-check.sh; do
+  [ -f "$SCRIPT_DIR/$source" ] || fail "Missing source: $source"
 done
 
-if [ -e "$TARGET/docs/agentic" ] && [ "$FORCE" != "1" ]; then
-  fail "docs/agentic already exists in target. Re-run with FORCE=1 only if you intentionally want to replace it."
+DEST="$TARGET"
+if [ "$MODE" = LOCAL ]; then
+  root="$(git -C "$TARGET" rev-parse --show-toplevel)" || fail "Local mode requires a Git repository."
+  [ "$TARGET" = "$(cd "$root" && pwd -P)" ] || fail "Use the Git repository root as target."
+  DEST="$TARGET/.agentic-local"
+  [ ! -e "$DEST" ] && [ ! -L "$DEST" ] || fail ".agentic-local already exists; no files changed."
+  [ -z "$(git -C "$TARGET" ls-files -- .agentic-local)" ] || fail ".agentic-local contains tracked paths."
+  EXCLUDE="$(git -C "$TARGET" rev-parse --path-format=absolute --git-path info/exclude)"
+  [ ! -L "$EXCLUDE" ] && [ ! -L "$(dirname "$EXCLUDE")" ] || fail "Refusing a symlinked Git exclude path."
+else
+  # Preflight all destinations before creating directories or copying files.
+  for dir in docs scripts hooks .github .github/ISSUE_TEMPLATE docs/product docs/adr; do
+    [ ! -L "$TARGET/$dir" ] || fail "Refusing symlink: $dir"
+    [ ! -e "$TARGET/$dir" ] || [ -d "$TARGET/$dir" ] || fail "Not a directory: $dir"
+  done
+  for protected in AGENTS.md COMMITS.md docs/agentic; do
+    [ ! -e "$TARGET/$protected" ] && [ ! -L "$TARGET/$protected" ] || fail "$protected already exists. Use --local to preserve team files."
+  done
 fi
-
-if [ "$FORCE" = "1" ]; then
-  rm -rf "$TARGET/docs/agentic"
-fi
-
-cp "$SCRIPT_DIR/AGENTS.md" "$TARGET/AGENTS.md"
-cp "$SCRIPT_DIR/COMMITS.md" "$TARGET/COMMITS.md"
-cp -R "$SCRIPT_DIR/docs/agentic" "$TARGET/docs/agentic"
 
 copy_if_missing() {
-  local src="$1"
-  local dest="$2"
-  if [ ! -e "$dest" ]; then
+  local src="$1" dest="$2"
+  if [ ! -e "$dest" ] && [ ! -L "$dest" ]; then
+    mkdir -p "$(dirname "$dest")"
     cp "$src" "$dest"
   fi
 }
 
-copy_if_missing "$SCRIPT_DIR/docs/agentic/templates/PRD.md" "$TARGET/docs/product/PRD.md"
-copy_if_missing "$SCRIPT_DIR/docs/agentic/templates/STORIES.md" "$TARGET/docs/product/STORIES.md"
-copy_if_missing "$SCRIPT_DIR/docs/agentic/templates/STORY_REVIEW.md" "$TARGET/docs/product/STORY_REVIEW.md"
-copy_if_missing "$SCRIPT_DIR/docs/agentic/templates/ARCHITECTURE.md" "$TARGET/docs/product/ARCHITECTURE.md"
-copy_if_missing "$SCRIPT_DIR/docs/agentic/templates/DESIGN_SYSTEM.md" "$TARGET/docs/product/DESIGN_SYSTEM.md"
-
-if [ -f "$SCRIPT_DIR/scripts/agentic-check.sh" ]; then
-  copy_if_missing "$SCRIPT_DIR/scripts/agentic-check.sh" "$TARGET/scripts/agentic-check.sh"
-  chmod +x "$TARGET/scripts/agentic-check.sh"
+if [ "$MODE" = LOCAL ]; then
+  mkdir -p "$(dirname "$EXCLUDE")"
+  exclude_backup="$(mktemp)"
+  exclude_existed=0
+  if [ -e "$EXCLUDE" ]; then
+    cp "$EXCLUDE" "$exclude_backup"
+    exclude_existed=1
+  fi
+  # Leading newline preserves an existing last line without a newline.
+  if ! grep -Fxq '/.agentic-local/' "$EXCLUDE" 2>/dev/null; then
+    printf '\n# Personal agentic method\n/.agentic-local/\n' >> "$EXCLUDE"
+  fi
+  # Team .gitignore rules outrank info/exclude. Check every planned file,
+  # including a probe for future story notes, before installing anything.
+  ignored=1
+  paths=(.agentic-local/AGENTS.md .agentic-local/COMMITS.md
+    .agentic-local/scripts/agentic-check.sh
+    .agentic-local/docs/agentic/work/probe/research.md)
+  while IFS= read -r -d '' source; do
+    paths+=(".agentic-local/${source#"$SCRIPT_DIR/"}")
+  done < <(find "$SCRIPT_DIR/docs/agentic" -path "$SCRIPT_DIR/docs/agentic/work" -prune -o -type f -print0)
+  for path in "${paths[@]}"; do
+    if ! git -C "$TARGET" check-ignore --no-index -q -- "$path"; then
+      ignored=0
+      break
+    fi
+  done
+  if [ "$ignored" = 0 ]; then
+    if [ "$exclude_existed" = 1 ]; then
+      cp "$exclude_backup" "$EXCLUDE"
+    else
+      rm -f "$EXCLUDE"
+    fi
+    rm -f "$exclude_backup"
+    fail "Team ignore rules expose local files; no installation performed. Use an external personal directory."
+  fi
+  rm -f "$exclude_backup"
+fi
+mkdir -p "$DEST/docs/agentic"
+cp "$SCRIPT_DIR/AGENTS.md" "$DEST/AGENTS.md"
+cp "$SCRIPT_DIR/COMMITS.md" "$DEST/COMMITS.md"
+# Never distribute source-project story evidence or local status.
+for entry in "$SCRIPT_DIR/docs/agentic/"*; do
+  case "$(basename "$entry")" in work) continue ;; esac
+  cp -R "$entry" "$DEST/docs/agentic/"
+done
+mkdir -p "$DEST/docs/agentic/work"
+copy_if_missing "$SCRIPT_DIR/scripts/agentic-check.sh" "$DEST/scripts/agentic-check.sh"
+if [ "$MODE" = PRODUCT ]; then
+  for name in PRD STORIES STORY_REVIEW ARCHITECTURE DESIGN_SYSTEM; do
+    copy_if_missing "$SCRIPT_DIR/docs/agentic/templates/$name.md" "$DEST/docs/product/$name.md"
+  done
+  mkdir -p "$DEST/docs/adr"
+fi
+if [ "$MODE" != LOCAL ]; then
+  for file in hooks/README.md .github/ISSUE_TEMPLATE/story.yml .github/pull_request_template.md; do
+    [ ! -f "$SCRIPT_DIR/$file" ] || copy_if_missing "$SCRIPT_DIR/$file" "$DEST/$file"
+  done
 fi
 
-if [ -f "$SCRIPT_DIR/hooks/README.md" ]; then
-  copy_if_missing "$SCRIPT_DIR/hooks/README.md" "$TARGET/hooks/README.md"
+echo "Installed $MODE in: $DEST"
+if [ "$MODE" = LOCAL ]; then
+  echo "Team files are unchanged. Nothing is automatically activated."
+  echo "Prompt: Read the repository rules first, then .agentic-local/docs/agentic/LOCAL.md for ticket <id>."
+  echo "Check: (cd .agentic-local && bash scripts/agentic-check.sh --existing)"
+else
+  echo "Read AGENTS.md and docs/agentic/METHOD.md."
+  echo "PRODUCT starts with product phases; EXISTING starts with a scoped ticket and Research."
+  echo "Check: bash scripts/agentic-check.sh $([ "$MODE" = PRODUCT ] || printf '%s' '--existing')"
 fi
-
-if [ -f "$SCRIPT_DIR/.github/ISSUE_TEMPLATE/story.yml" ]; then
-  copy_if_missing "$SCRIPT_DIR/.github/ISSUE_TEMPLATE/story.yml" "$TARGET/.github/ISSUE_TEMPLATE/story.yml"
-fi
-
-if [ -f "$SCRIPT_DIR/.github/pull_request_template.md" ]; then
-  copy_if_missing "$SCRIPT_DIR/.github/pull_request_template.md" "$TARGET/.github/pull_request_template.md"
-fi
-
-echo
-echo "Agentic Development System installed in: $TARGET"
-echo
-echo "Pipeline:"
-echo "PRD -> Stories -> Story Review -> Architecture -> Design System -> Research -> Design -> Plan -> Worktree Setup -> Execute -> Verify -> Review -> Goal -> Ship"
-echo
-echo "Scale:"
-echo "Choose LIGHT, STANDARD or LARGE using docs/agentic/SCALING.md."
-echo
-echo "Architecture:"
-echo "Select and justify the technical stack in docs/product/ARCHITECTURE.md."
-echo "Record structural decisions as ADRs in docs/adr/."
-echo
-echo "Verification:"
-echo "After Execute, prove the result using docs/agentic/templates/VERIFY.md."
-echo
-echo "Safety:"
-echo "Read docs/agentic/SAFETY.md and hooks/README.md."
-echo
-echo "Commits:"
-echo "Read COMMITS.md and use the appropriate Gitmoji in every commit."
-echo
-echo "Next:"
-echo "1. Open the target project."
-echo "2. Read AGENTS.md, COMMITS.md and docs/agentic/METHOD.md."
-echo "3. Select project mode in docs/agentic/STATUS.md."
-echo "4. Start from the first phase not marked PASS."
+echo "Choose LIGHT, STANDARD or LARGE by risk. Templates and presence checks do not imply gate PASS."

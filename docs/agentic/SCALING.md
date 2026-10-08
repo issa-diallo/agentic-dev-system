@@ -8,7 +8,11 @@ La méthode ne change pas :
 
 `PRD -> Stories -> Story Review -> Architecture -> Design System -> Research -> Design -> Plan -> Execute -> Verify -> Review -> Ship`
 
-Ce qui change est la profondeur des artefacts.
+Ce qui change est la profondeur des artefacts. Le point d’entrée dépend du contexte :
+un ticket cadré sur projet existant peut commencer à Research selon
+[EXISTING_PROJECT.md](EXISTING_PROJECT.md), quel que soit le mode choisi.
+Les exemples d’artefacts produit ci-dessous s’appliquent au parcours produit ;
+LIGHT n’autorise pas à sauter les gates par story.
 
 ## Mode LIGHT
 
