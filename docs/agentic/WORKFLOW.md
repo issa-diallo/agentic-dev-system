@@ -114,3 +114,17 @@ Si ce n'est pas vrai, ne pas coder.
 - validation humaine si requise
 - merge effectué
 - cleanup effectué
+
+## États et isolation
+
+États : BACKLOG, PRD, STORIES, STORY_REVIEW, ARCHITECTURE, DESIGN_SYSTEM,
+RESEARCH, DESIGN, PLANNED, IMPLEMENTING, VERIFY, REVIEW, BLOCKED, PR_OPEN,
+CI, READY_FOR_HUMAN, DONE. BLOCKED peut survenir partout.
+Une mission limitée à ouvrir une PR reste READY_FOR_HUMAN après gates et CI ;
+DONE exige merge et cleanup. Ne jamais merger sans autorisation applicable.
+Story non triviale : identifiant, branche, worktree, implementer, reviewer
+indépendant et PR dédiés. Convention `worktrees/<ticket>-<slug>` et branches
+`feat/<ticket>-<slug>`, `fix/<ticket>-<slug>` ou `chore/<ticket>-<slug>` selon l’intention.
+Deux agents ne modifient jamais le même worktree simultanément.
+L’orchestrateur calcule les dépendances, commence par les stories structurantes,
+évite les collisions et bloque la vague si une dépendance structurante échoue.

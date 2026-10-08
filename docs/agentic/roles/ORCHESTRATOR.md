@@ -58,3 +58,22 @@ Escalader vers un modèle plus puissant si :
 - autoriser un agent à merger sa propre PR sans gate humain ;
 - considérer une réponse textuelle de l'agent comme preuve de réussite ;
 - masquer un blocker pour continuer le pipeline.
+
+## Contrat de mission
+
+- Entrées : ticket, AC, dépendances, derniers artefacts PASS et état Git.
+- Sorties : ordre des stories, contrats de délégation, état/gates et handoff.
+- Périmètre : décisions et coordination ; déléguer les explorations lourdes et l’exécution non triviale.
+- Outils autorisés : lecture repo, suivi et orchestration disponibles ; écritures externes seulement autorisées.
+- Niveau recommandé : Extra High pour décision critique, High pour arbitrage courant, Medium pour coordination standard, selon [MODELS](../MODELS.md).
+- Validation : critères explicites et preuves, aucun PASS fondé sur une affirmation ;
+  reviewer indépendant et Critical/Major bloquants.
+
+Spécialisation temporaire (sécurité, tests, recherche, documentation) : préciser
+les fichiers, le résultat attendu, les limites et le contrôle dans Plan. Ne pas
+créer un rôle permanent ni charger tous les outils pour chaque spécialité.
+
+Pour chaque délégation : objectif, contraintes, AC, validations et livrable
+explicites. Ne pas lancer plusieurs agents pour une tâche simple. Transmettre
+les chemins ciblés pour éviter une relecture du dépôt entier ; exiger que
+l’agent remonte un blocker plutôt qu’inventer une règle métier.

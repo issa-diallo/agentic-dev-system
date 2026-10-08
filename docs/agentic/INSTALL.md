@@ -75,7 +75,7 @@ Les templates produit copiés ne constituent pas des gates PASS.
 
 Pour l’entrée PRODUCT, une fois installé :
 
-> Lis AGENTS.md, COMMITS.md et docs/agentic/METHOD.md. Applique strictement PRD → Stories → Story Review → Architecture → Design System → Research → Design → Plan → Execute → Review → Ship. Identifie la première phase qui n'est pas PASS et commence uniquement par celle-ci. Pour chaque commit, utilise le Gitmoji approprié et respecte COMMITS.md.
+> Lis AGENTS.md, COMMITS.md et docs/agentic/METHOD.md. Applique strictement PRD → Stories → Story Review → Architecture → Design System → Research → Design → Plan → Worktree Setup si requis → Execute → Verify → Review → Goal si applicable → Ship. Identifie la première phase qui n'est pas PASS et commence uniquement par celle-ci. Pour chaque commit, utilise le Gitmoji approprié et respecte COMMITS.md.
 
 ## Commits
 
@@ -93,3 +93,35 @@ La référence Gitmoji est https://gitmoji.dev/.
 ## Mise à jour
 
 Pour mettre à jour la méthode dans un projet existant, comparer d'abord les changements entre la version installée et la nouvelle version. Ne pas écraser automatiquement des règles projet personnalisées.
+
+## Héritage et personnalisation
+
+Les trois modes copient le même socle : index, politique modèles, contexte,
+rôles et templates. STATUS est initialisé depuis le template neutre ; aucun
+statut ou artefact de travail du dépôt source n’est hérité. Les documents produit
+PRODUCT viennent des templates, jamais du produit source. Le préflight refuse
+une ressource obligatoire manquante avant toute écriture.
+
+Après installation, choisir LIGHT/STANDARD/LARGE dans STATUS. Personnaliser
+les documents projet et, pour plusieurs applications, des AGENTS.md de
+sous-dossiers (API, web, mobile, etc.) précisant commandes, frontières et données.
+Conserver les invariants racine, documenter les contrats partagés et les ADR.
+L’installation ne remplace pas les personnalisations existantes : comparer
+manuellement ou utiliser LOCAL, qui demande une activation explicite.
+Aucun outil optionnel ni configuration Codex globale ne sont activés.
+Les tests de génération vérifient la structure, pas l’exécution du modèle.
+
+## Diagnostic et rollback
+
+Instruction ignorée : vérifier le répertoire courant, les AGENTS.md applicables,
+un éventuel AGENTS.override.md et les limites de la chaîne chargée dans le client.
+En LOCAL, vérifier que le prompt active explicitement LOCAL.md après les règles
+équipe. Lancer le checker depuis la bonne racine ; il prouve seulement la présence.
+Si nécessaire, demander une lecture seule des règles effectives dans une session
+dédiée ; cette validation runtime n’est pas exécutée par l’installateur.
+
+Avant mise à jour, sauvegarder et comparer les fichiers concernés. Restaurer
+sélectivement le socle depuis la version précédente sans écraser personnalisations,
+artefacts de story ou règles d’équipe. Pour annuler une installation LOCAL,
+désactiver sa référence dans les prompts, puis retirer seulement ses fichiers et
+sa ligne d’exclusion après vérification ; ne pas nettoyer globalement Git.

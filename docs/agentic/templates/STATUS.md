@@ -4,11 +4,11 @@
 
 `LIGHT | STANDARD | LARGE`
 
-Selected mode: STANDARD
+Selected mode: TODO
 
 ## Entrée
 
-Selected entry: PRODUCT (`PRODUCT` ou `EXISTING`)
+Selected entry: TODO (`PRODUCT` ou `EXISTING`)
 
 Pour EXISTING : lier chaque ticket à son Research justifiant cette entrée.
 Les statuts produit ci-dessous restent globaux : ne pas les marquer PASS pour
@@ -19,11 +19,11 @@ si les conditions d’EXISTING_PROJECT.md sont remplies.
 
 | Phase | Status | Artifact | Blocker |
 |---|---|---|---|
-| PRD | PASS | `docs/product/PRD.md` | — |
-| Stories | PASS | `docs/product/STORIES.md` | — |
-| Story Review | PASS | `docs/product/STORY_REVIEW.md` | — |
-| Architecture | PASS | `docs/product/ARCHITECTURE.md` | — |
-| Design System | PASS | `docs/product/DESIGN_SYSTEM.md` | — |
+| PRD | TODO | `docs/product/PRD.md` | — |
+| Stories | TODO | `docs/product/STORIES.md` | PRD |
+| Story Review | TODO | `docs/product/STORY_REVIEW.md` | Stories |
+| Architecture | TODO | `docs/product/ARCHITECTURE.md` | Story Review |
+| Design System | TODO | `docs/product/DESIGN_SYSTEM.md` | Architecture |
 
 Statuses: `TODO | IN_PROGRESS | PASS | BLOCKED`.
 
@@ -31,7 +31,7 @@ Statuses: `TODO | IN_PROGRESS | PASS | BLOCKED`.
 
 | Story | State | Research | Design | Plan | Worktree | Execute | Verify | Review | Goal | PR | CI | Blocker |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| #6 | READY_FOR_HUMAN | PASS | PASS | PASS | PASS | PASS | PASS | PASS | SATISFIED | [#7](https://github.com/issa-diallo/agentic-dev-system/pull/7) | PASS | aucun |
+| — | BACKLOG | — | — | — | — | — | — | — | — | — | — | — |
 
 Story states:
 

@@ -61,3 +61,17 @@ Verdicts :
 - BLOCKED
 
 Critical/Major => `CHANGES_REQUIRED`.
+
+## Contrat de mission
+
+- Entrées : ticket, AC, Research/Design/Plan, architecture/ADR, diff et evidence Verify.
+- Sorties : findings avec fichier/preuve/sévérité, verdict et critères de correction.
+- Périmètre : lecture indépendante ; ne modifie pas le worktree de l’implementer.
+- Outils autorisés : lecture diff/code, tests reproductibles ; aucun merge ni publication implicites.
+- Niveau recommandé : High pour critique ; Extra High seulement justifié, selon [MODELS](../MODELS.md).
+- Validation : critères explicites et preuves, aucun PASS fondé sur une affirmation ;
+  reviewer indépendant et Critical/Major bloquants.
+
+Spécialisation temporaire (sécurité, tests, recherche, documentation) : préciser
+les fichiers, le résultat attendu, les limites et le contrôle dans Plan. Ne pas
+créer un rôle permanent ni charger tous les outils pour chaque spécialité.

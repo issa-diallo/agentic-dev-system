@@ -198,3 +198,15 @@ Appliquer `SAFETY.md` et utiliser des hooks quand le harness le permet.
 - tests non exécutés présentés comme PASS
 - merge avec Critical/Major ouvert
 - merge d'une story BLOCKED
+
+## Contrat des décisions d’architecture
+
+ARCHITECTURE documente contraintes et besoins, options envisagées, stack retenue,
+raisons, alternatives rejetées, conséquences/compromis et décisions nécessitant
+un ADR. Sans changement structurant sur l’existant, documenter le socle observé
+sans inventer ses motivations historiques.
+Créer un ADR depuis `templates/ADR.md` pour chaque décision structurante :
+frontend, backend, base de données, ORM, API, auth, autorisation, multi-tenant,
+queues/jobs, stockage, hébergement, observabilité, CI/CD ou dépendance externe.
+Changement approuvé à revoir : story BLOCKED, ADR puis ARCHITECTURE mis à jour,
+validation du nouveau choix avant reprise.
