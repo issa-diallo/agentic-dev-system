@@ -45,7 +45,7 @@ Ne pas remplir les phases suivantes tant que le gate précédent n'est pas PASS.
 
 Donner à l'agent :
 
-> Lis AGENTS.md et docs/agentic/METHOD.md. Applique strictement le pipeline PRD → Stories → Story Review → Architecture → Design System → Research → Design → Plan → Execute → Review → Ship. Commence par la première phase non terminée. Ne saute aucune phase. À chaque phase, produis l'artefact prévu et indique PASS ou BLOCKED.
+> Lis AGENTS.md et docs/agentic/README.md. Applique strictement le pipeline PRD → Stories → Story Review → Architecture → Design System → Research → Design → Plan → Worktree Setup si requis → Execute → Verify → Review → Goal si applicable → Ship. Commence par la première phase non terminée. Ne saute aucune phase. À chaque phase, produis l'artefact prévu et indique PASS ou BLOCKED.
 
 ## 4. Après validation du produit
 
@@ -53,9 +53,9 @@ Pour chaque story :
 
 1. créer une issue ;
 2. créer `docs/agentic/work/<story>/` ;
-3. copier RESEARCH.md, DESIGN.md, PLAN.md, REVIEW.md, HANDOFF.md ;
+3. copier RESEARCH.md, DESIGN.md, PLAN.md, VERIFY.md, REVIEW.md, HANDOFF.md ;
 4. créer une branche/worktree ;
-5. exécuter Research → Design → Plan → Execute → Review → Ship.
+5. exécuter Research → Design → Plan → Worktree Setup si requis → Execute → Verify → Review → Goal si applicable → Ship.
 
 ## 5. Checklist de portabilité
 

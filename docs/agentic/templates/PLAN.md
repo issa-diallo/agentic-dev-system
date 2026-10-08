@@ -70,3 +70,14 @@
 - [ ] aucun blocker
 
 Verdict : PASS / BLOCKED
+
+## Complexité et contrat d’exécution
+
+- complexité : Faible / Moyenne / Élevée / Critique ; mode / raison :
+- dernier gate PASS, compatibilité architecture/ADR, blockers :
+- budget observable (ou non observable), indicateurs et critère d’arrêt :
+- modèle/niveau recommandé, disponible, justification et escalade :
+- délégation : objectif, contraintes, AC, validations et livrable :
+- agent/rôle, entrées, sorties, fichiers autorisés, outils et validation :
+- dépendances, ordre, contrats stables, worktree et collisions évitées :
+- commandes ciblées et evidence attendue par AC :

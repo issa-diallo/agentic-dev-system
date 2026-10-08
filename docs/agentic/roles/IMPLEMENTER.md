@@ -35,7 +35,7 @@ Il ne doit pas :
 - introduire une nouvelle dépendance structurante sans justification ;
 - contourner un test au lieu de corriger le comportement.
 
-## Sécurité DossierClé
+## Sécurité des données métier
 
 Pour toute fonctionnalité portant sur des données métier :
 
@@ -56,3 +56,20 @@ Remplir `handoff.md` avec :
 - écarts au plan ;
 - risques connus ;
 - questions pour reviewer.
+
+## Contrat de mission
+
+- Entrées : ticket, AC, Research/Design/Plan PASS, architecture/ADR et règles applicables.
+- Sorties : diff limité, tests exécutés, evidence et handoff.
+- Périmètre : seul écrivain du worktree attribué ; aucun changement de stack ou scope silencieux.
+- Outils autorisés : filesystem, édition, shell/tests du projet ; réseau et actions externes selon autorisation.
+- Niveau recommandé : Medium ; Light / Low pour travail mécanique cadré, selon [MODELS](../MODELS.md).
+- Validation : critères explicites et preuves, aucun PASS fondé sur une affirmation ;
+  reviewer indépendant et Critical/Major bloquants.
+
+Spécialisation temporaire (sécurité, tests, recherche, documentation) : préciser
+les fichiers, le résultat attendu, les limites et le contrôle dans Plan. Ne pas
+créer un rôle permanent ni charger tous les outils pour chaque spécialité.
+
+Lire les chemins ciblés du contrat, sans relire tout le dépôt par défaut.
+Si une règle métier manque, remonter un blocker ; ne pas l’inventer.

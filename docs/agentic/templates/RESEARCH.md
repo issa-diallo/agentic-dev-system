@@ -67,3 +67,12 @@
 - [ ] questions bloquantes résolues
 
 Verdict : PASS / BLOCKED
+
+## Recherche ciblée et evidence
+
+- chemin de départ, requêtes et portée explorée :
+- sources / date / faits confirmés (séparés des hypothèses) :
+- documents à charger selon déclencheur et règles de sous-dossier :
+- secrets, actions externes, observabilité et rollback pertinents :
+- résumé exploitable des explorations déléguées, sans dumps :
+- mesures disponibles et limites (ne pas inventer le quota) :

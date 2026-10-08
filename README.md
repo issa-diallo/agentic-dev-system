@@ -81,4 +81,4 @@ explicite et le mode partageable `--existing`.
 - garder le contexte agentique propre ;
 - automatiser les contrôles répétables.
 
-Commencer par `docs/agentic/METHOD.md` puis `docs/agentic/SCALING.md`.
+Commencer par [l’index conditionnel](docs/agentic/README.md), puis choisir le mode.
