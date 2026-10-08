@@ -31,7 +31,7 @@ Statuses: `TODO | IN_PROGRESS | PASS | BLOCKED`.
 
 | Story | State | Research | Design | Plan | Worktree | Execute | Verify | Review | Goal | PR | CI | Blocker |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| #6 | REVIEW | PASS | PASS | PASS | PASS | PASS | PASS | PASS | ACTIVE | à ouvrir | à lancer | aucun |
+| #6 | READY_FOR_HUMAN | PASS | PASS | PASS | PASS | PASS | PASS | PASS | SATISFIED | [#7](https://github.com/issa-diallo/agentic-dev-system/pull/7) | PASS | aucun |
 
 Story states:
 

@@ -11,7 +11,7 @@ branche feat/codex-context, base 20a2e1b. Vérifications relancées par orchestr
 | AC4 héritage | six générations PRODUCT/EXISTING/LOCAL × LIGHT/LARGE, règles API/web, STATUS neutre, preuves source exclues | PASS |
 | AC5 outils | OPTIONAL_TOOLS huit axes par outil ; aucune configuration tierce générée | PASS documentaire |
 | AC6 tests/mesures | commandes ci-dessous ; revue indépendante suivante | PASS local |
-| AC7 publication | à consigner dans ship.md après revue | EN ATTENTE |
+| AC7 publication | PR #7 et CI PASS, voir ship.md | PASS |
 
 ## Commandes exactes
 

@@ -1,6 +1,6 @@
 # Handoff — #6 Codex context
 
-IMPLEMENTATION_COMPLETE. Execute PASS ; Verify/Review indépendants PASS après correction ; publication et CI à effectuer.
+IMPLEMENTATION_COMPLETE. Execute PASS ; Verify/Review indépendants PASS après correction ; publication et CI PASS ; READY_FOR_HUMAN.
 
 ## Résultat
 
@@ -47,5 +47,5 @@ Nombre réel de fichiers lus par Codex, lectures redondantes, quota et tokens
 non mesurés ; seuls tailles et contrats statiques sont prouvés ici.
 À la remise par l’implementer : aucun commit/push. Pas de changement de stack ou de scope. Aucun blocker.
 Verify et review indépendante des invariants et du diff sont terminés ;
-prochaine action : publier PR/CI selon autorisation. Mission PR seule :
+PR #7 ouverte et CI PASS ; prochaine action : examen humain, sans merge automatique. Mission PR seule :
 READY_FOR_HUMAN ; DONE exige merge et cleanup. Aucun merge autorisé ici.
