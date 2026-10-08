@@ -21,7 +21,44 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 [ -d "$TARGET" ] || fail "Target directory does not exist: $TARGET"
 TARGET="$(cd "$TARGET" && pwd -P)"
 [ "$TARGET" != "$SCRIPT_DIR" ] || fail "Cannot install into the source repository."
-for source in AGENTS.md COMMITS.md docs/agentic/METHOD.md scripts/agentic-check.sh; do
+# Validate every required portable resource before any target write.
+for source in \
+  AGENTS.md \
+  COMMITS.md \
+  scripts/agentic-check.sh \
+  docs/agentic/README.md \
+  docs/agentic/METHOD.md \
+  docs/agentic/WORKFLOW.md \
+  docs/agentic/SCALING.md \
+  docs/agentic/SAFETY.md \
+  docs/agentic/EXISTING_PROJECT.md \
+  docs/agentic/INSTALL.md \
+  docs/agentic/LOCAL.md \
+  docs/agentic/BOOTSTRAP.md \
+  docs/agentic/CONTEXT.md \
+  docs/agentic/MODELS.md \
+  docs/agentic/OPTIONAL_TOOLS.md \
+  docs/agentic/templates/ADR.md \
+  docs/agentic/templates/ARCHITECTURE.md \
+  docs/agentic/templates/DESIGN.md \
+  docs/agentic/templates/DESIGN_SYSTEM.md \
+  docs/agentic/templates/EXECUTE.md \
+  docs/agentic/templates/GOAL.md \
+  docs/agentic/templates/HANDOFF.md \
+  docs/agentic/templates/PLAN.md \
+  docs/agentic/templates/PRD.md \
+  docs/agentic/templates/RESEARCH.md \
+  docs/agentic/templates/REVIEW.md \
+  docs/agentic/templates/SHIP.md \
+  docs/agentic/templates/STATUS.md \
+  docs/agentic/templates/STORIES.md \
+  docs/agentic/templates/STORY.md \
+  docs/agentic/templates/STORY_REVIEW.md \
+  docs/agentic/templates/VERIFY.md \
+  docs/agentic/templates/WORKTREE_ENVIRONMENT.md \
+  docs/agentic/roles/IMPLEMENTER.md \
+  docs/agentic/roles/ORCHESTRATOR.md \
+  docs/agentic/roles/REVIEWER.md; do
   [ -f "$SCRIPT_DIR/$source" ] || fail "Missing source: $source"
 done
 
@@ -70,6 +107,7 @@ if [ "$MODE" = LOCAL ]; then
   ignored=1
   paths=(.agentic-local/AGENTS.md .agentic-local/COMMITS.md
     .agentic-local/scripts/agentic-check.sh
+    .agentic-local/docs/agentic/STATUS.md
     .agentic-local/docs/agentic/work/probe/research.md)
   while IFS= read -r -d '' source; do
     paths+=(".agentic-local/${source#"$SCRIPT_DIR/"}")
@@ -96,9 +134,10 @@ cp "$SCRIPT_DIR/AGENTS.md" "$DEST/AGENTS.md"
 cp "$SCRIPT_DIR/COMMITS.md" "$DEST/COMMITS.md"
 # Never distribute source-project story evidence or local status.
 for entry in "$SCRIPT_DIR/docs/agentic/"*; do
-  case "$(basename "$entry")" in work) continue ;; esac
+  case "$(basename "$entry")" in work|STATUS.md) continue ;; esac
   cp -R "$entry" "$DEST/docs/agentic/"
 done
+cp "$SCRIPT_DIR/docs/agentic/templates/STATUS.md" "$DEST/docs/agentic/STATUS.md"
 mkdir -p "$DEST/docs/agentic/work"
 copy_if_missing "$SCRIPT_DIR/scripts/agentic-check.sh" "$DEST/scripts/agentic-check.sh"
 if [ "$MODE" = PRODUCT ]; then
@@ -119,7 +158,7 @@ if [ "$MODE" = LOCAL ]; then
   echo "Prompt: Read the repository rules first, then .agentic-local/docs/agentic/LOCAL.md for ticket <id>."
   echo "Check: (cd .agentic-local && bash scripts/agentic-check.sh --existing)"
 else
-  echo "Read AGENTS.md and docs/agentic/METHOD.md."
+  echo "Read AGENTS.md and docs/agentic/README.md."
   echo "PRODUCT starts with product phases; EXISTING starts with a scoped ticket and Research."
   echo "Check: bash scripts/agentic-check.sh $([ "$MODE" = PRODUCT ] || printf '%s' '--existing')"
 fi
