@@ -12,6 +12,13 @@ Le même système fonctionne pour :
 - projet normal → mode STANDARD ;
 - gros projet / multi-agents / production sensible → mode LARGE.
 
+## Projet existant sans documentation produit
+
+Pour un ticket cadré, démarrer à Research sans recréer les cinq documents produit.
+Suivre [l’entrée projet existant](docs/agentic/EXISTING_PROJECT.md), puis Design → Plan →
+Execute → Verify → Review → Ship, avec isolation et Goal lorsque requis.
+Un nouveau produit ou gros périmètre conserve le pipeline complet.
+
 ## Pipeline
 
 ```text
@@ -50,6 +57,16 @@ Ship
 git clone git@github.com:issa-diallo/agentic-dev-system.git
 ./agentic-dev-system/install-agentic.sh /chemin/vers/mon-projet
 ```
+
+Pour un usage personnel dans un dépôt d’entreprise :
+
+```bash
+./agentic-dev-system/install-agentic.sh --local /chemin/vers/le-projet
+```
+
+La méthode reste dans `.agentic-local/`, exclu de Git, sans modifier les fichiers
+de l’équipe. Voir [l’installation](docs/agentic/INSTALL.md) pour l’activation
+explicite et le mode partageable `--existing`.
 
 ## Principes
 

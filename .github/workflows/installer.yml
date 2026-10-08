@@ -1,0 +1,13 @@
+name: Installer checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check shell syntax
+        run: bash -n install-agentic.sh scripts/agentic-check.sh
+      - name: Run installer regression tests
+        run: python3 -m unittest discover -s tests -v

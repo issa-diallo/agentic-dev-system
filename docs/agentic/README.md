@@ -2,6 +2,13 @@
 
 Ce dossier contient une méthode portable de développement multi-agents.
 
+## Projet existant sans documentation produit
+
+Pour un ticket cadré, démarrer à Research sans recréer les cinq documents produit.
+Suivre [l’entrée projet existant](EXISTING_PROJECT.md), puis Design → Plan →
+Execute → Verify → Review → Ship, avec isolation et Goal lorsque requis.
+Un nouveau produit ou gros périmètre conserve le pipeline complet.
+
 ## Pipeline
 
 ```text

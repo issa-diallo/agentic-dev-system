@@ -8,6 +8,16 @@
 
 <Ce qu'il faut comprendre avant de modifier le code.>
 
+## Entrée et cadrage
+
+- entrée : PRODUCT / EXISTING ; mode : LIGHT / STANDARD / LARGE
+- ticket et critères d’acceptation :
+- justification de l’entrée à Research sans phases produit si EXISTING :
+- documents disponibles/absents/contradictoires :
+- architecture/stack observées et fichiers justificatifs :
+- conventions et composants UI concernés (ou sans impact UI) :
+- faits confirmés / hypothèses à résoudre :
+
 ## État actuel du repo
 
 - modules concernés :

@@ -6,6 +6,15 @@
 
 Selected mode: TODO
 
+## Entrée
+
+Selected entry: TODO (`PRODUCT` ou `EXISTING`)
+
+Pour EXISTING : lier chaque ticket à son Research justifiant cette entrée.
+Les statuts produit ci-dessous restent globaux : ne pas les marquer PASS pour
+un ticket qui commence à Research. Leur absence de PASS ne bloque pas ce ticket
+si les conditions d’EXISTING_PROJECT.md sont remplies.
+
 ## Product pipeline
 
 | Phase | Status | Artifact | Blocker |

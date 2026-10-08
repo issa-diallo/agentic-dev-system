@@ -55,9 +55,19 @@ Aucune phase ne doit inventer ce que la phase précédente devait décider.
 - Review ne se contente pas des affirmations de l'implementer.
 - Ship ne masque pas une review ou un goal en échec.
 
+## Entrées dans la méthode
+
+- Nouveau produit ou gros périmètre : pipeline produit complet.
+- Ticket cadré sur projet existant, même sans documentation produit : appliquer
+  [EXISTING_PROJECT.md](EXISTING_PROJECT.md) et commencer à Research.
+
+Dans ce second cas, consigner le cadrage, l’architecture observée et la justification
+par ticket dans Research. Aucun PASS produit fictif n’est nécessaire. Les gates
+par story restent obligatoires ; une information indispensable manquante bloque.
+
 ## Gate universel
 
-Chaque phase doit répondre à :
+Chaque phase applicable au parcours choisi doit répondre à :
 1. Quel artefact a été produit ?
 2. Quel est le verdict : PASS ou BLOCKED ?
 3. Quelles contraintes deviennent obligatoires pour la suite ?

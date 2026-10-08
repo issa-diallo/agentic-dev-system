@@ -10,6 +10,12 @@ Pour tout nouveau produit ou gros périmètre :
 
 Pour une story déjà cadrée, reprendre à `Research`.
 
+Pour un projet existant sans documentation produit, appliquer
+`docs/agentic/EXISTING_PROJECT.md` : ticket cadré, architecture observée et
+justification dans Research suffisent pour entrer dans le pipeline par story.
+Les cinq artefacts produit ne sont pas requis pour ce ticket ; aucun PASS
+produit ne doit être inventé. Nouveau produit ou gros périmètre : pipeline complet.
+
 Ne jamais oublier, inverser ou sauter une étape sans justification explicite.
 
 ## Source de vérité
@@ -20,7 +26,7 @@ Lire dans cet ordre :
 2. `docs/agentic/METHOD.md`
 3. `docs/agentic/WORKFLOW.md`
 4. `COMMITS.md`
-5. les documents projet dans `docs/product/`
+5. les documents projet disponibles dans `docs/product/` (absence traitée selon `EXISTING_PROJECT.md`)
 6. les ADR applicables dans `docs/adr/`
 7. le ticket/story concerné
 8. les artefacts de travail de la story
@@ -109,7 +115,7 @@ substitut aux règles de projet.
 
 ## Gates
 
-Chaque phase produit un artefact et un verdict PASS ou BLOCKED. La phase suivante ne démarre que si la précédente est PASS.
+Chaque phase applicable produit un artefact et un verdict PASS ou BLOCKED. L’entrée projet existant justifiée commence à Research, sans gate produit préalable. La phase suivante ne démarre que si la précédente est PASS.
 
 ### Phase produit
 1. PRD
@@ -139,7 +145,9 @@ L'agent qui implémente ne doit pas être le seul reviewer de son propre travail
 
 La stack technique est décidée pendant la phase `Architecture`, jamais au hasard pendant `Execute`.
 
-`docs/product/ARCHITECTURE.md` doit expliciter au minimum :
+Pour un projet existant sans changement structurant, le socle observé consigné
+dans Research suffit ; ne pas inventer les motivations historiques. Pour une
+nouvelle décision d’architecture, `docs/product/ARCHITECTURE.md` doit expliciter au minimum :
 
 - contraintes et besoins ayant influencé le choix ;
 - options envisagées ;
@@ -245,6 +253,9 @@ committer.
 ## Artefacts attendus
 
 ### Produit
+
+Requis pour le pipeline produit ; voir `EXISTING_PROJECT.md` pour un ticket sur un projet existant.
+
 - `docs/product/PRD.md`
 - `docs/product/STORIES.md`
 - `docs/product/STORY_REVIEW.md`
