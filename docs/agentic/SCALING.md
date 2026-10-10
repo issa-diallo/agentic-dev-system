@@ -27,7 +27,8 @@ Règles :
 - PRD peut tenir sur une page ;
 - Stories peut contenir quelques items ;
 - Story Review peut être une checklist ;
-- Architecture peut être un choix de stack succinct ;
+- Architecture peut être un choix de stack succinct, avec sécurité et
+  contrats essentiels ; les décisions futures sont classées et reportées ;
 - Design System peut être minimal ;
 - Research + Design + Plan peuvent être courts mais doivent exister ;
 - Verify reste obligatoire ;
@@ -41,7 +42,8 @@ Objectif : préparer suffisamment pour éviter les aller-retours sans ralentir l
 
 Règles :
 - artefacts complets ;
-- architecture + ADR pour décisions structurantes ;
+- architecture suffisante pour les premières stories et registre des
+  décisions différées ; ADR pour décisions durables ou risquées ;
 - worktree par story significative ;
 - environnement reproductible ;
 - goals mesurables quand utile ;
@@ -63,7 +65,8 @@ Règles :
 
 Règles supplémentaires :
 - dependency map explicite ;
-- ADR obligatoires pour les choix structurants ;
+- ADR pour décisions durables, difficiles à inverser ou à risque ;
+  les choix critiques des premières stories restent bloquants ;
 - worktree isolé par story ;
 - scripts d'environnement ;
 - goal mesurable ;

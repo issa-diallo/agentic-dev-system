@@ -90,9 +90,12 @@ Challenger couverture, dépendances, taille, critères et ordre.
 Sortie : `docs/product/STORY_REVIEW.md`.
 
 ### 4. Architecture
-Choisir et justifier stack, boundaries, data, API, auth, sécurité, infra, tests et déploiement.
-
-Créer des ADR pour les décisions structurantes.
+Définir une architecture suffisante pour les premières stories : stack,
+frontières, contrats, données, sécurité et tests nécessaires immédiatement.
+Rechercher et comparer les options pertinentes avant de demander un arbitrage.
+Reporter les décisions réversibles ou liées aux stories futures avec un
+responsable et un déclencheur, sans masquer un risque critique.
+Créer un ADR pour une décision durable, difficilement réversible ou risquée.
 
 Sorties :
 - `docs/product/ARCHITECTURE.md`
@@ -205,8 +208,15 @@ ARCHITECTURE documente contraintes et besoins, options envisagées, stack retenu
 raisons, alternatives rejetées, conséquences/compromis et décisions nécessitant
 un ADR. Sans changement structurant sur l’existant, documenter le socle observé
 sans inventer ses motivations historiques.
-Créer un ADR depuis `templates/ADR.md` pour chaque décision structurante :
-frontend, backend, base de données, ORM, API, auth, autorisation, multi-tenant,
-queues/jobs, stockage, hébergement, observabilité, CI/CD ou dépendance externe.
-Changement approuvé à revoir : story BLOCKED, ADR puis ARCHITECTURE mis à jour,
-validation du nouveau choix avant reprise.
+Un ADR depuis `templates/ADR.md` est requis pour une décision durable,
+difficilement réversible ou à risque important, non pour chaque technologie.
+Un choix réversible peut rester dans ARCHITECTURE. Toute décision différée
+indique propriétaire, story/déclencheur et risques ; la story dépendante
+ne passe pas son DoR tant que la décision requise n'est pas tranchée.
+L'Architecture Gate peut être PASS pour les premières stories si aucune
+décision critique à leur exécution n'est ouverte. Les décisions futures
+ne constituent pas des PASS inventés. Les choix engageant sécurité, droits,
+tenants ou conformité des premières stories ne peuvent être reportés.
+Changement approuvé à revoir : bloquer les stories impactées, mettre à jour
+l'ADR si requis et ARCHITECTURE, valider, puis reprendre sans modifier la
+stack silencieusement.
