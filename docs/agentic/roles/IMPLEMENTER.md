@@ -18,11 +18,13 @@ Si un élément indispensable manque, arrêter et marquer BLOCKED.
 
 1. vérifier branche/worktree ;
 2. relire le plan ;
-3. implémenter par petits changements cohérents ;
-4. ajouter/adapter les tests ;
-5. lancer les vérifications ;
-6. inspecter le diff final ;
-7. préparer le handoff.
+3. appliquer [DEVELOPMENT](../DEVELOPMENT.md) et proposer le découpage
+   en PR selon [PULL_REQUESTS](../PULL_REQUESTS.md) ;
+4. implémenter par petits changements cohérents ;
+5. ajouter/adapter les tests ;
+6. lancer les vérifications ;
+7. inspecter le diff final et justifier les dépassements de taille ;
+8. préparer le handoff.
 
 ## Discipline de scope
 

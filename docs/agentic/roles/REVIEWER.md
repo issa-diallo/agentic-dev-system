@@ -44,6 +44,12 @@ Le reviewer n'est pas là pour confirmer l'implementer.
 - contrat/API cohérent ?
 - duplication évitable ?
 
+### Lisibilité et taille de PR
+- [DEVELOPMENT](../DEVELOPMENT.md) : responsabilités, noms, types et fonctions ?
+- [PULL_REQUESTS](../PULL_REQUESTS.md) : objectif unique, 1 à 3 fichiers visés,
+  commit final unique et exceptions justifiées ?
+- changements hors périmètre ou découpage plus sûr possible ?
+
 ### Tests
 - comportement critique réellement testé ?
 - test qui aurait échoué avant le fix ?
