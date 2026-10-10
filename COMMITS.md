@@ -366,3 +366,10 @@ Avant de proposer ou créer un commit, l’agent doit vérifier que :
 - le commit reste atomique et cohérent.
 
 Si une de ces règles n’est pas satisfaite, ne pas créer le commit.
+
+## Un commit logique final par Pull Request
+
+La PR fusionnée doit présenter un seul commit cohérent avec son objectif.
+Les commits intermédiaires sont permis pendant le développement ; préférer
+la fusion squash après validation, sans réécrire les commits d'autrui.
+Voir [PULL_REQUESTS](docs/agentic/PULL_REQUESTS.md) pour les limites de taille.
