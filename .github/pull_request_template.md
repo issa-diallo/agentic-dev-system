@@ -13,6 +13,15 @@ What changed and why?
 - [ ] Plan PASS
 - [ ] Architecture/ADR respected
 
+## Small PR review
+
+- [ ] One objective, scoped diff, no unrelated refactoring
+- [ ] Ideally 1–3 files and <= 100 changed lines (exceptions explained below)
+- [ ] One logical final commit (squash if needed)
+- [ ] Tests/types/migrations retained even when this exceeds the target
+
+Exception / reason for atomic change (if applicable):
+
 ## Execution
 
 - [ ] Execute PASS
