@@ -25,6 +25,8 @@ TARGET="$(cd "$TARGET" && pwd -P)"
 for source in \
   AGENTS.md \
   COMMITS.md \
+  docs/agentic/DEVELOPMENT.md \
+  docs/agentic/PULL_REQUESTS.md \
   scripts/agentic-check.sh \
   docs/agentic/README.md \
   docs/agentic/METHOD.md \

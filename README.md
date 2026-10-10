@@ -137,6 +137,10 @@ Après installation partagée, demander à l’agent :
   erreurs ouvertes, preuves et prochaines actions.
 - **Communication concise native** : résultat en tête, changements avec chemins,
   statut des tests et risques explicites. Aucun outil Caveman ou I Have ADHD installé.
+- **Code lisible et PR courtes** : [DEVELOPMENT](docs/agentic/DEVELOPMENT.md)
+  fixe les conventions SOLID, noms et modules ;
+  [PULL_REQUESTS](docs/agentic/PULL_REQUESTS.md) vise un objectif,
+  un commit final et 1 à 3 fichiers par PR, sans supprimer les tests.
 - **Qualité préservée** : DoR/DoD, Verify, revue indépendante, sécurité et commits
   Gitmoji liés à un ticket. Les rapports métier et techniques restent complets ;
   les formats propres aux phases priment sur le format conversationnel.
