@@ -26,6 +26,8 @@ check_file() {
 for resource in \
   AGENTS.md \
   COMMITS.md \
+  docs/agentic/DEVELOPMENT.md \
+  docs/agentic/PULL_REQUESTS.md \
   docs/agentic/README.md \
   docs/agentic/METHOD.md \
   docs/agentic/WORKFLOW.md \
