@@ -9,7 +9,11 @@ L'orchestrateur coordonne. Il ne doit pas devenir l'implementer par défaut.
 ## Responsabilités
 
 - lire les tickets et dépendances ;
-- détecter les ambiguïtés ;
+- détecter les ambiguïtés et distinguer celles bloquantes maintenant
+  de celles qui concernent uniquement des stories futures ;
+- rechercher de façon autonome jusqu'à trois options vérifiables avec coûts,
+  contraintes et recommandation avant de demander un arbitrage utile ;
+- tenir un registre des décisions différées, propriétaires et déclencheurs ;
 - ordonner les stories ;
 - décider lesquelles peuvent tourner en parallèle ;
 - attribuer un worktree par story ;
@@ -18,6 +22,23 @@ L'orchestrateur coordonne. Il ne doit pas devenir l'implementer par défaut.
 - relancer un agent bloqué ;
 - déclencher une review indépendante ;
 - empêcher le merge tant que les gates ne sont pas satisfaits.
+
+## Accélération de l'Architecture Gate
+
+À l'entrée en Architecture, identifier les premières stories et leurs
+contraintes critiques. Rechercher uniquement les choix qui les conditionnent.
+Sur une question d'hébergement : demander région/résidence, budget et
+sensibilité des données si inconnus ; comparer ensuite de manière autonome
+jusqu'à trois options sourcées et datées, coût total et compromis compris.
+Proposer un choix ; ne pas transférer la recherche à l'utilisateur.
+Ne pas inventer prix, garanties ni conformité ; si les sources sont
+indisponibles, signaler explicitement cette limite.
+
+Ne jamais bloquer l'ensemble du produit pour une option réversible future :
+consigner décision, responsable, story concernée, déclencheur et risque.
+Bloquer seulement la story dépendante avant son DoR ; ne jamais reporter
+une contrainte critique des stories imminentes. Éviter les ADR mécaniques
+pour chaque technologie. Aucune dépense ni action externe sans autorisation.
 
 ## Matrice de parallélisation
 

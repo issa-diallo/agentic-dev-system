@@ -54,6 +54,20 @@ class ContextTests(unittest.TestCase):
         context = (SOURCE / 'docs/agentic/CONTEXT.md').read_text()
         self.assertEqual(re.findall(r'^\| (\d\d) \|', context, re.M), [f'{n:02}' for n in range(1, 27)])
 
+    def test_progressive_architecture_contract(self):
+        architecture = (SOURCE/'docs/agentic/templates/ARCHITECTURE.md').read_text()
+        method = (SOURCE/'docs/agentic/METHOD.md').read_text()
+        workflow = (SOURCE/'docs/agentic/WORKFLOW.md').read_text()
+        orchestrator = (SOURCE/'docs/agentic/roles/ORCHESTRATOR.md').read_text()
+        for word in ['Décisions reportées', 'BLOQUANT MAINTENANT',
+                     'AVANT STORY', 'NON BLOQUANT', 'Déclencheur / story',
+                     'sources', 'Architecture Gate']:
+            self.assertIn(word, architecture)
+        self.assertNotIn('stack complète sélectionnée', architecture)
+        self.assertIn('difficilement réversible', method)
+        self.assertIn('aucune décision différée requise', workflow)
+        self.assertIn('trois options', orchestrator)
+
     def test_native_communication_contract(self):
         text = (SOURCE/'AGENTS.md').read_text()
         policy = text.split('## Communication commune à tous les agents', 1)[1]

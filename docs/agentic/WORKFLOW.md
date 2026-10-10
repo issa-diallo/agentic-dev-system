@@ -28,6 +28,11 @@ Nouveau produit ou gros périmètre : pipeline produit complet.
 5. Design System
 
 Toutes doivent être PASS avant les premières stories d'implémentation structurantes.
+Architecture PASS signifie décisions suffisantes pour ces stories, avec
+sécurité et contrats critiques résolus. Les choix réversibles ultérieurs
+sont consignés avec une story/déclencheur et un responsable ; leur absence
+ne bloque pas Design System. Une story dépendante reste BLOCKED jusqu'à
+la résolution de sa décision, vérifiée dans Research/Design/Plan.
 
 ## Pipeline par Story
 
@@ -98,7 +103,8 @@ Une story est Ready for Execute si :
 - research PASS ;
 - design PASS ;
 - plan PASS ;
-- architecture compatible ;
+- architecture compatible et aucune décision différée requise
+  pour cette story encore ouverte ;
 - fichiers/zones impactées identifiés ;
 - stratégie de test définie ;
 - risques critiques traités ;
