@@ -56,6 +56,9 @@ sensibles validées, hooks si disponibles sans substituer les règles.
 PRD/Architecture/Research explicitent auth, autorisation, données sensibles,
 tenant si applicable, secrets, actions externes, validation humaine, tests,
 observabilité et rollback pertinents.
+Pour toute édition de code, appliquer [DEVELOPMENT](docs/agentic/DEVELOPMENT.md) ;
+pour tout découpage ou livraison de PR, appliquer
+[PULL_REQUESTS](docs/agentic/PULL_REQUESTS.md).
 Avant chaque commit, appliquer [COMMITS](COMMITS.md) : Gitmoji Unicode officiel
 approprié, titre court impératif, pourquoi si nécessaire, intention atomique,
 `Fixes #<issue_number>`.
