@@ -11,7 +11,7 @@ SOURCE = Path(__file__).resolve().parents[1]
 
 
 def required_resources():
-    docs = 'README METHOD WORKFLOW SCALING SAFETY EXISTING_PROJECT INSTALL LOCAL BOOTSTRAP CONTEXT MODELS OPTIONAL_TOOLS'.split()
+    docs = 'README METHOD WORKFLOW SCALING SAFETY EXISTING_PROJECT INSTALL LOCAL BOOTSTRAP CONTEXT MODELS OPTIONAL_TOOLS DEVELOPMENT PULL_REQUESTS'.split()
     return (['AGENTS.md', 'COMMITS.md', 'scripts/agentic-check.sh']
             + [f'docs/agentic/{name}.md' for name in docs]
             + [str(path.relative_to(SOURCE)) for folder in ['templates', 'roles']
