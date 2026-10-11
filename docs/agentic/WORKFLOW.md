@@ -66,6 +66,8 @@ Agent indépendant, findings Critical/Major bloquants.
 Pour les tâches longues, continuer jusqu'à critères mesurables SATISFIED ou blocker réel.
 
 ### Ship
+Chaque commit du workflow utilise le wrapper et la garde staged de
+[COMMITS](../../COMMITS.md) ; les artefacts personnels restent locaux.
 PR, CI, examen final selon le [profil Lead Tech](roles/REVIEWER.md), validation,
 merge, cleanup. Respecter son déclenchement LIGHT/STANDARD/LARGE. Avant livraison,
 le verdict et les preuves doivent porter sur la base et la tête actuelles de la PR.

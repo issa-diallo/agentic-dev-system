@@ -1,8 +1,8 @@
 # Projet existant — démarrer depuis un ticket
 
-Pour une installation personnelle non versionnée, utiliser `install-agentic.sh --local`
+Pour une installation personnelle non versionnée, utiliser `install-agentic.sh` (ou `--local`)
 et suivre [LOCAL.md](LOCAL.md). Pour une installation partageable sans documents
-produit, utiliser `--existing`. Voir [INSTALL.md](INSTALL.md).
+produit, utiliser `--shared --existing`. `--existing` seul reste local. Voir [INSTALL.md](INSTALL.md).
 
 ## Quand utiliser cette entrée
 

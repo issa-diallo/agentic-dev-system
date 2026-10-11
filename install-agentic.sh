@@ -2,20 +2,28 @@
 set -euo pipefail
 
 fail() { echo "ERROR: $*" >&2; exit 1; }
-usage() { echo "Usage: $0 [--existing | --local] [target-directory]"; }
-MODE=PRODUCT
+usage() { echo "Usage: $0 [--local | --shared] [--existing] [target-directory]"; }
+MODE=LOCAL
+installation=
+existing=0
 TARGET=.
 target_set=0
 for arg in "$@"; do
   case "$arg" in
-    --local) MODE=LOCAL ;;
-    --existing) [ "$MODE" = LOCAL ] || MODE=EXISTING ;;
+    --local|--shared)
+      [ -z "$installation" ] || [ "$installation" = "$arg" ] || fail "--local and --shared are mutually exclusive."
+      installation="$arg" ;;
+    --existing) existing=1 ;;
     --help|-h) usage; exit 0 ;;
     -*) usage >&2; fail "Unknown option: $arg" ;;
     *) [ "$target_set" = 0 ] || fail "Only one target is allowed."
        TARGET="$arg"; target_set=1 ;;
   esac
 done
+if [ "$installation" = --shared ]; then
+  MODE=PRODUCT
+  [ "$existing" = 0 ] || MODE=EXISTING
+fi
 [ "${FORCE:-0}" = 0 ] || fail "FORCE is no longer supported. Compare and back up existing files before a manual update."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 [ -d "$TARGET" ] || fail "Target directory does not exist: $TARGET"
@@ -28,6 +36,8 @@ for source in \
   docs/agentic/DEVELOPMENT.md \
   docs/agentic/PULL_REQUESTS.md \
   scripts/agentic-check.sh \
+  scripts/agentic-staged-check.sh \
+  scripts/agentic-commit.sh \
   docs/agentic/README.md \
   docs/agentic/METHOD.md \
   docs/agentic/WORKFLOW.md \
@@ -106,9 +116,14 @@ if [ "$MODE" = LOCAL ]; then
   fi
   # Team .gitignore rules outrank info/exclude. Check every planned file,
   # including a probe for future story notes, before installing anything.
+  # Materialize the empty directory: Git directory-only rules require it to exist.
+  # Checking without a trailing slash prevents child globs from hiding an exposed parent.
+  mkdir "$DEST"
   ignored=1
-  paths=(.agentic-local/AGENTS.md .agentic-local/COMMITS.md
+  paths=(.agentic-local .agentic-local/AGENTS.md .agentic-local/COMMITS.md
     .agentic-local/scripts/agentic-check.sh
+    .agentic-local/scripts/agentic-staged-check.sh
+    .agentic-local/scripts/agentic-commit.sh
     .agentic-local/docs/agentic/STATUS.md
     .agentic-local/docs/agentic/work/probe/research.md)
   while IFS= read -r -d '' source; do
@@ -121,6 +136,7 @@ if [ "$MODE" = LOCAL ]; then
     fi
   done
   if [ "$ignored" = 0 ]; then
+    rmdir "$DEST"
     if [ "$exclude_existed" = 1 ]; then
       cp "$exclude_backup" "$EXCLUDE"
     else
@@ -141,7 +157,9 @@ for entry in "$SCRIPT_DIR/docs/agentic/"*; do
 done
 cp "$SCRIPT_DIR/docs/agentic/templates/STATUS.md" "$DEST/docs/agentic/STATUS.md"
 mkdir -p "$DEST/docs/agentic/work"
-copy_if_missing "$SCRIPT_DIR/scripts/agentic-check.sh" "$DEST/scripts/agentic-check.sh"
+for script in agentic-check.sh agentic-staged-check.sh agentic-commit.sh; do
+  copy_if_missing "$SCRIPT_DIR/scripts/$script" "$DEST/scripts/$script"
+done
 if [ "$MODE" = PRODUCT ]; then
   for name in PRD STORIES STORY_REVIEW ARCHITECTURE DESIGN_SYSTEM; do
     copy_if_missing "$SCRIPT_DIR/docs/agentic/templates/$name.md" "$DEST/docs/product/$name.md"
@@ -157,7 +175,7 @@ fi
 echo "Installed $MODE in: $DEST"
 if [ "$MODE" = LOCAL ]; then
   echo "Team files are unchanged. Nothing is automatically activated."
-  echo "Prompt: Read the repository rules first, then .agentic-local/docs/agentic/LOCAL.md for ticket <id>."
+  echo "Prompt: Read the repository rules first, then .agentic-local/docs/agentic/LOCAL.md then its method index: scoped ticket uses EXISTING_PROJECT; new product uses product phases."
   echo "Check: (cd .agentic-local && bash scripts/agentic-check.sh --existing)"
 else
   echo "Read AGENTS.md and docs/agentic/README.md."

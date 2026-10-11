@@ -14,48 +14,51 @@ Depuis le dossier du projet cible :
 /path/to/agentic-method/install-agentic.sh .
 ```
 
-L'installateur ajoute :
+L’installation est **LOCAL par défaut**, même avec `--existing`. Elle exige la
+racine d’un dépôt Git. Pour un dossier neuf, faire `git init` explicitement avant
+installation. `--local` est conservé ; `--local --shared` est refusé, quel que soit
+l’ordre. Aucun réglage global Codex ou Git n’est nécessaire.
 
 ```text
-AGENTS.md
-COMMITS.md
-docs/agentic/
-docs/product/PRD.md
-docs/product/STORIES.md
-docs/product/STORY_REVIEW.md
-docs/product/ARCHITECTURE.md
-docs/product/DESIGN_SYSTEM.md
-docs/agentic/work/
+.agentic-local/AGENTS.md
+.agentic-local/COMMITS.md
+.agentic-local/docs/agentic/       # méthode et tous les templates
+.agentic-local/docs/agentic/work/  # documents de travail personnels
+.agentic-local/scripts/           # checker, garde staged, wrapper de commit
 ```
 
-## Projet existant : usage personnel local
+Seul `info/exclude` reçoit `/.agentic-local/`. Son chemin est résolu par Git,
+aussi en worktree ; son contenu précédent est conservé. Aucun fichier d’équipe,
+`.gitignore`, hook ou template GitHub n’est modifié. Les règles qui réouvrent
+le dossier local sont refusées, même si ses fichiers actuels restent ignorés :
+l’installation retire alors uniquement le dossier vide qu’elle vient de créer
+et restaure `info/exclude`. Un chemin local déjà suivi provoque un refus ; une
+exclusion ne peut pas protéger les fichiers déjà dans l’index.
+
+## Activation et documents produit
+
+Suivre le prompt et la résolution des chemins de [LOCAL](LOCAL.md). Codex peut
+lire la méthode, les rôles et tous les templates dans `.agentic-local/` ; aucune
+activation automatique n’est promise. Les règles d’équipe restent prioritaires.
+Pour un nouveau produit, créer les documents de cadrage depuis les templates
+sous `.agentic-local/docs/product/` jusqu’à validation. Publier seulement les
+documents métier validés que l’équipe veut versionner dans ses vrais chemins.
+Les gates produit restent obligatoires ; aucun document vide ne prouve PASS.
+
+## Installation partageable : demande explicite
 
 ```bash
-./install-agentic.sh --local /chemin/vers/le-projet
+./install-agentic.sh --shared /chemin/vers/nouveau-projet
+./install-agentic.sh --shared --existing /chemin/vers/projet-existant
 ```
 
-Le projet cible doit être la racine d’un dépôt Git. La méthode est placée dans
-`.agentic-local/`, ajouté à l’exclusion Git locale (résolue aussi en worktree).
-Aucun fichier de l’équipe, `.gitignore`, hook ou template GitHub n’est modifié.
-Aucun document produit n’est généré. Si les règles `.gitignore` de l’équipe
-rendent ces fichiers visibles malgré l’exclusion locale, l’installation refuse
-et restaure le contenu précédent de `info/exclude`. Les fichiers déjà suivis ne sont jamais
-masqués : un chemin `.agentic-local` suivi provoque un refus.
-
-L’installation n’active pas automatiquement l’agent. Utiliser le prompt et les
-règles de résolution des chemins de [LOCAL.md](LOCAL.md). Les conventions de
-l’équipe priment, notamment pour les commits.
-
-## Projet existant : installation partageable
-
-```bash
-./install-agentic.sh --existing /chemin/vers/le-projet
-```
-
-Installe le socle aux chemins standards, sans créer `docs/product/` ni `docs/adr/`.
-Ces fichiers ne sont pas exclus de Git. S’il existe déjà AGENTS.md, COMMITS.md
-ou docs/agentic, l’installation refuse avant copie ; utiliser --local pour
-conserver les règles de l’équipe.
+`--shared` conserve l’ancienne installation PRODUCT aux chemins standards,
+avec cinq templates produit et `docs/adr/`. `--shared --existing` conserve le
+socle EXISTING sans documents produit. Ces ressources peuvent être versionnées
+après décision d’équipe ; les notes de story et statuts personnels restent locaux
+selon [COMMITS](../../COMMITS.md). S’il existe déjà AGENTS.md, COMMITS.md ou
+docs/agentic, l’installation refuse avant copie. Préférer LOCAL pour préserver
+l’existant. Les configurations optionnelles existantes ne sont pas écrasées.
 
 ## Protection et mise à jour
 
@@ -65,7 +68,11 @@ Les artefacts `docs/agentic/work/` du dépôt source ne sont jamais distribués.
 
 `FORCE=1` est désormais refusé : comparer et sauvegarder les fichiers avant une
 mise à jour manuelle. Une seconde installation locale refuse également d’écraser
-les notes personnelles.
+les notes personnelles. Pour mettre à jour, sauvegarder hors des chemins
+versionnables (dans `.agentic-local/` ou un dossier externe choisi), comparer le
+socle avec la nouvelle version et reporter sélectivement les changements. Garder
+STATUS, décisions, règles personnalisées et `work/` ; ne jamais les remplacer
+par des templates neutres. Refaire le checker et la garde staged après mise à jour.
 
 ## Prompt de démarrage
 
@@ -113,7 +120,7 @@ Prompt de reprise :
 > particulier indispensable ne bloque, indique Architecture PASS et poursuis
 > Design System puis les stories. Ne redemande pas les choix déjà autorisés.
 
-Les trois modes copient le même socle : index, politique modèles, contexte,
+Les profils LOCAL, PRODUCT partagé et EXISTING partagé copient le même socle : index, politique modèles, contexte,
 rôles et templates. STATUS est initialisé depuis le template neutre ; aucun
 statut ou artefact de travail du dépôt source n’est hérité. Les documents produit
 PRODUCT viennent des templates, jamais du produit source. Le préflight refuse
@@ -142,3 +149,135 @@ sélectivement le socle depuis la version précédente sans écraser personnalis
 artefacts de story ou règles d’équipe. Pour annuler une installation LOCAL,
 désactiver sa référence dans les prompts, puis retirer seulement ses fichiers et
 sa ligne d’exclusion après vérification ; ne pas nettoyer globalement Git.
+
+## Migrer une installation ancienne
+
+La migration est volontaire et manuelle. Elle ne réécrit aucun historique et
+ne supprime aucun fichier physique. Ne l’exécuter que dans le dépôt demandé,
+après revue et accord explicite sur les chemins à retirer de l’index. Une
+ancienne installation partagée peut être intentionnelle : ne pas déduire que
+AGENTS.md, COMMITS.md, docs/product, ADR, hooks ou .github appartiennent à une
+personne. Les documents métier et règles d’équipe restent suivis.
+
+### 1. Diagnostic sans modification
+
+Depuis la racine du projet :
+
+```bash
+git status --short
+git diff --cached --name-status
+git ls-files -- .agentic-local docs/agentic AGENTS.md COMMITS.md docs/product docs/adr scripts hooks .github
+git rev-parse --path-format=absolute --git-path index
+git rev-parse --path-format=absolute --git-path info/exclude
+```
+
+Inspecter l’origine et le rôle de chaque candidat, ses changements staged et
+non staged, ses statuts, décisions et travaux en cours. Les noms sont affichés
+par Git avec échappement ; pour une liste machine, utiliser `git ls-files -z`.
+Ne pas imprimer les contenus sensibles. Si l’index contient déjà des changements,
+les terminer séparément ou sauvegarder leur patch et convenir de leur traitement ;
+**arrêter la migration tant que l’index n’est pas vide**. Ne jamais les effacer
+avec un reset. Les modifications non staged sont conservées.
+
+Si `.agentic-local/` existe ou était déjà suivi, l’installateur refuse : ne pas
+forcer ni supprimer le dossier. Sauvegarder ses contenus et l’index dans un
+emplacement externe choisi, comparer le socle, restaurer sélectivement les
+scripts/règles nouveaux, puis compléter `info/exclude` localement et vérifier
+les exclusions. Sélectionner ensuite ses seuls fichiers internes suivis pour
+la même procédure index ci-dessous. Conserver les notes et STATUS existants.
+
+### 2. Installer localement et sauvegarder
+
+Pour une ancienne installation aux chemins standards sans dossier local,
+installer normalement : cette étape ne touche pas l’index ni les fichiers
+anciens. Ensuite, définir une sélection **exacte et revue** dans un tableau Bash.
+Exemple à adapter, sans sélectionner les documents métier :
+
+```bash
+personal=(docs/agentic/work/17/research.md docs/agentic/STATUS.md)
+backup=".agentic-local/migration-backup-$(date +%Y%m%d-%H%M%S)"
+mkdir "$backup"
+index_path="$(git rev-parse --path-format=absolute --git-path index)"
+exclude_path="$(git rev-parse --path-format=absolute --git-path info/exclude)"
+cp "$index_path" "$backup/index"
+cp "$exclude_path" "$backup/exclude"
+git status --porcelain=v1 -z > "$backup/status.nul"
+git diff --binary > "$backup/working.patch"
+tar -cpf "$backup/files.tar" -- "${personal[@]}"
+printf '%s\0' "${personal[@]}" > "$backup/selection.nul"
+```
+
+Vérifier la sauvegarde, arrêter si un fichier manque ou une commande échoue.
+Sauvegarder aussi les fichiers locaux personnalisés si leur mise à jour est
+prévue. Copier sélectivement les anciens `work/` et STATUS sous `.agentic-local/`
+en conservant intégralement les contenus ; ne pas écraser un travail local
+existant ni remplacer une décision par un template. Les originaux restent présents.
+
+### 3. Exclure les originaux et faire valider la sélection
+
+Ajouter les chemins personnels exacts à `.agentic-local/personal-paths.nul` :
+`printf '%s\0' "${personal[@]}" >> .agentic-local/personal-paths.nul`.
+Cette liste NUL, locale et revue, interdit aussi les anciens chemins ambigus
+(ex. un COMMITS.md personnel), sans interdire leurs équivalents d’équipe ailleurs.
+Elle ne doit pas contenir de dossiers ou de motifs glob.
+
+Ajouter à `info/exclude` les motifs ancrés correspondant **uniquement** aux
+originaux conservés. Pour les noms simples de l’exemple :
+
+```bash
+printf '\n/docs/agentic/work/17/research.md\n/docs/agentic/STATUS.md\n' >> "$exclude_path"
+git check-ignore --no-index -v -- "${personal[@]}"
+```
+
+Les chemins avec `*`, `?`, `[`, `\`, `#`, `!`, espaces finaux ou retours à la ligne
+exigent des motifs Git échappés et une vérification individuelle ; ne pas écrire
+un chemin arbitraire comme motif. Pour un nom non représentable sûrement dans
+`info/exclude`, conserver uniquement la copie locale et décider explicitement
+du devenir de l’original avant de poursuivre. Ne pas éditer `.gitignore`.
+Présenter la liste, la sauvegarde, les copies et les exclusions à l’utilisateur.
+**Attendre son accord explicite avant toute modification de l’index.**
+
+### 4. Retirer uniquement de l’index après accord
+
+```bash
+git --literal-pathspecs rm --cached -- "${personal[@]}"
+git diff --cached --name-status
+bash .agentic-local/scripts/agentic-staged-check.sh
+git add --dry-run -A
+git diff --cached --name-status
+```
+
+Ne jamais ajouter `-f` si Git refuse : comparer l’index, HEAD et les contenus,
+puis faire résoudre le conflit. Vérifier que tous les originaux et copies sont
+physiquement présents et identiques, que seuls les retraits autorisés sont staged
+et que le diagnostic `add --dry-run -A` ne proposerait aucun fichier personnel.
+Ne pas exécuter ici `add -A` : cela ajouterait aussi les changements métier
+non staged préexistants, qui ne font pas partie de la sélection approuvée. La garde autorise ces suppressions pures.
+Faire le commit de migration via le wrapper avec le message validé et le ticket.
+Les branches/worktrees contenant encore l’ancienne installation nécessitent
+leur propre diagnostic et sélection ; partager `info/exclude` ne retire aucun
+fichier de leur index. Ne pas agir automatiquement sur les autres worktrees.
+
+### 5. Rollback ciblé
+
+Avant commit, si l’index était vide au départ, restaurer seulement les entrées
+sélectionnées : `git --literal-pathspecs restore --source=HEAD --staged -- "${personal[@]}"`.
+Cela conserve les modifications physiques. Comparer ensuite `info/exclude` à la
+sauvegarde et retirer uniquement les motifs ajoutés par cette migration ; ne pas
+écraser des exclusions communes modifiées depuis par un autre worktree.
+Conserver le dossier local, les copies, la liste personnelle et les sauvegardes
+jusqu’à décision explicite. La liste continuera à bloquer de nouveaux commits
+personnels sur ces chemins ; restaurer la liste précédente seulement si la
+classification est elle-même annulée après revue.
+
+Après commit, le rollback fonctionnel restaure sélectivement les contenus et
+la méthode **localement** depuis les sauvegardes ; il n’a pas besoin de réintroduire
+les fichiers personnels dans Git. Les originaux physiques n’ont pas été supprimés.
+Conserver les exclusions pour empêcher une pollution lors du prochain `add -A`.
+Un choix ultérieur de partager certains documents exige une décision explicite
+et une revue séparée de leur rôle. Restaurer leur suivi depuis un SHA précédent
+est alors une opération distincte et autorisée ; la garde continue à refuser les
+chemins personnels. Aucun contournement ou réintroduction automatique n’est prévu.
+L’index sauvegardé sert de preuve et de secours : **ne pas le recopier sur un
+index ayant reçu de nouveaux travaux**, ni utiliser reset --hard, clean ou
+force push. Restaurer les contenus perdus sélectivement depuis l’archive validée.

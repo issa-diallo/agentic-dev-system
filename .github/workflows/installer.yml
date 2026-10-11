@@ -8,6 +8,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check shell syntax
-        run: bash -n install-agentic.sh scripts/agentic-check.sh
+        run: |
+          for script in install-agentic.sh scripts/agentic*.sh; do
+            bash -n "$script" || exit
+          done
       - name: Run installer regression tests
         run: python3 -m unittest discover -s tests -v

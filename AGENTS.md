@@ -59,9 +59,9 @@ observabilité et rollback pertinents.
 Pour toute édition de code, appliquer [DEVELOPMENT](docs/agentic/DEVELOPMENT.md) ;
 pour tout découpage ou livraison de PR, appliquer
 [PULL_REQUESTS](docs/agentic/PULL_REQUESTS.md).
-Avant chaque commit, appliquer [COMMITS](COMMITS.md) : Gitmoji Unicode officiel
-approprié, titre court impératif, pourquoi si nécessaire, intention atomique,
-`Fixes #<issue_number>`.
+Avant commit : [COMMITS](COMMITS.md), Gitmoji Unicode, titre impératif,
+intention atomique, `Fixes #<issue_number>` et garde staged via
+`agentic-commit.sh`. Garder les fichiers personnels locaux.
 
 Choisir le modèle le moins coûteux capable selon [MODELS](docs/agentic/MODELS.md),
 escalader sur preuves ; jamais au prix d’un gate. États, artefacts et rôles sont

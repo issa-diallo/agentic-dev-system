@@ -26,6 +26,8 @@ check_file() {
 for resource in \
   AGENTS.md \
   COMMITS.md \
+  scripts/agentic-staged-check.sh \
+  scripts/agentic-commit.sh \
   docs/agentic/DEVELOPMENT.md \
   docs/agentic/PULL_REQUESTS.md \
   docs/agentic/README.md \
