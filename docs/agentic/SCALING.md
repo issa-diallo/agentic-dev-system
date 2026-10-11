@@ -42,8 +42,7 @@ Objectif : préparer suffisamment pour éviter les aller-retours sans ralentir l
 
 Règles :
 - artefacts complets ;
-- architecture suffisante pour les premières stories et registre des
-  décisions différées ; ADR pour décisions durables ou risquées ;
+- architecture courte + ADR ciblés sur les arbitrages durables ;
 - worktree par story significative ;
 - environnement reproductible ;
 - goals mesurables quand utile ;
@@ -65,8 +64,7 @@ Règles :
 
 Règles supplémentaires :
 - dependency map explicite ;
-- ADR pour décisions durables, difficiles à inverser ou à risque ;
-  les choix critiques des premières stories restent bloquants ;
+- ADR ciblés obligatoires pour les arbitrages durables, regroupables ;
 - worktree isolé par story ;
 - scripts d'environnement ;
 - goal mesurable ;
@@ -95,6 +93,12 @@ Si plusieurs réponses sont oui, utiliser STANDARD ou LARGE.
 ## Règle anti-bureaucratie
 
 Un artefact court et précis vaut mieux qu'un document long et vague.
+
+Dans tous les modes, Architecture prépare une direction puis avance : aucun
+benchmark, prototype ou coût chiffré requis pour PASS. LARGE augmente le détail
+des protections et contrats à risque, sans imposer une comparaison par outil.
+Les preuves viennent en Execute/Verify et les coûts d’exploitation peuvent être
+suivis après implémentation, selon les échéances du registre Architecture.
 
 Le but de la préparation est de réduire :
 - les décisions pendant Execute ;

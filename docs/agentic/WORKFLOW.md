@@ -34,6 +34,11 @@ sont consignés avec une story/déclencheur et un responsable ; leur absence
 ne bloque pas Design System. Une story dépendante reste BLOCKED jusqu'à
 la résolution de sa décision, vérifiée dans Research/Design/Plan.
 
+Architecture PASS valide une direction exploitable, pas des performances ou
+coûts démontrés. Appliquer le contrat court de METHOD et du template Architecture :
+choix utilisateur conservés, validations différées avec responsable et échéance,
+une vérification de cohérence puis phase suivante. Aucun benchmark préalable.
+
 ## Pipeline par Story
 
 ### Research
@@ -71,7 +76,7 @@ le verdict et les preuves doivent porter sur la base et la tête actuelles de la
 Stories <------ Story Review
 
 Architecture <--- Research/Plan
-     si décision structurante invalide
+     seulement sur fait nouveau invalidant une contrainte indispensable
 
 Execute <------- Verify
 Execute <------- Review
@@ -80,6 +85,11 @@ Goal FAIL ------> Execute/Verify
 
 Ship -> CI FAIL -> Plan/Execute selon la cause
 ```
+
+Une préférence technique ou une preuve encore à produire ne rouvre pas
+Architecture. Consigner le fait nouveau et bloquer seulement les stories
+affectées. Les autres continuent. Research/Plan précisent les choix acceptés et
+planifient les validations ; ils ne recréent pas un gate de comparaison de stack.
 
 ## Parallélisme
 
@@ -109,6 +119,10 @@ Une story est Ready for Execute si :
 - stratégie de test définie ;
 - risques critiques traités ;
 - aucun blocker ouvert.
+
+Une décision requise encore ouverte est distincte d’une validation planifiée
+sur un outil déjà choisi. Une preuve attendue en Execute/Verify ou suivi produit
+ne bloque pas le DoR tant que les principes et mitigations nécessaires sont définis.
 
 Si ce n'est pas vrai, ne pas coder.
 

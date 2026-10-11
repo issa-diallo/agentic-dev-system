@@ -54,6 +54,11 @@
 
 - …
 
+Distinguer blockers indispensables et validations différées du registre
+Architecture. Planifier ces dernières dans Plan ; leur preuve n’est pas exigée
+ici. Conserver les choix utilisateur ; revenir à Architecture seulement sur un
+fait nouveau invalidant une contrainte, selon METHOD.
+
 ## Recommandation
 
 <Approche recommandée sans coder.>

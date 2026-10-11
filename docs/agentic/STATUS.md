@@ -33,6 +33,9 @@ Statuses: `TODO | IN_PROGRESS | PASS | BLOCKED`.
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | #6 | READY_FOR_HUMAN | PASS | PASS | PASS | PASS | PASS | PASS | PASS | SATISFIED | [#7](https://github.com/issa-diallo/agentic-dev-system/pull/7) | PASS | aucun |
 
+#15 : entrée EXISTING ; Research dans `work/DOC-architecture-fast/research.md`.
+Execute/Verify PASS ; livraison PR/CI/Lead Tech en cours, aucun DONE anticipé.
+
 Story states:
 
 `BACKLOG -> RESEARCH -> DESIGN -> PLANNED -> IMPLEMENTING -> VERIFY -> REVIEW -> PR_OPEN -> CI -> READY_FOR_HUMAN -> DONE`

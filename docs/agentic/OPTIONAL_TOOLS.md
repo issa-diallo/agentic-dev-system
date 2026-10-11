@@ -1,8 +1,19 @@
-# Outils optionnels : qualification avant activation
+# Outils optionnels : choix et intégration
 
 Socle opérationnel sans aucun de ces outils. Étude documentaire du 2026-10-08,
 compatibilités déclarées par les projets, non testées ici. Aucune dépendance,
 clé, hook, proxy, serveur MCP ni configuration globale installés par la méthode.
+
+## Choix sans gate de qualification
+
+Les notes ci-dessous concernent l’intégration et l’exploitation, sans constituer
+des gates Architecture/ADR. Un outil choisi par l’utilisateur est enregistré et
+la phase avance, sans pilote, benchmark ou test de qualification obligatoire.
+Les contrôles d’intégration pertinents se font en Execute/Verify. Les mesures de
+gains sont facultatives sauf critère explicite ; elles peuvent suivre l’implémentation.
+Les autorisations d’actions externes et la protection des secrets restent applicables.
+Un test préalable est exceptionnel : contradiction concrète ou risque critique
+sans mitigation, avec justification et test minimal selon METHOD.
 
 ## RTK
 
@@ -29,7 +40,7 @@ clé, hook, proxy, serveur MCP ni configuration globale installés par la métho
 ## Headroom
 
 - Fonction : compression via proxy/wrapper ; [wrap Codex documenté](https://github.com/headroomlabs-ai/headroom#readme), Python et extras ML natifs ; wrapper pouvant installer Serena.
-- Compatibilité : qualification requise pour client, auth et routage réels avant adoption.
+- Compatibilité : contrôler client, auth et routage réels lors de l’intégration avant d’exposer des credentials ; cela ne bloque pas le choix en Architecture.
 - Gains : annonces du projet dépendantes des données ; aucun benchmark exécuté ici.
 - Risques : credentials/contenus dans `~/.headroom`, mémoire `.headroom` projet ; diagnostics compressés à récupérer via [CCR](https://docs.headroomlabs.ai/docs/ccr).
 - Cache : préfixe stable annoncé pour nouveaux contenus ; tester cache et récupération, ne pas réécrire l’historique sans mesure.
@@ -48,9 +59,10 @@ clé, hook, proxy, serveur MCP ni configuration globale installés par la métho
 - Activation : inspiration documentaire suffit ici ; pilote opt-in si besoin démontré.
 - Retrait : off désactive sans désinstaller ; retirer plugin/hooks/copies selon [INSTALL](https://github.com/DietrichGebert/ponytail/blob/main/INSTALL.md), vérifier règles résiduelles.
 
-## Protocole commun
+## Protocole d’un pilote demandé
 
-Avant un pilote autorisé : noter source/version, fichiers/configuration touchés,
+Ce protocole s’applique seulement si un pilote est explicitement demandé ; il
+n’est pas un préalable au choix d’un outil. Avant ce pilote : noter source/version, fichiers/configuration touchés,
 données exposées, baseline, critère de qualité et rollback. Sauvegarder seulement
 les réglages utiles, sans publier de secrets. Après activation puis désactivation,
 rejouer même tâche et tests avec accès au brut. Rejeter toute perte de précision.

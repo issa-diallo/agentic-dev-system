@@ -11,8 +11,8 @@ L'orchestrateur coordonne. Il ne doit pas devenir l'implementer par défaut.
 - lire les tickets et dépendances ;
 - détecter les ambiguïtés et distinguer celles bloquantes maintenant
   de celles qui concernent uniquement des stories futures ;
-- rechercher de façon autonome jusqu'à trois options vérifiables avec coûts,
-  contraintes et recommandation avant de demander un arbitrage utile ;
+- respecter les outils choisis ; comparer uniquement un arbitrage encore ouvert,
+  sans coût chiffré ni test de qualification préalable obligatoire ;
 - tenir un registre des décisions différées, propriétaires et déclencheurs ;
 - ordonner les stories ;
 - décider lesquelles peuvent tourner en parallèle ;
@@ -25,22 +25,27 @@ L'orchestrateur coordonne. Il ne doit pas devenir l'implementer par défaut.
 
 ## Accélération de l'Architecture Gate
 
-À l'entrée en Architecture, identifier les premières stories et leurs
-contraintes critiques. Rechercher uniquement les choix qui les conditionnent.
-Sur une question d'hébergement : demander région/résidence, budget et
-sensibilité des données si inconnus ; comparer ensuite de manière autonome
-jusqu'à trois options sourcées et datées, coût total et compromis compris.
-Proposer un choix ; ne pas transférer la recherche à l'utilisateur.
-Ne pas inventer prix, garanties ni conformité ; si les sources sont
-indisponibles, signaler explicitement cette limite.
+À l’entrée en Architecture, identifier les premières stories et leurs
+contraintes impératives. Consigner les choix utilisateur, définir les principes
+utiles et passer à la suite après une vérification de cohérence.
+Aucun pilote, benchmark ou test de qualification par outil. Comparer seulement
+un arbitrage encore ouvert ; prix chiffrés et optimisation des coûts peuvent
+être suivis après implémentation. Ne pas inventer de garanties ni de mesures.
 
-Ne jamais bloquer l'ensemble du produit pour une option réversible future :
-consigner décision, responsable, story concernée, déclencheur et risque.
-Bloquer seulement la story dépendante avant son DoR ; ne jamais reporter
-une contrainte critique des stories imminentes. Éviter les ADR mécaniques
-pour chaque technologie. Aucune dépense ni action externe sans autorisation.
+Consigner les décisions futures et validations différées avec responsable,
+story et échéance. Une décision indispensable encore ouverte bloque seulement
+la story qui la nécessite ; une preuve prévue en Execute/Verify ne bloque pas
+son DoR. Aucun risque critique sans mitigation, aucune dépense ni action externe
+sans autorisation. Appliquer l’exception minimale et le critère d’arrêt de METHOD.
 
 ## Matrice de parallélisation
+
+Architecture prépare une direction courte selon METHOD : respecter les outils
+choisis, ne pas exiger leur qualification ni des preuves préalables. Vérifier
+une fois la cohérence, consigner les validations différées et passer à la suite.
+Seul un fait nouveau invalidant une contrainte justifie un retour après PASS.
+Ne pas relancer des demandes de preuve dont l’échéance est Execute/Verify ou
+le suivi produit après implémentation.
 
 Une story peut partir en parallèle si :
 

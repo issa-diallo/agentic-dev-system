@@ -1,78 +1,36 @@
-# ADR-XXX — <Decision title>
+# ADR-XXX — <Décision>
 
-## Status
+## Statut et références
 
 `PROPOSED | ACCEPTED | SUPERSEDED | REJECTED`
 
-## Date
+- date :
+- PRD / story / ticket :
+- décision précédente remplacée, si applicable :
 
-YYYY-MM-DD
+## Contexte et décision
 
-## Context
+- contrainte ou arbitrage durable :
+- choix retenu :
+- origine : choix utilisateur / socle existant / recommandation :
+- raison courte :
 
-<Quel problème ou quelle décision d'architecture doit être tranchée ?>
+Une décision utilisateur déjà autorisée peut être ACCEPTED directement.
+Pas de comparaison obligatoire ni de justification à redemander.
+Un outil décidé ne déclenche aucun test de qualification dans cet ADR.
+Ajouter des alternatives seulement si elles ont réellement été examinées.
 
-## Decision drivers
+## Conséquences
 
-- contrainte / objectif 1
-- contrainte / objectif 2
-- contrainte / objectif 3
+- compromis connus et impact sur les contrats :
+- sécurité, données, exploitation et rollback pertinents :
 
-## Options considered
+## Validations différées, si nécessaires
 
-### Option A — <name>
+Référencer le registre Architecture : hypothèse, story/suivi, responsable,
+échéance, vérification attendue et action si échec. Les preuves sont produites
+en Execute/Verify ; les coûts d’exploitation sont suivis après implémentation
+par le produit, sauf contrainte impérative à contrôler avant l’action concernée.
 
-**Pros**
-- …
-
-**Cons**
-- …
-
-### Option B — <name>
-
-**Pros**
-- …
-
-**Cons**
-- …
-
-## Decision
-
-<Choix retenu.>
-
-## Why
-
-<Pourquoi cette option a été retenue par rapport aux autres.>
-
-## Consequences
-
-### Positive
-- …
-
-### Negative / trade-offs
-- …
-
-### Operational impact
-- …
-
-## Security / data impact
-
-- authentication :
-- authorization :
-- sensitive data :
-- tenant isolation :
-- secrets :
-- compliance :
-
-## Migration / rollback
-
-- migration :
-- rollback :
-
-## Related
-
-- PRD :
-- Story :
-- Issue :
-- Previous ADR :
-- Supersedes :
+Cet ADR trace la décision ; il ne crée pas un gate supplémentaire de benchmark,
+prototype ou validation humaine lorsque le choix est déjà autorisé.

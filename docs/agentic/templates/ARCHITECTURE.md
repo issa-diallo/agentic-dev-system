@@ -1,93 +1,92 @@
 # Architecture — <Produit>
 
-## Status
+## Statut
+
 `ARCHITECTURE: DRAFT | PASS | BLOCKED`
 
-PASS signifie « suffisamment décidée pour les premières stories identifiées »,
-pas « infrastructure et production entièrement configurées ».
-Ne jamais déclarer PASS si une décision critique pour ces stories reste ouverte.
+## Contrat de préparation
 
-## Contexte décisif
-- mode : LIGHT / STANDARD / LARGE
-- premier incrément et stories concernées :
-- utilisateurs, données, charge connue :
-- localisation/résidence des données et exigences légales confirmées :
-- budget récurrent cible ou inconnu :
-- compétences, délais, contraintes techniques :
-- hypothèses à confirmer (ne pas les présenter comme des faits) :
+Produire un cadrage court à partir du PRD, des stories et des choix utilisateur.
+Adapter la profondeur au risque ; supprimer les rubriques non pertinentes.
+Architecture PASS signifie « direction exploitable pour développer ».
+Les preuves d’exécution sont produites en Execute/Verify.
 
-## Décisions requises pour démarrer
-| Sujet | Décision ou hypothèse validée | Pourquoi | Stories impactées |
-|---|---|---|---|
-| Langages et runtime | | | |
-| Modules / frontières | | | |
-| Données et contrats API | | | |
-| Auth / autorisation / tenant si applicables | | | |
-| Sécurité, secrets et conformité nécessaires | | | |
-| Tests et environnement de développement initial | | | |
+Aucun benchmark, prototype, coût chiffré ou comparaison exhaustive requis ici.
+Un outil décidé ne déclenche aucun test de qualification en Architecture ou ADR.
+Une fois les choix utiles consignés et les principes cohérents, terminer la phase.
+Exception : un test préalable indispensable pour lever une contradiction concrète
+ou un risque critique sans mitigation. Consigner le cas, la contrainte touchée,
+le test minimal et son critère d’arrêt ; pas de campagne générale de qualification.
+Un plafond budgétaire déjà imposé reste une contrainte ; son contrôle est planifié
+avant l’engagement payant concerné. Ne pas inventer des mesures.
 
-Ne renseigner les sujets non applicables que par « non applicable » justifié.
-Une technologie facultative (cache, queue, monitoring avancé, etc.) n'est
-pas une exigence avant les stories qui la nécessitent.
+## Contraintes et choix retenus
 
-## Recherche ciblée et comparaison autonome
-Avant d'interroger l'utilisateur sur une technologie, identifier les
-contraintes réellement manquantes. Si une décision demande une comparaison :
-1. Rechercher de manière ciblée jusqu'à trois options crédibles et adaptées,
-   dont éventuellement une solution déjà disponible dans le projet.
-2. Indiquer tarifs et unités (mensuel/usage), région, limitations, coûts
-   annexes, réversibilité, sources vérifiables et date de consultation.
-3. Distinguer prix confirmés, estimations et informations non vérifiées.
-4. Recommander une option avec raisons et compromis ; poser uniquement
-   les questions dont la réponse change réellement la décision.
-5. Sans accès aux sources actuelles, signaler l'incertitude ; ne jamais
-   inventer prix, fonctionnalités ou garanties de résidence des données.
-Ne jamais souscrire, déployer ni engager de dépense sans autorisation.
+- besoins et contraintes impératives du PRD :
+- stack utile au premier incrément (langage, application, données, hébergement) :
+- origine des choix : utilisateur / socle existant / recommandation de l’agent :
+- raison courte et compromis connus :
 
-| Option | Compatibilité / région | Coût et source datée | Limites | Avis |
-|---|---|---|---|---|
-| A | | | | |
-| B | | | | |
-| C (si utile) | | | | |
+Un outil explicitement choisi par l’utilisateur est enregistré sans lui demander
+de le justifier à nouveau. Sans choix, recommander une solution adaptée et avancer.
+Comparer des alternatives seulement lorsqu’un arbitrage réel reste ouvert.
+Ne pas ajouter cache, queue, recherche ou autres services sans besoin identifié.
 
-## Décisions reportées — registre obligatoire
-| Décision | Hypothèse provisoire | Pourquoi reportable | Déclencheur / story | Responsable | Risque |
+## Responsabilités, données et flux
+
+- modules et responsabilités :
+- données principales et contrats entre modules :
+- intégrations et actions externes :
+- authentification, autorisation et isolation tenant si applicables :
+- données sensibles, secrets et validation humaine si pertinents :
+- livraison, stratégie de tests, observabilité et rollback pertinents :
+
+Décrire les principes nécessaires au premier incrément ; les schémas détaillés,
+endpoints, configurations et tests se précisent en Research/Design/Plan.
+
+## Décisions durables / ADR
+
+Créer un ADR court pour un arbitrage aux conséquences durables : frontière
+majeure, isolation des données, contrat partagé, engagement difficile à annuler
+ou remplacement d’une décision approuvée. Plusieurs outils d’un même arbitrage
+peuvent être regroupés. Pas d’ADR systématique par composant de stack.
+Les choix usuels sont tracés ci-dessus. Un ADR utile est rédigé ici sans exiger
+de preuve technique ni une nouvelle approbation d’un choix déjà autorisé.
+
+- ADR concernés et liens, ou « aucun arbitrage nécessitant un ADR » :
+
+## Validations différées
+
+| Hypothèse / risque | Story ou suivi | Responsable / rôle | Échéance | Vérification attendue | Action si échec |
 |---|---|---|---|---|---|
-| | | | | | |
+| Faisabilité d’une intégration | … | Implementer | Execute/Verify de la story | Test du contrat | Corriger ; réviser uniquement la décision invalidée |
+| Coûts d’exploitation | … | Produit | Après implémentation, avant montée en charge | Usage et facture observés | Ajuster le dimensionnement |
 
-Catégories :
-- BLOQUANT MAINTENANT : impacte sécurité, données, contrat ou une story
-  imminente et aucune hypothèse sûre et réversible n'est possible.
-- AVANT STORY : dépendance obligatoire avant Research/Design/Plan/Execute
-  de la story indiquée ; cette story est BLOCKED jusque-là, pas tout le produit.
-- NON BLOQUANT : décision réversible sans conséquence sur l'incrément courant.
-Ne jamais reporter auth, permissions, tenant, réglementation ou conservation
-des données lorsqu'ils conditionnent déjà les premières stories.
+Ne garder que les validations pertinentes. Reporter ce registre dans le Plan
+concerné ; Verify en consigne les résultats ou le suivi encore ouvert.
+Sécurité, intégrité des données, contraintes légales ou budget impératif :
+échéance avant l’exposition, l’action irréversible ou l’engagement concerné.
+Un suivi produit après implémentation n’empêche pas le PASS s’il n’est pas
+nécessaire à l’acceptation ou à la livraison actuelle.
 
-## Schéma initial
-- structure et frontières :
-- flux de données et contrats essentiels :
-- tests pertinents et critères de sécurité :
-- développement local et exécution du premier incrément :
-- stratégie de déploiement initiale ou story qui doit la définir :
-- compromis et alternatives rejetées :
+## Gate Architecture
 
-## ADR
-Créer un ADR pour une décision à conséquences durables, difficilement
-réversible ou à risque significatif ; indiquer son impact et son statut.
-Les choix simples/réversibles restent consignés ici. Un ADR requis avant
-la première story doit être accepté avant PASS ; un ADR différé est rattaché
-à une story et ne bloque que celle-ci jusqu'à décision.
+- [ ] direction et choix utilisateur enregistrés
+- [ ] responsabilités et flux principaux compréhensibles
+- [ ] protections pertinentes définies au niveau des principes
+- [ ] validations différées affectées et échéancées
+- [ ] ADR nécessaires rédigés, sans dossier comparatif obligatoire
+- [ ] aucune contradiction indispensable ni risque critique sans mitigation
 
-## Architecture Gate
-- [ ] Contraintes critiques des premières stories comprises
-- [ ] Stack et frontières suffisantes pour les premières stories
-- [ ] Contrats, données et sécurité nécessaires explicités
-- [ ] Tests et environnement de développement initial définis
-- [ ] Décisions critiques et ADR nécessaires maintenant résolus
-- [ ] Options comparées et sources citées lorsqu'une recherche est utile
-- [ ] Décisions restantes classées, avec propriétaire et déclencheur
-- [ ] Aucun risque critique caché derrière une hypothèse
+Faire une seule vérification de cohérence, puis PASS et poursuivre vers Design
+System. Ne pas rouvrir la phase pour une préférence technique ou une preuve absente.
+
+BLOCKED seulement si une contradiction concrète empêche le premier incrément
+ou si un risque critique n’a aucune mitigation. Consigner le fait, la contrainte
+violée, le périmètre affecté et l’unique décision/information nécessaire.
+Poser une question ciblée seulement si elle est indispensable pour trancher.
+Un fait nouveau peut justifier une révision ; conserver les choix approuvés
+et poursuivre les stories indépendantes.
 
 Verdict : PASS / BLOCKED
 Motif précis si BLOCKED et prochaine action :

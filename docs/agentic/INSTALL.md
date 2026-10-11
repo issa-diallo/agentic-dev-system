@@ -96,6 +96,23 @@ Pour mettre à jour la méthode dans un projet existant, comparer d'abord les ch
 
 ## Héritage et personnalisation
 
+### Reprendre une Architecture bloquée par des preuves
+
+Après comparaison et sauvegarde, reporter les nouvelles règles de README,
+AGENTS, METHOD, WORKFLOW, SCALING, EXISTING_PROJECT, BOOTSTRAP, OPTIONAL_TOOLS,
+index, rôles et templates Architecture/ADR/Research/Plan/Verify. En LOCAL, les
+chemins sont sous `.agentic-local/`. Conserver les décisions et artefacts du
+projet cible ; ne pas remplacer son Architecture par un template vide.
+
+Prompt de reprise :
+
+> Applique le contrat court Architecture de METHOD. Conserve mes outils décidés.
+> Termine le cadrage avec les informations disponibles, sans tests de qualification,
+> benchmarks ou preuves préalables. Reporte les validations pertinentes en
+> Execute/Verify ou suivi produit, avec responsable et échéance. Si aucun cas
+> particulier indispensable ne bloque, indique Architecture PASS et poursuis
+> Design System puis les stories. Ne redemande pas les choix déjà autorisés.
+
 Les trois modes copient le même socle : index, politique modèles, contexte,
 rôles et templates. STATUS est initialisé depuis le template neutre ; aucun
 statut ou artefact de travail du dépôt source n’est hérité. Les documents produit

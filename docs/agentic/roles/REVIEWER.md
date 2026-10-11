@@ -44,6 +44,12 @@ Le reviewer n'est pas là pour confirmer l'implementer.
 - contrat/API cohérent ?
 - duplication évitable ?
 
+Respecter les choix utilisateur et le contrat court de METHOD. Une préférence
+technique ne justifie pas le retour en Architecture. Vérifier les validations
+différées échues et la présence d’un responsable/échéance pour le suivi restant ;
+ne pas exiger des preuves dont l’échéance est après implémentation. Signaler une
+contradiction concrète ou un risque critique avec faits et périmètre affecté.
+
 ### Lisibilité et taille de PR
 - [DEVELOPMENT](../DEVELOPMENT.md) : responsabilités, noms, types et fonctions ?
 - [PULL_REQUESTS](../PULL_REQUESTS.md) : objectif unique, 1 à 3 fichiers visés,

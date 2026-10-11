@@ -66,7 +66,7 @@ Pour chaque story :
 - [ ] PRD créé
 - [ ] Stories créées
 - [ ] Story Review passée
-- [ ] Architecture documentée
+- [ ] Architecture courte documentée selon son template : choix utilisateur conservés, validations différées affectées et échéancées, sans benchmark préalable
 - [ ] Design System documenté
 - [ ] STATUS.md initialisé
 - [ ] règles CI définies avant Ship
