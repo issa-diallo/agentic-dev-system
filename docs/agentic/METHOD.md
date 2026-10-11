@@ -27,6 +27,8 @@ Design
  ↓
 Plan
  ↓
+PR_SPLIT
+ ↓
 Worktree Setup
  ↓
 Execute
@@ -126,12 +128,20 @@ Un bon plan doit minimiser les décisions restantes pendant Execute.
 
 Sortie : `plan.md`.
 
-### 9. Worktree Setup
-Pour une story significative, préparer un environnement isolé et reproductible.
+### 9. PR_SPLIT
+Identifier les capacités métier, les affecter chacune à une PR autonome et
+valider couverture, contrats, DAG et vagues sans collisions. Plusieurs capacités
+séparables dans une PR bloquent Execute, même sous les cibles de taille.
+Une indivisibilité technique exige contrainte, preuve, risque et revue indépendante.
+Sortie : manifeste local selon [PR_SPLIT](templates/PR_SPLIT.md), verdict PASS/BLOCKED.
+En LIGHT, une entrée compacte dans Plan suffit ; aucun agent supplémentaire.
+
+### 10. Worktree Setup
+Pour une PR significative, préparer un environnement isolé et reproductible.
 
 Référence : `templates/WORKTREE_ENVIRONMENT.md`.
 
-### 10. Execute
+### 11. Execute
 Implémenter le plan. Rester dans le scope. Ajouter les tests.
 
 Sorties :
@@ -139,7 +149,7 @@ Sorties :
 - tests ;
 - `handoff.md`.
 
-### 11. Verify
+### 12. Verify
 Prouver que le résultat fonctionne.
 
 Evidence possibles :
@@ -153,20 +163,23 @@ Evidence possibles :
 
 Sortie : `verify.md`.
 
-### 12. Review
+### 13. Review
 Faire une revue indépendante contre story, architecture, plan, evidence et diff.
 
 Sortie : `review.md`.
 
-### 13. Goal satisfied?
+### 14. Goal satisfied?
 Pour une tâche longue ou complexe, vérifier les critères mesurables du goal.
 
 Sortie : `goal.md`.
 
 Si aucun goal spécifique n'est nécessaire, les critères d'acceptation + Verify + Review font office de goal.
 
-### 14. Ship
-Créer commits/PR, passer CI, obtenir validation humaine si requise, merger et nettoyer.
+### 15. Ship
+Préparer le commit candidat via la garde staged, contrôler PR_SCOPE contre ses
+SHA et la revue explicite (PULL_REQUESTS), puis publier la PR, passer CI et Lead
+Tech, obtenir validation humaine si requise, merger et nettoyer. Tout nouveau
+commit exige revalidation ; PR_SCOPE est un gate de livraison sur la tête réelle.
 
 ## Préparation vs exécution
 
@@ -195,7 +208,7 @@ Appliquer `SAFETY.md` et utiliser des hooks quand le harness le permet.
 ## Ce qui est interdit
 
 - Idea -> Execute
-- Story -> Execute sans Research/Design/Plan
+- Story -> Execute sans Research/Design/Plan/PR_SPLIT
 - Execute -> changement silencieux de stack
 - "ça marche" sans Verify/Evidence
 - Implementer -> auto-approval

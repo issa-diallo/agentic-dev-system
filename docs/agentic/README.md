@@ -18,7 +18,7 @@ METHOD, repérer le dernier PASS et reprendre la phase suivante.
 | Story significative | [WORKTREE_ENVIRONMENT](templates/WORKTREE_ENVIRONMENT.md) | environnement reproductible |
 | Tâche longue / complexe | [GOAL](templates/GOAL.md) | critères mesurables |
 | Écriture / correction / refactoring | [DEVELOPMENT](DEVELOPMENT.md) | code lisible, conventions et tests |
-| Découpage et revue de PR | [PULL_REQUESTS](PULL_REQUESTS.md) | objectif atomique, diff ciblé |
+| Avant Execute, découpage et revue de PR | [PULL_REQUESTS](PULL_REQUESTS.md) | PR_SPLIT PASS, DAG puis PR_SCOPE PASS |
 | Commit | [COMMITS](../../COMMITS.md) | Gitmoji, ticket et garde staged obligatoire |
 | PR à livrer | [Profil Lead Tech](roles/REVIEWER.md), [Ship](templates/SHIP.md) | avis indépendant sur la révision finale |
 | Suivi | [STATUS](STATUS.md) | état réel sans PASS fictif |
@@ -28,6 +28,7 @@ Pour chaque phase charger son template : [PRD](templates/PRD.md),
 [Architecture](templates/ARCHITECTURE.md), [ADR](templates/ADR.md),
 [Design System](templates/DESIGN_SYSTEM.md), [Research](templates/RESEARCH.md),
 [Design](templates/DESIGN.md), [Plan](templates/PLAN.md),
+[PR_SPLIT](templates/PR_SPLIT.md),
 [Execute](templates/EXECUTE.md), [Verify](templates/VERIFY.md), [Review](templates/REVIEW.md),
 [Ship](templates/SHIP.md). Artefacts de story dans `docs/agentic/work/<story>/` :
 research, design, plan, handoff, verify, review ; goal si applicable.

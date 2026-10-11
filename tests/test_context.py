@@ -13,7 +13,8 @@ SOURCE = Path(__file__).resolve().parents[1]
 def required_resources():
     docs = 'README METHOD WORKFLOW SCALING SAFETY EXISTING_PROJECT INSTALL LOCAL BOOTSTRAP CONTEXT MODELS OPTIONAL_TOOLS DEVELOPMENT PULL_REQUESTS'.split()
     return (['AGENTS.md', 'COMMITS.md', 'scripts/agentic-check.sh',
-             'scripts/agentic-staged-check.sh', 'scripts/agentic-commit.sh']
+             'scripts/agentic-staged-check.sh', 'scripts/agentic-commit.sh',
+             'scripts/agentic-pr-check.py']
             + [f'docs/agentic/{name}.md' for name in docs]
             + [str(path.relative_to(SOURCE)) for folder in ['templates', 'roles']
                for path in sorted((SOURCE/'docs/agentic'/folder).glob('*.md'))])
@@ -44,12 +45,12 @@ class ContextTests(unittest.TestCase):
         text = (SOURCE / 'AGENTS.md').read_text()
         # Includes the native communication policy; remains below the 8,764-byte baseline.
         self.assertLess(len(text.encode()), 5400)
-        for rule in ['Research/Design/Plan PASS', 'Verify obligatoire', 'review indépendante',
-                     'Critical/Major', 'merge et cleanup', 'READY_FOR_HUMAN',
+        for rule in ['seule PASS autorise', 'Research/Design/Plan PASS', 'Verify obligatoire',
+                     'review indépendante', 'Critical/Major', 'merge et cleanup', 'READY_FOR_HUMAN',
                      'BLOCKED, ADR et ARCHITECTURE', 'Fixes #<issue_number>',
                      'dépendance structurante échoue', 'secrets', 'tenant', 'rollback']:
             self.assertIn(rule, text)
-        phases = 'PRD -> Stories -> Story Review -> Architecture -> Design System -> Research -> Design -> Plan -> Worktree Setup -> Execute -> Verify -> Review -> Goal -> Ship'
+        phases = 'PRD -> Stories -> Story Review -> Architecture -> Design System -> Research -> Design -> Plan -> PR_SPLIT -> Worktree Setup -> Execute -> Verify -> Review -> Goal -> Ship'
         self.assertIn(phases, text)
         self.assertIn(phases, (SOURCE/'docs/agentic/WORKFLOW.md').read_text())
         context = (SOURCE / 'docs/agentic/CONTEXT.md').read_text()

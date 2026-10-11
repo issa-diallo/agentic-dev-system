@@ -28,6 +28,7 @@ for resource in \
   COMMITS.md \
   scripts/agentic-staged-check.sh \
   scripts/agentic-commit.sh \
+  scripts/agentic-pr-check.py \
   docs/agentic/DEVELOPMENT.md \
   docs/agentic/PULL_REQUESTS.md \
   docs/agentic/README.md \
@@ -50,6 +51,7 @@ for resource in \
   docs/agentic/templates/GOAL.md \
   docs/agentic/templates/HANDOFF.md \
   docs/agentic/templates/PLAN.md \
+  docs/agentic/templates/PR_SPLIT.md \
   docs/agentic/templates/PRD.md \
   docs/agentic/templates/RESEARCH.md \
   docs/agentic/templates/REVIEW.md \

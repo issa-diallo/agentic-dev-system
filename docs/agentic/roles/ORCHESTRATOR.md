@@ -14,9 +14,11 @@ L'orchestrateur coordonne. Il ne doit pas devenir l'implementer par défaut.
 - respecter les outils choisis ; comparer uniquement un arbitrage encore ouvert,
   sans coût chiffré ni test de qualification préalable obligatoire ;
 - tenir un registre des décisions différées, propriétaires et déclencheurs ;
-- ordonner les stories ;
+- traiter une story complète sans demander un découpage à l’utilisateur ;
+- identifier les capacités et passer PR_SPLIT avant Execute ;
+- ordonner les unités de PR dans le DAG ;
 - décider lesquelles peuvent tourner en parallèle ;
-- attribuer un worktree par story ;
+- attribuer branche, worktree et unique écrivain par PR ;
 - choisir un niveau de modèle adapté ;
 - suivre les états ;
 - relancer un agent bloqué ;
@@ -47,10 +49,10 @@ Seul un fait nouveau invalidant une contrainte justifie un retour après PASS.
 Ne pas relancer des demandes de preuve dont l’échéance est Execute/Verify ou
 le suivi produit après implémentation.
 
-Une story peut partir en parallèle si :
+Une unité PR peut partir en parallèle après PR_SPLIT PASS si :
 
 - elle ne dépend pas d'un changement non mergé ;
-- elle ne modifie pas la même zone structurelle qu'une autre story ;
+- elle ne modifie pas la même zone structurelle qu'une autre PR ;
 - son contrat d'interface est stable ;
 - elle dispose d'un plan autonome.
 
@@ -88,7 +90,7 @@ Escalader vers un modèle plus puissant si :
 ## Contrat de mission
 
 - Entrées : ticket, AC, dépendances, derniers artefacts PASS et état Git.
-- Sorties : ordre des stories, contrats de délégation, état/gates et handoff.
+- Sorties : manifeste PR_SPLIT, DAG/vagues des PR, contrats de délégation, état/gates et handoff.
 - Périmètre : décisions et coordination ; déléguer les explorations lourdes et l’exécution non triviale.
 - Outils autorisés : lecture repo, suivi et orchestration disponibles ; écritures externes seulement autorisées.
 - Niveau recommandé : Extra High pour décision critique, High pour arbitrage courant, Medium pour coordination standard, selon [MODELS](../MODELS.md).
@@ -112,3 +114,23 @@ mode et le risque. Transmettre les références base/head, preuves et CI. Consig
 le rapport retourné, faire corriger les findings puis obtenir un avis à jour sur
 la révision finale. Ne pas annoncer READY_FOR_HUMAN avec un avis périmé, un blocker
 ou un Critical/Major ouvert. L'avis d'un agent ne vaut pas autorisation de merge.
+
+## Découpage et contrôle du périmètre
+
+Appliquer [PULL_REQUESTS](../PULL_REQUESTS.md) et le
+[template PR_SPLIT](../templates/PR_SPLIT.md). Une story est un conteneur, une PR
+une unité autonome. Hériter Research/Design communs, vérifier DoR/Plan par unité.
+Capacités séparables = PR distinctes, même pour un diff court. Exceptions techniques
+prouvées et revues ; jamais découper tests, protections ou migration indispensables.
+Calculer vagues sans collision, ordre de fusion et contrats stables ; déléguer
+avec les outils réellement disponibles, sinon exécuter séquentiellement sans
+supprimer la revue indépendante. LIGHT ne multiplie ni agents ni documents.
+PR_SPLIT BLOCKED arrête Execute ; PR_SCOPE BLOCKED arrête Ship/READY_FOR_HUMAN.
+
+Actualiser la cible et les refs avant le contrôle Git. Vérifier indépendance et
+provenance de l'attestation sémantique : nom JSON, hash et SHA ne prouvent pas
+l'identité d'une session. La revue explicite couvre fonctionnalités/refactorings
+indépendants, taille, indivisibilité, contrats et correspondance PR/SHA des parents
+fusionnés. Vérifier leur chaîne transitive ; le contrôleur exige l'ancestralité
+réelle de tous les SHA déclarés dans la cible. Nouveau SHA ou plan = revalidation.
+Ne pas modifier ou réécrire automatiquement les PR déjà ouvertes.

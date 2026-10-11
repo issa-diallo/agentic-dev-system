@@ -1,6 +1,6 @@
 # Workflow canonique
 
-`PRD -> Stories -> Story Review -> Architecture -> Design System -> Research -> Design -> Plan -> Worktree Setup -> Execute -> Verify -> Review -> Goal -> Ship`
+`PRD -> Stories -> Story Review -> Architecture -> Design System -> Research -> Design -> Plan -> PR_SPLIT -> Worktree Setup -> Execute -> Verify -> Review -> Goal -> Ship`
 
 ## 0. Choisir le mode
 
@@ -50,8 +50,14 @@ Définir ce qui doit être construit.
 ### Plan
 Décider comment l'intégrer avant de coder.
 
+### PR_SPLIT
+Appliquer [PULL_REQUESTS](PULL_REQUESTS.md) après Plan et avant Execute :
+capacités, AC/tests/fichiers/contrats par PR, DAG, vagues, stack et isolation.
+PR_SPLIT PASS obligatoire. Une story peut produire plusieurs PR ; les gates
+Execute à Ship sont évalués pour chacune. En LIGHT, intégrer une entrée à Plan.
+
 ### Worktree Setup
-Isoler l'exécution lorsque la story est significative ou risquée.
+Isoler l'exécution lorsque la PR est significative ou risquée.
 
 ### Execute
 Implémenter sans redécider le produit ni l'architecture.
@@ -68,7 +74,7 @@ Pour les tâches longues, continuer jusqu'à critères mesurables SATISFIED ou b
 ### Ship
 Chaque commit du workflow utilise le wrapper et la garde staged de
 [COMMITS](../../COMMITS.md) ; les artefacts personnels restent locaux.
-PR, CI, examen final selon le [profil Lead Tech](roles/REVIEWER.md), validation,
+PR_SCOPE PASS (contrôle Git et revue métier explicite), PR, CI, examen final selon le [profil Lead Tech](roles/REVIEWER.md), validation,
 merge, cleanup. Respecter son déclenchement LIGHT/STANDARD/LARGE. Avant livraison,
 le verdict et les preuves doivent porter sur la base et la tête actuelles de la PR.
 
@@ -100,12 +106,17 @@ Research PASS des stories concernées, avec socle observé compatible et contrat
 stabilisés. Dans les deux cas, respecter les dépendances et isoler les worktrees :
 
 ```text
-S01 Research -> Design -> Plan -> Worktree -> Execute -> Verify -> Review -> Ship
-S02 Research -> Design -> Plan -> Worktree -> Execute -> Verify -> Review -> Ship
-S03 Research -> Design -> Plan -> Worktree -> Execute -> Verify -> Review -> Ship
+S01/PR1 Research -> Design -> Plan -> PR_SPLIT -> Worktree -> Execute -> Verify -> Review -> Ship
+S01/PR2 Research -> Design -> Plan -> PR_SPLIT -> Worktree -> Execute -> Verify -> Review -> Ship
+S02/PR1 Research -> Design -> Plan -> PR_SPLIT -> Worktree -> Execute -> Verify -> Review -> Ship
 ```
 
-Ne paralléliser que lorsque les dépendances et contrats le permettent.
+PR_SPLIT produit les vagues du DAG ; seules les PR sans dépendance non fusionnée,
+à contrats stables et fichiers disjoints sont déléguées en parallèle. Un seul
+écrivain par worktree. Une stack peut se préparer après stabilisation du contrat
+parent ; Verify/Review portent alors sur parent..enfant. Ship attend la fusion
+des parents et le contrôle du delta sur la cible actuelle. Si une dépendance
+structurante échoue, bloquer les PR dépendantes, pas les PR indépendantes.
 
 ## Definition of Ready for Execute
 
@@ -115,6 +126,7 @@ Une story est Ready for Execute si :
 - research PASS ;
 - design PASS ;
 - plan PASS ;
+- PR_SPLIT PASS, capacités séparables affectées à des PR distinctes ;
 - architecture compatible et aucune décision différée requise
   pour cette story encore ouverte ;
 - fichiers/zones impactées identifiés ;
@@ -130,6 +142,7 @@ Si ce n'est pas vrai, ne pas coder.
 
 ## Definition of Done
 
+- PR_SCOPE PASS
 - Execute PASS
 - Verify PASS
 - Review PASS/PASS_WITH_MINOR
@@ -142,13 +155,13 @@ Si ce n'est pas vrai, ne pas coder.
 ## États et isolation
 
 États : BACKLOG, PRD, STORIES, STORY_REVIEW, ARCHITECTURE, DESIGN_SYSTEM,
-RESEARCH, DESIGN, PLANNED, IMPLEMENTING, VERIFY, REVIEW, BLOCKED, PR_OPEN,
+RESEARCH, DESIGN, PLANNED, PR_SPLIT, IMPLEMENTING, VERIFY, REVIEW, BLOCKED, PR_OPEN,
 CI, READY_FOR_HUMAN, DONE. BLOCKED peut survenir partout.
 Une mission limitée à ouvrir une PR reste READY_FOR_HUMAN après gates et CI ;
 DONE exige merge et cleanup. Ne jamais merger sans autorisation applicable.
-Story non triviale : identifiant, branche, worktree, implementer, reviewer
-indépendant et PR dédiés. Convention `worktrees/<ticket>-<slug>` et branches
+PR non triviale : identifiant, branche, worktree, implementer, reviewer
+indépendant dédiés. Convention `worktrees/<ticket>-<slug>` et branches
 `feat/<ticket>-<slug>`, `fix/<ticket>-<slug>` ou `chore/<ticket>-<slug>` selon l’intention.
 Deux agents ne modifient jamais le même worktree simultanément.
-L’orchestrateur calcule les dépendances, commence par les stories structurantes,
+L’orchestrateur calcule les dépendances, commence par les PR structurantes,
 évite les collisions et bloque la vague si une dépendance structurante échoue.

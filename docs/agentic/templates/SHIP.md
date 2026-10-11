@@ -2,6 +2,8 @@
 
 ## Preconditions
 
+- [ ] PR_SPLIT PASS
+- [ ] PR_SCOPE PASS sur le manifeste et les SHA actuels
 - [ ] Execute PASS
 - [ ] Verify PASS
 - [ ] Review PASS ou PASS_WITH_MINOR
@@ -26,6 +28,21 @@
 - description complète :
 - evidence liée :
 - screenshots si UI :
+
+## Contrôle de périmètre PR_SCOPE
+
+- manifeste / hash canonique, unité PR, raison métier principale :
+- capacités, AC/tests/fichiers/contrats propres ; Research/Design hérités :
+- commande `agentic-pr-check.py ship` et JSON PASS/BLOCKED :
+- SHA base réelle, tête et cible actualisées ; renames/binaires/mesures réelles :
+- dépassement justifié et revu, aucun refactoring/capacité indépendante :
+- parents effectivement fusionnés (URL PR + SHA), ordre et contrats compatibles :
+- attestation reviewer indépendante, hash/SHA exacts, preuves explicites par axe :
+- provenance session/identité vérifiée par orchestrateur :
+
+Voir [PR_SPLIT](PR_SPLIT.md). BLOCKED empêche READY_FOR_HUMAN. Ni ce contrôle
+ni une attestation déclarative ne remplacent Verify/Review/CI/Lead Tech. Après
+changement du manifeste ou des SHA, revalider sans réécrire les PR existantes.
 
 ## CI
 
@@ -72,4 +89,7 @@ ni Review ni l'autorisation de fusion. Après tout nouveau commit, revalider.
 - [ ] STATUS mis à jour
 - [ ] issue fermée
 
-Verdict : DONE / BLOCKED
+Verdict : READY_FOR_HUMAN / DONE / BLOCKED
+
+Mission limitée à une PR : READY_FOR_HUMAN après tous les gates et CI.
+DONE exige également fusion autorisée et cleanup.

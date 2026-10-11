@@ -6,7 +6,7 @@ Le même système doit fonctionner pour un petit script comme pour un SaaS compl
 
 La méthode ne change pas :
 
-`PRD -> Stories -> Story Review -> Architecture -> Design System -> Research -> Design -> Plan -> Execute -> Verify -> Review -> Ship`
+`PRD -> Stories -> Story Review -> Architecture -> Design System -> Research -> Design -> Plan -> PR_SPLIT -> Worktree Setup -> Execute -> Verify -> Review -> Ship`
 
 Ce qui change est la profondeur des artefacts. Le point d’entrée dépend du contexte :
 un ticket cadré sur projet existant peut commencer à Research selon
@@ -31,6 +31,8 @@ Règles :
   contrats essentiels ; les décisions futures sont classées et reportées ;
 - Design System peut être minimal ;
 - Research + Design + Plan peuvent être courts mais doivent exister ;
+- PR_SPLIT tient dans Plan : une capacité, une PR, fichiers/AC/tests/contrats,
+  aucune dépendance si applicable ; pas de dossier ni délégation supplémentaires ;
 - Verify reste obligatoire ;
 - Review peut être légère mais indépendante pour les changements non triviaux.
 
@@ -43,7 +45,7 @@ Objectif : préparer suffisamment pour éviter les aller-retours sans ralentir l
 Règles :
 - artefacts complets ;
 - architecture courte + ADR ciblés sur les arbitrages durables ;
-- worktree par story significative ;
+- worktree par PR significative ;
 - environnement reproductible ;
 - goals mesurables quand utile ;
 - evidence de vérification ;
@@ -65,7 +67,7 @@ Règles :
 Règles supplémentaires :
 - dependency map explicite ;
 - ADR ciblés obligatoires pour les arbitrages durables, regroupables ;
-- worktree isolé par story ;
+- worktree isolé par PR ;
 - scripts d'environnement ;
 - goal mesurable ;
 - evidence complète ;
