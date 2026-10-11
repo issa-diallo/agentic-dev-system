@@ -59,9 +59,17 @@ périmètre. Le Design de story reste requis pour les comportements ou contrats.
 - Besoin ambigu : préciser le ticket ; si le périmètre devient important,
   reprendre PRD → Stories → Story Review → Architecture → Design System.
 - Changement structurant (stack, auth, données, contrats majeurs, etc.) :
-  marquer la story BLOCKED, créer ou mettre à jour l’ADR et ARCHITECTURE.md,
-  faire valider la décision, puis réviser Research/Design/Plan avant Execute.
+  consigner la décision dans l’ADR et ARCHITECTURE.md, puis adapter
+  Research/Design/Plan. L’autorisation utilisateur déjà donnée suffit.
+  Si un fait nouveau invalide un choix approuvé, seules les stories affectées
+  sont BLOCKED jusqu’à résolution et validation du nouveau choix.
 - Risque critique non traité : rester BLOCKED, même si la documentation existe.
+
+Appliquer le contrat court de METHOD : conserver les choix utilisateur, ne pas
+exiger de comparaison ou de preuve préalable, ni rouvrir une décision pour une
+préférence. Tracer les validations différées dans le Plan. Une révision après PASS
+exige un fait nouveau invalidant une contrainte ; seules les stories affectées
+sont bloquées. Une autorisation déjà donnée ne demande pas une seconde validation.
 
 ## Statuts et contrôle
 

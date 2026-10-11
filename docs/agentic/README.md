@@ -14,7 +14,7 @@ METHOD, repérer le dernier PASS et reprendre la phase suivante.
 | Installation / usage personnel | [INSTALL](INSTALL.md), [LOCAL](LOCAL.md) si LOCAL | activation explicite |
 | Choix du niveau / délégation | [MODELS](MODELS.md), rôle concerné ci-dessous | capacité et contrat |
 | Tâche longue, recherche, reprise | [CONTEXT](CONTEXT.md), [HANDOFF](templates/HANDOFF.md) | checkpoint vérifiable |
-| Outil tiers envisagé | [OPTIONAL_TOOLS](OPTIONAL_TOOLS.md) | qualification avant activation |
+| Outil tiers envisagé | [OPTIONAL_TOOLS](OPTIONAL_TOOLS.md) | choix sans test préalable ; contrôles lors de l’intégration |
 | Story significative | [WORKTREE_ENVIRONMENT](templates/WORKTREE_ENVIRONMENT.md) | environnement reproductible |
 | Tâche longue / complexe | [GOAL](templates/GOAL.md) | critères mesurables |
 | Écriture / correction / refactoring | [DEVELOPMENT](DEVELOPMENT.md) | code lisible, conventions et tests |

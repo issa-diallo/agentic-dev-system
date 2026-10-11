@@ -59,14 +59,14 @@ class ContextTests(unittest.TestCase):
         method = (SOURCE/'docs/agentic/METHOD.md').read_text()
         workflow = (SOURCE/'docs/agentic/WORKFLOW.md').read_text()
         orchestrator = (SOURCE/'docs/agentic/roles/ORCHESTRATOR.md').read_text()
-        for word in ['Décisions reportées', 'BLOQUANT MAINTENANT',
-                     'AVANT STORY', 'NON BLOQUANT', 'Déclencheur / story',
-                     'sources', 'Architecture Gate']:
+        for word in ['Validations différées', 'Responsable / rôle',
+                     'Échéance', 'Story ou suivi', 'Gate Architecture']:
             self.assertIn(word, architecture)
         self.assertNotIn('stack complète sélectionnée', architecture)
-        self.assertIn('difficilement réversible', method)
+        self.assertIn('difficilement réversibles', method)
         self.assertIn('aucune décision différée requise', workflow)
-        self.assertIn('trois options', orchestrator)
+        self.assertIn('une preuve prévue en Execute/Verify ne bloque pas', orchestrator)
+        self.assertNotIn('trois options', orchestrator)
 
     def test_native_communication_contract(self):
         text = (SOURCE/'AGENTS.md').read_text()
@@ -86,6 +86,49 @@ class ContextTests(unittest.TestCase):
         for safeguard in ['retours des sous-agents', 'ne remplace ni un artefact',
                           'PASS non prouvé', 'non exécuté', 'Aucun de ces outils']:
             self.assertIn(safeguard, context)
+
+    def test_architecture_prepares_without_execution_proofs(self):
+        architecture = (SOURCE/'docs/agentic/templates/ARCHITECTURE.md').read_text()
+        for rule in ['direction exploitable pour développer',
+                     'Aucun benchmark, prototype, coût chiffré',
+                     'Pas d’ADR systématique par composant',
+                     'sans lui demander', 'de le justifier à nouveau',
+                     'une seule vérification de cohérence',
+                     'contradiction concrète', 'risque critique',
+                     'poursuivre les stories indépendantes']:
+            self.assertIn(rule, architecture)
+        for obsolete in ['Option A', 'Option B', 'stack complète sélectionnée',
+                         'alternatives rejetées documentées']:
+            self.assertNotIn(obsolete, architecture)
+        adr = (SOURCE/'docs/agentic/templates/ADR.md').read_text()
+        self.assertIn('ACCEPTED directement', adr)
+        self.assertIn('ne crée pas un gate supplémentaire', adr)
+        self.assertIn('aucun test de qualification', adr)
+        self.assertNotIn('### Option A', adr)
+        optional = (SOURCE/'docs/agentic/OPTIONAL_TOOLS.md').read_text()
+        self.assertIn('sans pilote, benchmark ou test de qualification obligatoire', optional)
+        self.assertIn('seulement si un pilote est explicitement demandé', optional)
+
+    def test_architecture_validation_handoff_and_reentry(self):
+        architecture = (SOURCE/'docs/agentic/templates/ARCHITECTURE.md').read_text()
+        for column in ['Hypothèse / risque', 'Story ou suivi', 'Responsable / rôle',
+                       'Échéance', 'Vérification attendue', 'Action si échec']:
+            self.assertIn(column, architecture)
+        for file in ['templates/PLAN.md', 'templates/VERIFY.md']:
+            text = (SOURCE/'docs/agentic'/file).read_text()
+            self.assertIn('Validations différées de l’architecture', text)
+            self.assertIn('Action si échec', text)
+            self.assertIn('suivi produit', text)
+        method = (SOURCE/'docs/agentic/METHOD.md').read_text()
+        self.assertIn('seul un fait nouveau', method)
+        self.assertIn('seules les stories affectées', method)
+        self.assertIn('budget impératif', method)
+        self.assertIn('avant\nl’exposition', method)
+        workflow = (SOURCE/'docs/agentic/WORKFLOW.md').read_text()
+        self.assertIn('seulement sur fait nouveau', workflow)
+        self.assertNotIn('si décision structurante invalide', workflow)
+        role = (SOURCE/'docs/agentic/roles/REVIEWER.md').read_text()
+        self.assertIn('validations\ndifférées échues', role)
 
     def test_lead_tech_review_contract(self):
         role = (SOURCE/'docs/agentic/roles/REVIEWER.md').read_text()

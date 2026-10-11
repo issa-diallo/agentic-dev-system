@@ -99,6 +99,14 @@ les cinq documents produit. Un nouveau produit ou gros périmètre suit le cycle
 complet. La stack est choisie en Architecture et les décisions structurantes
 sont documentées par ADR.
 
+Architecture reste courte : vos choix d’outils sont enregistrés, les principes
+utiles au premier incrément sont fixés, puis le travail avance. Aucun benchmark,
+prototype ou coût chiffré n’est demandé pour ce gate. Les ADR ciblent les
+arbitrages durables, sans dossier par outil. Les validations techniques sont
+planifiées en Execute/Verify ; les coûts d’exploitation peuvent être suivis
+après implémentation par le produit. Chaque suivi a un responsable et une échéance.
+Un retour en Architecture exige un fait nouveau invalidant une contrainte.
+
 ## Installer dans un projet
 
 Prérequis : Bash, un dossier cible existant et Git pour le clonage et le mode LOCAL.

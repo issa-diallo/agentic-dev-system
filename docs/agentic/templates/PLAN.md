@@ -55,6 +55,17 @@
 - risque :
   - mitigation :
 
+## Validations différées de l’architecture
+
+| Hypothèse / risque | Responsable / rôle | Échéance | Vérification | Action si échec |
+|---|---|---|---|---|
+| … | … | Execute/Verify ou suivi produit | … | … |
+
+Reprendre les entrées pertinentes du registre Architecture ; pas de preuve
+préalable exigée pour leur planification. Les contraintes impératives sont
+vérifiées avant l’exposition ou l’engagement concerné. Les coûts d’exploitation
+et optimisations après implémentation ont un suivi produit identifié.
+
 ## Fichiers prévus
 
 - create:

@@ -46,10 +46,10 @@ Pour une story significative, environnement reproductible selon
 Tâche longue/complexe : [CONTEXT](docs/agentic/CONTEXT.md) et goal mesurable
 selon [GOAL](docs/agentic/templates/GOAL.md), jusqu’à SATISFIED ou blocker réel.
 
-Stack décidée en Architecture ; socle observé suffit sans changement structurant
-sur l’existant. Détails et ADR obligatoires dans [METHOD](docs/agentic/METHOD.md).
-Changement de décision approuvée : BLOCKED, ADR et ARCHITECTURE mis à jour,
-validation du choix, puis reprise. Aucun remplacement silencieux.
+Architecture courte, outils décidés sans qualification. Preuves Execute/Verify,
+coûts après implémentation ; suivi responsable/échéance. [METHOD](docs/agentic/METHOD.md).
+Choix invalidé par fait nouveau : stories affectées BLOCKED, ADR et ARCHITECTURE
+mis à jour puis validation. Autorisation existante suffit ; aucun remplacement silencieux.
 
 Lire et appliquer [SAFETY](docs/agentic/SAFETY.md) : secrets protégés, actions
 sensibles validées, hooks si disponibles sans substituer les règles.
