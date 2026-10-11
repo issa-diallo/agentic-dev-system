@@ -11,7 +11,7 @@ METHOD, repérer le dernier PASS et reprendre la phase suivante.
 | Première utilisation, phase ambiguë, architecture | [METHOD](METHOD.md) | pipeline et décisions applicables |
 | Nouveau produit / gros périmètre | [BOOTSTRAP](BOOTSTRAP.md), documents de docs/product, ADR | cinq gates produit |
 | Ticket sur existant | [EXISTING_PROJECT](EXISTING_PROJECT.md) | cadrage et socle observé |
-| Installation / usage personnel | [INSTALL](INSTALL.md), [LOCAL](LOCAL.md) si LOCAL | activation explicite |
+| Installation / usage personnel | [INSTALL](INSTALL.md), [LOCAL](LOCAL.md) si LOCAL | local par défaut, activation, migration |
 | Choix du niveau / délégation | [MODELS](MODELS.md), rôle concerné ci-dessous | capacité et contrat |
 | Tâche longue, recherche, reprise | [CONTEXT](CONTEXT.md), [HANDOFF](templates/HANDOFF.md) | checkpoint vérifiable |
 | Outil tiers envisagé | [OPTIONAL_TOOLS](OPTIONAL_TOOLS.md) | choix sans test préalable ; contrôles lors de l’intégration |
@@ -19,7 +19,7 @@ METHOD, repérer le dernier PASS et reprendre la phase suivante.
 | Tâche longue / complexe | [GOAL](templates/GOAL.md) | critères mesurables |
 | Écriture / correction / refactoring | [DEVELOPMENT](DEVELOPMENT.md) | code lisible, conventions et tests |
 | Découpage et revue de PR | [PULL_REQUESTS](PULL_REQUESTS.md) | objectif atomique, diff ciblé |
-| Commit | [COMMITS](../../COMMITS.md) | Gitmoji et ticket |
+| Commit | [COMMITS](../../COMMITS.md) | Gitmoji, ticket et garde staged obligatoire |
 | PR à livrer | [Profil Lead Tech](roles/REVIEWER.md), [Ship](templates/SHIP.md) | avis indépendant sur la révision finale |
 | Suivi | [STATUS](STATUS.md) | état réel sans PASS fictif |
 

@@ -25,7 +25,7 @@ la fusion. Le système définit les règles pour obtenir :
 Par exemple, pour ajouter un export CSV : vous décrivez le besoin ; l'agent
 précise les critères et le plan ; l'implémentation se fait dans un worktree dédié ;
 les tests vérifient le résultat ; un autre agent effectue la review ; un agent
-Lead Tech examine la PR et vous remet un avis technique avant votre décision de fusion. Les étapes et preuves restent dans le dépôt.
+Lead Tech examine la PR et vous remet un avis technique avant votre décision de fusion. Les étapes et preuves personnelles restent dans le dossier local exclu de Git.
 
 ## Qui examine la PR avant la fusion ?
 
@@ -117,15 +117,24 @@ git clone git@github.com:issa-diallo/agentic-dev-system.git
 
 | Installation | Commande depuis le dossier contenant le clone | Effet |
 |---|---|---|
-| Nouveau produit | `./agentic-dev-system/install-agentic.sh /chemin/du/projet` | Socle et cinq templates produit |
-| Projet existant, méthode partagée | `./agentic-dev-system/install-agentic.sh --existing /chemin/du/projet` | Socle sans documents produit |
-| Usage personnel dans un dépôt d’équipe | `./agentic-dev-system/install-agentic.sh --local /chemin/du/projet` | Socle dans `.agentic-local/`, exclu de Git |
+| Usage local par défaut | `./agentic-dev-system/install-agentic.sh /chemin/du/projet` | Socle dans `.agentic-local/`, exclu de Git |
+| Usage local explicite | `./agentic-dev-system/install-agentic.sh --local --existing /chemin/du/projet` | Même protection ; aucun template produit créé |
+| Méthode partagée, nouveau produit | `./agentic-dev-system/install-agentic.sh --shared /chemin/du/projet` | Socle versionnable et cinq templates produit |
+| Méthode partagée, projet existant | `./agentic-dev-system/install-agentic.sh --shared --existing /chemin/du/projet` | Socle versionnable sans documents produit |
 
-LOCAL exige la racine d’un dépôt Git, préserve les fichiers de l’équipe et
-nécessite une [activation explicite](docs/agentic/LOCAL.md). Les règles de
-l’équipe restent prioritaires. Les collisions sont refusées ; aucune mise à jour
-ne force l’écrasement des personnalisations. Voir [INSTALL](docs/agentic/INSTALL.md)
-pour les protections, mises à jour et diagnostics.
+LOCAL exige la racine d’un dépôt Git (exécuter `git init` explicitement pour un
+nouveau dossier), préserve les fichiers de l’équipe et nécessite une
+[activation explicite](docs/agentic/LOCAL.md). `--existing` seul reste local.
+Les règles de l’équipe restent prioritaires. Les collisions sont refusées ;
+aucune mise à jour ne force l’écrasement des personnalisations. Voir
+[INSTALL](docs/agentic/INSTALL.md) pour les protections, mises à jour et la
+migration des anciens fichiers déjà suivis.
+
+Les commits du workflow passent obligatoirement par `agentic-commit.sh` après
+staging explicite : sa garde refuse les fichiers personnels, même ajoutés avec
+`git add -f`. Aucun hook ni réglage Git global n’est installé. Les documents
+métier, ADR approuvés, règles d’équipe et configurations applicatives restent
+versionnables. Voir [COMMITS](COMMITS.md).
 
 Après installation partagée, demander à l’agent :
 
@@ -195,7 +204,9 @@ Ce contrôle vérifie la présence des ressources, pas le passage des gates.
 Pour contribuer à ce dépôt, Python 3 permet d’exécuter les tests sans package externe :
 
 ```bash
-bash -n install-agentic.sh scripts/agentic-check.sh
+for script in install-agentic.sh scripts/agentic*.sh; do
+  bash -n "$script" || exit
+done
 python3 -m unittest discover -s tests -v
 git diff --check
 ```

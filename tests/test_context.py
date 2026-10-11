@@ -12,7 +12,8 @@ SOURCE = Path(__file__).resolve().parents[1]
 
 def required_resources():
     docs = 'README METHOD WORKFLOW SCALING SAFETY EXISTING_PROJECT INSTALL LOCAL BOOTSTRAP CONTEXT MODELS OPTIONAL_TOOLS DEVELOPMENT PULL_REQUESTS'.split()
-    return (['AGENTS.md', 'COMMITS.md', 'scripts/agentic-check.sh']
+    return (['AGENTS.md', 'COMMITS.md', 'scripts/agentic-check.sh',
+             'scripts/agentic-staged-check.sh', 'scripts/agentic-commit.sh']
             + [f'docs/agentic/{name}.md' for name in docs]
             + [str(path.relative_to(SOURCE)) for folder in ['templates', 'roles']
                for path in sorted((SOURCE/'docs/agentic'/folder).glob('*.md'))])
@@ -161,7 +162,7 @@ class ContextTests(unittest.TestCase):
                         web = repo / 'apps/web/AGENTS.md'
                         web.parent.mkdir(parents=True)
                         web.write_text('Web contract: consume stable API; run browser tests.\n')
-                    args = [] if mode == 'PRODUCT' else ['--' + mode.lower()]
+                    args = ['--shared'] if mode == 'PRODUCT' else (['--shared', '--existing'] if mode == 'EXISTING' else [])
                     subprocess.run(['bash', str(SOURCE/'install-agentic.sh'), *args, str(repo)], check=True, capture_output=True)
                     dest = repo / '.agentic-local' if mode == 'LOCAL' else repo
                     self.assertEqual(broken_links(dest), [])
@@ -200,7 +201,7 @@ class ContextTests(unittest.TestCase):
                     target.mkdir()
                     subprocess.run(['git', 'init', '-q', str(target)], check=True)
                     before = {str(p.relative_to(target)):p.read_bytes() for p in target.rglob('*') if p.is_file()}
-                    args=[] if mode=='PRODUCT' else ['--'+mode.lower()]
+                    args=['--shared'] if mode=='PRODUCT' else (['--shared', '--existing'] if mode=='EXISTING' else [])
                     result=subprocess.run(['bash', str(source/'install-agentic.sh'), *args, str(target)], capture_output=True)
                     self.assertNotEqual(result.returncode, 0)
                     after={str(p.relative_to(target)):p.read_bytes() for p in target.rglob('*') if p.is_file()}
@@ -251,7 +252,7 @@ class ContextTests(unittest.TestCase):
             shutil.copytree(SOURCE, source, ignore=shutil.ignore_patterns('.git', '__pycache__'))
             (source/'docs/agentic/STATUS.md').write_text('SOURCE PRIVATE STORY PASS\n')
             target=Path(tmp)/'target'; target.mkdir()
-            subprocess.run(['bash', str(source/'install-agentic.sh'), str(target)], check=True, capture_output=True)
+            subprocess.run(['bash', str(source/'install-agentic.sh'), '--shared', str(target)], check=True, capture_output=True)
             self.assertNotIn('SOURCE PRIVATE', (target/'docs/agentic/STATUS.md').read_text())
             self.assertNotEqual((target/'docs/product/PRD.md').read_bytes(), (SOURCE/'docs/product/PRD.md').read_bytes())
 

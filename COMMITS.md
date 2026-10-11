@@ -367,6 +367,52 @@ Avant de proposer ou créer un commit, l’agent doit vérifier que :
 
 Si une de ces règles n’est pas satisfaite, ne pas créer le commit.
 
+## Contrôle obligatoire de l’index avant chaque commit Agentic
+
+Versionner le code, les tests, les documents métier, les ADR approuvés et la
+configuration nécessaire à l’application. Garder localement la méthode
+personnelle, les notes, statuts, checkpoints et preuves de story. Même en
+installation partagée, `docs/agentic/work/` et `docs/agentic/STATUS.md` sont des
+artefacts internes personnels. Ne pas déplacer ces contenus vers un chemin
+métier pour contourner la séparation. Les règles AGENTS d’équipe et les documents
+`docs/product/`, `docs/adr/`, `.github/` ou `.codex/` ne sont pas interdits par nom.
+
+Après `git add -- <fichiers métier>` et inspection de `git diff --cached`, chaque
+commit effectué par le workflow doit utiliser, depuis la racine du projet :
+
+```bash
+bash .agentic-local/scripts/agentic-commit.sh -F /chemin/vers/message-commit.txt
+```
+
+En installation partagée ou dans le dépôt source :
+`bash scripts/agentic-commit.sh -F /chemin/vers/message-commit.txt`.
+La garde `agentic-staged-check.sh` est exécutée juste avant `git commit` et tout
+échec empêche le commit. Elle contrôle les chemins staged, les sources et cibles
+des renames/copies détectés par Git, ainsi que l’exclusion effective du dossier
+local. Les copies de blobs vides vers des fichiers métier sont permises : elles
+n’exposent aucun contenu personnel ; les cibles personnelles et les renames
+restent refusés. Les gitlinks sont contrôlés même si la configuration du projet
+masque les submodules dans le diff. En `--amend`, la garde compare le commit
+résultant au parent de HEAD (arbre vide pour une racine), pour vérifier aussi
+les fichiers introduits par le commit remplacé. Les suppressions pures d’index pour migration restent permises.
+Une liste locale NUL de chemins hérités personnels peut compléter les chemins
+connus ; suivre [la migration](docs/agentic/INSTALL.md#migrer-une-installation-ancienne).
+
+Le wrapper accepte `-m`/`--message`, `-F`/`--file`, `--amend`, `--no-edit`,
+`--allow-empty` et `--signoff`/`-s`. Il refuse les chemins et options qui changent
+l’index après contrôle (`-a`, `--include`, `--only`, modes interactifs, etc.).
+Un seul écrivain gère l’index pendant le contrôle et le commit. Ne pas remplacer
+le wrapper par un `git commit` direct en cas de refus ; corriger le staging ou
+les exclusions puis relancer. Les hooks existants du projet restent exécutés.
+
+`git add -A` et `git add .` respectent l’exclusion locale, mais `git add -f` et
+les fichiers déjà suivis la contournent. La garde ajoute cette seconde protection.
+Elle ne configure aucun hook : un commit manuel direct hors workflow n’est pas
+intercepté. Elle ne classifie pas le contenu d’un fichier au nom métier ; une
+copie entièrement réécrite peut échapper à la détection Git des renames/copies.
+L’agent doit donc aussi inspecter le diff et conserver les travaux personnels
+aux chemins locaux. Les règles de messages de commit de l’équipe priment en LOCAL.
+
 ## Un commit logique final par Pull Request
 
 La PR fusionnée doit présenter un seul commit cohérent avec son objectif.

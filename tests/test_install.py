@@ -28,14 +28,14 @@ class InstallTests(unittest.TestCase):
         return result
 
     def test_fresh_product(self):
-        self.install()
+        self.install('--shared')
         for name in ['PRD', 'STORIES', 'STORY_REVIEW', 'ARCHITECTURE', 'DESIGN_SYSTEM']:
             self.assertTrue((self.repo / f'docs/product/{name}.md').is_file())
         self.assertEqual(list((self.repo / 'docs/agentic/work').iterdir()), [])
         subprocess.run(['bash', 'scripts/agentic-check.sh'], cwd=self.repo, check=True, capture_output=True)
 
     def test_existing(self):
-        self.install('--existing')
+        self.install('--shared', '--existing')
         self.assertFalse((self.repo / 'docs/product').exists())
         self.assertFalse((self.repo / 'docs/adr').exists())
         subprocess.run(['bash', 'scripts/agentic-check.sh', '--existing'], cwd=self.repo, check=True, capture_output=True)
@@ -60,7 +60,7 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(exclude.read_text(), saved)
 
     def test_team_unignore_refused_and_exclude_restored(self):
-        for pattern in ['!.agentic-local/', '!.agentic-local/\n!.agentic-local/docs/\n!.agentic-local/docs/agentic/\n!.agentic-local/docs/agentic/METHOD.md']:
+        for pattern in ['!.agentic-local/\n.agentic-local/*\n!.agentic-local/future-private.txt', '!.agentic-local/', '!.agentic-local/\n!.agentic-local/docs/\n!.agentic-local/docs/agentic/\n!.agentic-local/docs/agentic/METHOD.md']:
             with self.subTest(pattern=pattern):
                 (self.repo / '.gitignore').write_text(pattern + '\n')
                 exclude = self.repo / '.git/info/exclude'
@@ -71,7 +71,7 @@ class InstallTests(unittest.TestCase):
 
     def test_collision_has_no_side_effect(self):
         (self.repo / 'AGENTS.md').write_text('team')
-        self.install('--existing', ok=False)
+        self.install('--shared', '--existing', ok=False)
         self.assertFalse((self.repo / 'docs').exists())
         self.assertEqual((self.repo / 'AGENTS.md').read_text(), 'team')
 
@@ -79,7 +79,7 @@ class InstallTests(unittest.TestCase):
         outside = self.root / 'outside'
         outside.mkdir()
         (self.repo / 'docs').symlink_to(outside, target_is_directory=True)
-        self.install(ok=False)
+        self.install('--shared', ok=False)
         self.assertEqual(list(outside.iterdir()), [])
 
     def test_tracked_deleted_local_path_refused(self):
@@ -102,13 +102,15 @@ class InstallTests(unittest.TestCase):
 
     def test_invalid_options_and_force(self):
         self.install('--unknown', ok=False)
+        self.install('--local', '--shared', ok=False)
+        self.install('--shared', '--local', ok=False)
         self.install(force='1', ok=False)
         self.assertFalse((self.repo / 'docs').exists())
 
     def test_non_git_and_subdir_refused(self):
         plain = self.root / 'plain'
         plain.mkdir()
-        self.install('--local', target=plain, ok=False)
+        self.install(target=plain, ok=False)
         subdir = self.repo / 'subdir'
         subdir.mkdir()
         self.install('--local', target=subdir, ok=False)
