@@ -38,6 +38,7 @@ for source in \
   scripts/agentic-check.sh \
   scripts/agentic-staged-check.sh \
   scripts/agentic-commit.sh \
+  scripts/agentic-pr-check.py \
   docs/agentic/README.md \
   docs/agentic/METHOD.md \
   docs/agentic/WORKFLOW.md \
@@ -58,6 +59,7 @@ for source in \
   docs/agentic/templates/GOAL.md \
   docs/agentic/templates/HANDOFF.md \
   docs/agentic/templates/PLAN.md \
+  docs/agentic/templates/PR_SPLIT.md \
   docs/agentic/templates/PRD.md \
   docs/agentic/templates/RESEARCH.md \
   docs/agentic/templates/REVIEW.md \
@@ -124,6 +126,7 @@ if [ "$MODE" = LOCAL ]; then
     .agentic-local/scripts/agentic-check.sh
     .agentic-local/scripts/agentic-staged-check.sh
     .agentic-local/scripts/agentic-commit.sh
+    .agentic-local/scripts/agentic-pr-check.py
     .agentic-local/docs/agentic/STATUS.md
     .agentic-local/docs/agentic/work/probe/research.md)
   while IFS= read -r -d '' source; do
@@ -157,7 +160,7 @@ for entry in "$SCRIPT_DIR/docs/agentic/"*; do
 done
 cp "$SCRIPT_DIR/docs/agentic/templates/STATUS.md" "$DEST/docs/agentic/STATUS.md"
 mkdir -p "$DEST/docs/agentic/work"
-for script in agentic-check.sh agentic-staged-check.sh agentic-commit.sh; do
+for script in agentic-check.sh agentic-staged-check.sh agentic-commit.sh agentic-pr-check.py; do
   copy_if_missing "$SCRIPT_DIR/scripts/$script" "$DEST/scripts/$script"
 done
 if [ "$MODE" = PRODUCT ]; then

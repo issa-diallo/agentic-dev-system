@@ -55,6 +55,16 @@ contradiction concrète ou un risque critique avec faits et périmètre affecté
 - [PULL_REQUESTS](../PULL_REQUESTS.md) : objectif unique, 1 à 3 fichiers visés,
   commit final unique et exceptions justifiées ?
 - changements hors périmètre ou découpage plus sûr possible ?
+- PR_SPLIT couvre-t-il toutes les capacités, une PR par capacité autonome ?
+- PR_SCOPE : fichiers réels, renames/binaires, taille justifiée et scope cohérent ?
+- aucune fonctionnalité/refactoring indépendant, même sous les seuils ?
+- exception d’indivisibilité prouvée ; AC/tests/contrats/migrations conservés ?
+- dépendances effectivement fusionnées (URL PR + SHA, chaîne transitive), contrats compatibles ?
+
+Produire l’attestation indépendante selon [PR_SPLIT](../templates/PR_SPLIT.md),
+avec preuves concrètes par axe, hash plan et SHA base/head exacts. Le contrôle Git
+ne décide pas du métier. Un axe bloquant empêche Ship. La provenance de la session
+est vérifiée par l’orchestrateur ; aucun auto-PASS de l’implementer.
 
 ### Tests
 - comportement critique réellement testé ?

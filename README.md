@@ -14,7 +14,7 @@ modifier, éviter qu'il perturbe les autres travaux et vérifier son résultat a
 la fusion. Le système définit les règles pour obtenir :
 
 - **Un travail cadré** : besoin, critères d'acceptation et plan avant l'implémentation.
-- **Des changements isolés** : branche et worktree dédiés par story non triviale,
+- **Des changements isolés** : branche et worktree dédiés par PR non triviale,
   pour séparer les fichiers de travail des autres fonctionnalités.
 - **Un environnement reproductible** : commandes de préparation, démarrage,
   test et arrêt définies pour le projet.
@@ -49,7 +49,7 @@ sans bot GitHub installé automatiquement.
 
 | Ce qui doit être séparé | Mécanisme prévu par la méthode |
 |---|---|
-| Code de deux fonctionnalités | Une branche et un worktree Git par story non triviale ; un seul agent écrit dans chaque worktree |
+| Code de deux fonctionnalités | Une branche et un worktree Git par PR non triviale ; un seul agent écrit dans chaque worktree |
 | Services et données d'exécution | Ports, bases ou schémas, queues et ressources propres au worktree lorsque le projet en a besoin |
 | Implémentation et contrôle | Un reviewer indépendant, avec accès au diff et aux résultats de validation |
 
@@ -82,14 +82,14 @@ les gates de qualité restent obligatoires.
 ```text
 PRD → Stories → Story Review → Architecture → Design System
  ↓
-Research → Design → Plan → Worktree Setup → Execute
+Research → Design → Plan → PR_SPLIT → Worktree Setup → Execute
  ↓
 Verify → Review → Goal → Ship
 ```
 
-Worktree Setup est requis pour les stories significatives ; Goal pour les tâches
+Worktree Setup est requis pour les PR significatives ; Goal pour les tâches
 longues ou complexes. Chaque phase applicable exige son artefact et son verdict.
-Execute attend Research, Design et Plan PASS. Verify apporte les preuves,
+Execute attend Research, Design, Plan et PR_SPLIT PASS. Verify apporte les preuves,
 puis un reviewer indépendant examine le résultat. Une PR prête à examiner
 reste READY_FOR_HUMAN ; DONE exige aussi merge et cleanup.
 
@@ -109,7 +109,8 @@ Un retour en Architecture exige un fait nouveau invalidant une contrainte.
 
 ## Installer dans un projet
 
-Prérequis : Bash, un dossier cible existant et Git pour le clonage et le mode LOCAL.
+Prérequis : Bash, un dossier cible existant et Git pour l’installation.
+Python 3 (stdlib uniquement) est requis pour les gates PR_SPLIT/PR_SCOPE.
 
 ```bash
 git clone git@github.com:issa-diallo/agentic-dev-system.git
@@ -157,7 +158,8 @@ Après installation partagée, demander à l’agent :
 - **Code lisible et PR courtes** : [DEVELOPMENT](docs/agentic/DEVELOPMENT.md)
   fixe les conventions SOLID, noms et modules ;
   [PULL_REQUESTS](docs/agentic/PULL_REQUESTS.md) vise un objectif,
-  un commit final et 1 à 3 fichiers par PR, sans supprimer les tests.
+  une raison métier principale, PR_SPLIT avant Execute et PR_SCOPE avant Ship.
+  Les cibles 1 à 3 fichiers/100 lignes ne retirent jamais tests ni migrations.
 - **Qualité préservée** : DoR/DoD, Verify, revue indépendante, sécurité et commits
   Gitmoji liés à un ticket. Les rapports métier et techniques restent complets ;
   les formats propres aux phases priment sur le format conversationnel.

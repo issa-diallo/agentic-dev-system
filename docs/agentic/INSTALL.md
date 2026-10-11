@@ -82,7 +82,7 @@ Les templates produit copiés ne constituent pas des gates PASS.
 
 Pour l’entrée PRODUCT, une fois installé :
 
-> Lis AGENTS.md, COMMITS.md et docs/agentic/METHOD.md. Applique strictement PRD → Stories → Story Review → Architecture → Design System → Research → Design → Plan → Worktree Setup si requis → Execute → Verify → Review → Goal si applicable → Ship. Identifie la première phase qui n'est pas PASS et commence uniquement par celle-ci. Pour chaque commit, utilise le Gitmoji approprié et respecte COMMITS.md.
+> Lis AGENTS.md, COMMITS.md et docs/agentic/METHOD.md. Applique strictement PRD → Stories → Story Review → Architecture → Design System → Research → Design → Plan → PR_SPLIT → Worktree Setup si requis → Execute → Verify → Review → Goal si applicable → Ship. Identifie la première phase qui n'est pas PASS et commence uniquement par celle-ci. Pour chaque commit, utilise le Gitmoji approprié et respecte COMMITS.md.
 
 ## Commits
 
@@ -281,3 +281,25 @@ chemins personnels. Aucun contournement ou réintroduction automatique n’est p
 L’index sauvegardé sert de preuve et de secours : **ne pas le recopier sur un
 index ayant reçu de nouveaux travaux**, ni utiliser reset --hard, clean ou
 force push. Restaurer les contenus perdus sélectivement depuis l’archive validée.
+
+## Adopter PR_SPLIT dans les projets déjà installés
+
+Sauvegarder et comparer ; ne pas relancer l'installateur sur les personnalisations.
+Reporter sélectivement README/AGENTS, index, METHOD/WORKFLOW/SCALING,
+EXISTING_PROJECT, PULL_REQUESTS/DEVELOPMENT, rôles ORCHESTRATOR/REVIEWER et templates
+STORY/STORIES/DESIGN/PLAN/PR_SPLIT/SHIP. Ajouter `scripts/agentic-pr-check.py`,
+actualiser `scripts/agentic-check.sh` et, si utilisé, le template GitHub de PR.
+En LOCAL, tous ces chemins du socle sont sous `.agentic-local/` ; le contrôleur
+s'exécute depuis la racine Git applicative avec `--repo .`. Python 3 et Git requis,
+aucun package ajouté. Conserver STATUS, work/, décisions et règles d'équipe.
+
+Activer les nouvelles règles pour les nouvelles stories : demander à Codex
+d'appliquer PR_SPLIT automatiquement après Plan, déléguer les vagues compatibles
+et contrôler PR_SCOPE avant Ship. LIGHT reste une entrée compacte dans Plan.
+Ne modifier, découper, rebaser ou réécrire aucune PR déjà existante automatiquement.
+Un éventuel traitement d'une PR ouverte est une mission distincte explicitement
+cadrée. Vérifier présence (`agentic-check.sh --existing`), puis un manifeste local
+`split` et un contrôle `ship` avec attestation indépendante réelle ; le contrôle
+de présence ne prouve aucun PASS de périmètre. Vérifier exclusions personnelles
+avec la garde staged avant commit. Rollback : restaurer seulement les règles et
+scripts sauvegardés, conserver les artefacts et PR sans modification.

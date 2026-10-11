@@ -46,10 +46,10 @@ la documentation d’architecture manque et qu’aucun changement structurant n�
 
 ## 3. Continuer le pipeline par story
 
-`Research → Design → Plan → Worktree Setup si requis → Execute → Verify → Review → Goal si applicable → Ship`
+`Research → Design → Plan → PR_SPLIT → Worktree Setup si requis → Execute → Verify → Review → Goal si applicable → Ship`
 
-Research, Design et Plan doivent être PASS avant Execute. Conserver la Definition
-of Ready, l’isolation des stories non triviales, les preuves de Verify, la review
+Research, Design, Plan et PR_SPLIT doivent être PASS avant Execute. Conserver la Definition
+of Ready, l’isolation des PR non triviales, les preuves de Verify, la review
 indépendante et les exigences CI/Ship. Pour une interface, réutiliser les conventions
 et composants observés ; sans impact UI, justifier que le Design System est hors
 périmètre. Le Design de story reste requis pour les comportements ou contrats.
@@ -92,6 +92,6 @@ n’oblige pas à les remplir pour cette entrée et ne prouve aucun PASS.
 > Choisis le mode selon le risque, vérifie le cadrage du ticket et commence par
 > Research sur le code réel. Documente les faits et inconnues utiles au ticket.
 > Ne reconstitue pas un PRD global et ne change pas silencieusement l’architecture.
-> Passe par Design, Plan, Execute, Verify et une Review indépendante ; respecte
+> Passe par Design, Plan, PR_SPLIT, Execute, Verify et une Review indépendante ; respecte
 > les gates, l’isolation et Ship. Si le périmètre exige le pipeline produit,
 > explique pourquoi et reprends ce pipeline.
