@@ -13,3 +13,8 @@ Orchestrator et prompt de reprise INSTALL ajoutés après précision utilisateur
 
 Tests non réexécutés par le reviewer ; preuves de l’implementer dans Verify.
 Protection sécurité/intégrité/engagements conservée ; suivi différé en Plan/Verify.
+
+Après rebase sur origin/main 8de57e4 : review indépendante PASS. Résolutions
+METHOD/Architecture, Orchestrator et DoR relues ; conventions de développement
+et petites PR préservées. Exception au nombre de fichiers justifiée dans la PR :
+livrer les instructions distribuées ensemble pour éviter des gates contradictoires.
