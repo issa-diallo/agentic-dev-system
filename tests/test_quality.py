@@ -1,6 +1,7 @@
 """Quality gates detect defects and reject stale or self-approved evidence."""
 import copy
 import importlib.util
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -75,6 +76,43 @@ class QualityTests(unittest.TestCase):
         result = QUALITY.run_checks(self.repo, [[sys.executable, "-c", "print('x' * 2000000)"]])
         self.assertEqual(result["verdict"], "BLOCKED")
         self.assertTrue(result["checks"][0]["output_limit_exceeded"])
+
+    def test_output_failure_cannot_be_overridden_by_review(self):
+        result = QUALITY.run_checks(self.repo, [[sys.executable, "-c", "print('x' * 2000000)"]])
+        result["verdict"] = "PASS"
+        self.assertEqual(QUALITY.assess(self.repo, result, self.review(result), "author"), "BLOCKED")
+
+    def test_staged_changes_and_ignored_local_evidence(self):
+        (self.repo / ".git/info/exclude").write_text(".agentic-local/\n")
+        evidence = self.run_checks()
+        local = self.repo / ".agentic-local"
+        local.mkdir()
+        (local / "evidence.json").write_text(json.dumps(evidence))
+        self.assertEqual(QUALITY.assess(self.repo, evidence, self.review(evidence), "author"), "PASS")
+        (self.repo / "value").write_text("staged")
+        self.git("add", "value")
+        (self.repo / "value").write_text("correct")
+        self.assertEqual(QUALITY.assess(self.repo, evidence, self.review(evidence), "author"), "BLOCKED")
+
+    def test_cli_run_and_assess_with_separate_ci(self):
+        (self.repo / ".git/info/exclude").write_text(".agentic-local/\n")
+        local = self.repo / ".agentic-local"
+        local.mkdir()
+        input_path = local / "input.json"
+        script = Path(__file__).resolve().parents[1] / "scripts/agentic-quality.py"
+        input_path.write_text(json.dumps({"repo": str(self.repo), "commands": self.command}))
+        executed = subprocess.run([sys.executable, str(script), "run", str(input_path)],
+                                  capture_output=True, text=True)
+        self.assertEqual(executed.returncode, 0, executed.stdout)
+        evidence = json.loads(executed.stdout)
+        review = self.review(evidence)
+        ci = review.pop("ci")
+        input_path.write_text(json.dumps({"repo": str(self.repo), "evidence": evidence,
+                                         "review": review, "implementer": "author", "ci": ci}))
+        assessed = subprocess.run([sys.executable, str(script), "assess", str(input_path)],
+                                 capture_output=True, text=True)
+        self.assertEqual(assessed.returncode, 0, assessed.stdout)
+        self.assertEqual(json.loads(assessed.stdout)["verdict"], "PASS")
 
     def test_review_independence_major_and_explicit_ci(self):
         evidence = self.run_checks()

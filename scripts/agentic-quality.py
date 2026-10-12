@@ -5,6 +5,7 @@ Commands and review/runtime attestations must come from the orchestrator. JSON
 names cannot authenticate agents. Output is represented only by hashes, never
 raw logs. This gate does not sandbox processes or authorize external actions.
 """
+import argparse
 import hashlib
 import json
 import os
@@ -156,3 +157,30 @@ def assess(repo, evidence, review, implementer):
             ci.get("head") != current["head"] or not ci.get("evidence")):
         return "BLOCKED"
     return "PASS"
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("mode", choices=("run", "assess"))
+    parser.add_argument("input", help="Trusted JSON input file; run commands are approved argv")
+    args = parser.parse_args()
+    try:
+        data = json.loads(Path(args.input).read_text())
+        if args.mode == "run":
+            result = run_checks(data["repo"], data["commands"], data.get("timeout", 60))
+        else:
+            review = dict(data["review"])
+            if "ci" in data:
+                if "ci" in review and review["ci"] != data["ci"]:
+                    raise ValueError("conflicting CI attestations")
+                review["ci"] = data["ci"]
+            result = {"verdict": assess(data["repo"], data["evidence"], review, data["implementer"])}
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        # JSON parse failures can quote secret input; expose a fixed safe reason.
+        result = {"verdict": "BLOCKED", "reason": "Invalid input or inaccessible Git worktree"}
+    print(json.dumps(result, sort_keys=True))
+    return 0 if result["verdict"] == "PASS" else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
