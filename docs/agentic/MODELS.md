@@ -1,33 +1,42 @@
 # Modèles et niveaux
 
-Choisir le modèle disponible le moins coûteux capable, puis le niveau adapté au
-risque. Le mode de projet LIGHT/STANDARD/LARGE décrit les artefacts ; il ne
-sélectionne pas automatiquement un modèle. Aucun nom de modèle n’est imposé.
+Choisir le modèle disponible le moins coûteux capable selon tâche et risque.
+LIGHT/STANDARD/LARGE règle la profondeur documentaire, pas le modèle.
+L'inventaire et les overrides proviennent des capacités réellement exposées,
+jamais de noms supposés ni d'une équivalence entre interfaces.
 
-| Niveau recommandé | Travail | Validation / escalade |
+| Niveau | Travail | Validation |
 |---|---|---|
-| Light / Low | lecture ciblée, docs, corrections simples, tests répétitifs cadrés | diff et contrôle déterministe ; escalader si ambigu |
-| Medium | research standard, plan local, implémentation bien cadrée | tests et review indépendante ; escalader après deux essais sans convergence |
-| High | refactoring significatif, bugs complexes, PRD, review critique | contradictions et cas limites examinés |
-| Extra High | architecture, décisions critiques, sécurité complexe, problème difficile non résolu | justification écrite et critère d’arrêt dans Plan |
-| Ultra | mission complexe divisible qui bénéficie de plusieurs agents | contrats stables, budget observable, isolation et consolidation ; jamais par défaut |
+| LOW | lecture/docs ciblées, mécanique à faible risque | contrôles déterministes |
+| MEDIUM | implémentation cadrée, préparation locale | tests et review indépendante |
+| HIGH | architecture, refactoring, review, complexité élevée | contrats et cas limites |
+| EXTRA_HIGH | risque critique, auth/autorisation, sécurité, migrations | justification, mitigations et arrêt/escalade définis |
 
-Ce tableau exprime une politique, pas une équivalence entre libellés UI et valeurs
-API `reasoning_effort`. Vérifier les options de la version, du modèle et du compte.
-Ultra peut inclure de la délégation, avec consommation des sous-agents ; ce n’est
-pas simplement « davantage de réflexion ». [Documentation des modèles](https://learn.chatgpt.com/docs/models).
+`agentic-models.py`, si disponible, recommande modèle/effort à partir de l'inventaire
+fourni et des tentatives observées. Il ne modifie pas le modèle principal, ne
+connaît pas les droits du compte et ne lance aucun agent. Les efforts portables
+reconnus par ce routeur sont low/medium/high/xhigh ; Max/Ultra ne sont pas des
+équivalences API présumées. Aucun nom de modèle imposé.
 
-Noter dans Plan : niveau recommandé, modèle/niveau réellement disponibles,
-raison et validation attendue. L’agent ne prétend pas changer son propre modèle
-si le harness ne le permet pas. Utiliser la capacité disponible et signaler la
-limite ; si elle est insuffisante, bloquer avec un handoff exploitable. Ne jamais
-inventer un pourcentage de quota ou promettre une économie.
+Dans IMPLEMENTATION_PLAN et le handoff : niveau requis, inventaire réel,
+recommandation, modèle demandé, observation effective ou null, limite et validation.
+Le runtime hôte applique seulement les overrides supportés lors d'un lancement réel.
+Une recommandation n'est pas une application ; sans override, elle reste consultative.
+Capacité insuffisante : BLOCKED et handoff exploitable, jamais faux PASS ou changement
+fictif du modèle principal. Conserver les instructions utilisateur prioritaires.
 
-Choisir avant une phase stable, éviter les changements incessants et redescendre
-pour les tâches mécaniques une fois l’incertitude levée. Le cache API dépend des
-préfixes identiques ; il ne prouve pas un gain de quota dans chaque client Codex.
-[Prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching).
+Escalader sur preuve d'insuffisance de capacité : tâche, échec observé, diagnostic
+concret, tentative et niveau. Une erreur d'implémentation ne justifie pas une relance
+plus coûteuse sans analyse. Ne pas boucler après échec au niveau maximal.
+Redescendre pour les tâches mécaniques lorsque l'incertitude est levée.
 
-Les sous-agents reçoivent entrées, sorties, périmètre, outils, niveau et validation.
-Leur création/configuration dépend des capacités exposées : les rôles Markdown
-ne créent aucun agent automatiquement. [Sous-agents Codex](https://learn.chatgpt.com/docs/agent-configuration/subagents).
+L'orchestrateur route aussi les skills depuis les racines autorisées disponibles,
+charge uniquement les instructions retenues et transmet un contrat ciblé.
+Distinguer selected, loaded, applied ; lire un skill ne prouve pas l'appliquer.
+Les rôles Markdown ne créent aucun sous-agent. Utiliser les outils natifs réellement
+exposés, conserver identifiant/reçu observé et vérifier le handoff ; sinon fallback
+explicite et session indépendante pour Review. Aucun skill absent inventé.
+
+Tokens, coût API, quota et durée restent null/non observables tant que le runtime
+ne les expose pas ; un cost_rank relatif n'est ni prix ni économie démontrée.
+Un cache ou une réduction d'octets ne prouve pas un gain de quota.

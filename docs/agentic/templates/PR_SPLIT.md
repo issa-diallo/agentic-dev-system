@@ -2,10 +2,10 @@
 
 `PR_SPLIT: DRAFT | PASS | BLOCKED`
 
-Appliquer [PULL_REQUESTS](../PULL_REQUESTS.md) après Plan et avant Execute.
+Appliquer [PULL_REQUESTS](../PULL_REQUESTS.md) dans PREPARE et avant BUILD non trivial.
 L'orchestrateur identifie les capacités ; le script vérifie la structure déclarée.
 Manifeste, résultats et attestation restent locaux, exclus de Git. LIGHT : une
-entrée compacte dans Plan, sans nouveau document ni délégation supplémentaire.
+entrée compacte dans IMPLEMENTATION_PLAN, sans nouveau document ni délégation supplémentaire.
 L’agent exporte cette entrée et la revue existante en JSON temporaires pour le
 contrôle ; aucun document à rédiger par l’utilisateur ni nouvelle review.
 

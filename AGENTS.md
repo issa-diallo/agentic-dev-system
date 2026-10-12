@@ -2,70 +2,67 @@
 
 ## Entrée et navigation
 
-Lire README du projet puis [l’index de méthode](docs/agentic/README.md).
-Choisir LIGHT/STANDARD/LARGE via [SCALING](docs/agentic/SCALING.md) avant
-le travail. Charger les règles détaillées dès que leur déclencheur s’applique :
-un renvoi conditionnel ne rend aucune obligation facultative.
-En cas de conflit entre documents projet, ordre de référence : README,
-METHOD, WORKFLOW, COMMITS, docs/product disponibles, ADR applicables,
-ticket, artefacts de story. Les instructions du système et de l’utilisateur priment.
+Lire README et [l’index de méthode](docs/agentic/README.md).
+Choisir LIGHT/STANDARD/LARGE via [SCALING](docs/agentic/SCALING.md).
+Charger les règles déclenchées, toujours obligatoires. Ordre projet : README, METHOD, WORKFLOW,
+COMMITS, docs/product disponibles, ADR applicables, ticket, artefacts de mission.
+Système et utilisateur priment.
 
 ## Pipeline et gates
 
-Nouveau produit ou gros périmètre :
-`PRD -> Stories -> Story Review -> Architecture -> Design System -> Research -> Design -> Plan -> PR_SPLIT -> Worktree Setup -> Execute -> Verify -> Review -> Goal -> Ship`.
-Story cadrée : Research. Projet existant sans documents produit :
-appliquer [EXISTING_PROJECT](docs/agentic/EXISTING_PROJECT.md), consigner ticket,
-socle observé et justification dans Research ; aucun PASS produit inventé.
-Worktree Setup et Goal s’appliquent selon le risque et la durée.
-Ne pas sauter, inverser ni oublier une phase sans justification explicite.
-Chaque phase applicable : artefact et PASS/BLOCKED ; seule PASS autorise
-la suivante. Review admet PASS_WITH_MINOR, jamais Critical/Major ouvert.
+`PREPARE → BUILD → SHIP`
+PREPARE : six rubriques PRD, TRD, APP_FLOW, UX_UI_BRIEF, BACKEND_SCHEMA,
+IMPLEMENTATION_PLAN ; un fichier/références suffit. LIGHT minimal, STANDARD concis,
+LARGE structuré. Sur existant, réutiliser décisions/artefacts et compléter le delta
+selon [EXISTING_PROJECT](docs/agentic/EXISTING_PROJECT.md), sans Research/Design/Plan
+supplémentaires par tâche. Conserver templates et données V1 pour reprise/legacy,
+sans PASS produit inventé ; présence d'un fichier ne vaut jamais PASS.
+Phase applicable : artefact et PASS/BLOCKED ; seule PASS autorise la suite.
 
-DoR Execute : critères clairs, dépendances connues, Research/Design/Plan PASS, PR_SPLIT PASS,
-architecture/ADR compatibles, fichiers identifiés, tests définis, risques critiques
-traités, aucun blocker. Sinon poursuivre la préparation.
-Après Execute, Verify obligatoire : tests réellement exécutés et preuves adaptées
+DoR BUILD : AC clairs, dépendances connues, PREPARE PASS, PR_SPLIT PASS pour BUILD
+non trivial, architecture/ADR compatibles, fichiers identifiés, tests définis,
+risques critiques traités, aucun blocker.
+Verify obligatoire après Execute : tests exécutés et preuves adaptées
 (build, API, navigateur, captures, logs, performances). Puis review indépendante.
-Ship applique le profil Lead Tech de [REVIEWER](docs/agentic/roles/REVIEWER.md)
-sur la PR finale.
-DoD : PR_SCOPE PASS, Execute et Verify PASS, Review PASS/PASS_WITH_MINOR, Goal SATISFIED si
-applicable, CI PASS, validation humaine si requise, merge et cleanup effectués.
-Une mission limitée à une PR s’arrête à READY_FOR_HUMAN, jamais DONE.
+Review PASS/PASS_WITH_MINOR, jamais Critical/Major ouvert. Profil Lead Tech : review
+indépendante finale LIGHT/STANDARD ; seconde lecture distincte LARGE/risque critique.
+DoD : PR_SCOPE PASS, Execute/Verify PASS, Review PASS/PASS_WITH_MINOR, Goal
+SATISFIED si applicable, CI PASS, validation humaine si requise, autorisation de
+merge, merge et cleanup effectués. Mission limitée à une PR : READY_FOR_HUMAN ; états dans [WORKFLOW](docs/agentic/WORKFLOW.md).
 
 ## Invariants d’exécution
 
-L’agent principal orchestre ; l’implementer ne peut être son seul reviewer.
-PR par capacité autonome ; non triviale : identifiant, branche/worktree, implementer,
-reviewer indépendant et intention métier unique. Jamais deux écrivains dans le même worktree.
-Paralléliser seulement des PR indépendantes ou à contrats stabilisés ;
-calculer les dépendances, lancer les PR structurantes d’abord et bloquer
-la vague si une dépendance structurante échoue.
-PR significative : environnement reproductible selon
+L'agent principal orchestre ; l'implementer ne peut être son seul reviewer.
+PR autonome ; non triviale : identifiant, branche/worktree, owner
+unique, implementer et reviewer indépendant. Jamais deux écrivains dans un worktree.
+PR_SPLIT avant BUILD non trivial selon [PULL_REQUESTS](docs/agentic/PULL_REQUESTS.md).
+Calculer DAG/ressources, lancer les PR structurantes d'abord, paralléliser seulement
+unités indépendantes ou contrats stabilisés ; bloquer les descendants si une
+dépendance structurante échoue. Environnement reproductible selon risque via
 [WORKTREE_ENVIRONMENT](docs/agentic/templates/WORKTREE_ENVIRONMENT.md).
-Tâche longue/complexe : [CONTEXT](docs/agentic/CONTEXT.md) et goal mesurable
-selon [GOAL](docs/agentic/templates/GOAL.md), jusqu’à SATISFIED ou blocker réel.
 
-Architecture courte, outils décidés sans qualification. Preuves Execute/Verify,
-coûts après implémentation ; suivi responsable/échéance. [METHOD](docs/agentic/METHOD.md).
-Choix invalidé par fait nouveau : stories affectées BLOCKED, ADR et ARCHITECTURE
-mis à jour puis validation. Autorisation existante suffit ; aucun remplacement silencieux.
+Router skills/modèles disponibles, charger les skills et lancer réellement les
+sous-agents natifs ; garder identifiants observés, arrêt confirmé et handoff vérifié. Fallback
+séquentiel explicite si indisponible, review en session indépendante ; aucune
+délégation, modèle principal ou métrique inventés. Coûts non observés : null.
+Tâche longue/complexe : [CONTEXT](docs/agentic/CONTEXT.md), checkpoint local et
+[GOAL](docs/agentic/templates/GOAL.md) mesurable jusqu'à SATISFIED ou blocker réel.
 
-Lire et appliquer [SAFETY](docs/agentic/SAFETY.md) : secrets protégés, actions
-sensibles validées, hooks si disponibles sans substituer les règles.
-PRD/Architecture/Research explicitent auth, autorisation, données sensibles,
-tenant si applicable, secrets, actions externes, validation humaine, tests,
-observabilité et rollback pertinents.
-Pour toute édition de code, appliquer [DEVELOPMENT](docs/agentic/DEVELOPMENT.md) ;
-pour tout découpage ou livraison de PR, appliquer
-[PULL_REQUESTS](docs/agentic/PULL_REQUESTS.md).
-Avant commit : [COMMITS](COMMITS.md), Gitmoji Unicode, titre impératif,
-intention atomique, `Fixes #<issue_number>` et garde staged via
-`agentic-commit.sh`. Garder les fichiers personnels locaux.
+Architecture courte, choix utilisateur conservés sans qualification systématique.
+Validations différées avec responsable/échéance, preuves en BUILD/Verify ; coûts
+après implémentation. Fait nouveau invalidant une contrainte : seules stories
+affectées BLOCKED, ADR et ARCHITECTURE mis à jour puis validation ; autorisation
+existante suffit, aucun remplacement silencieux. [METHOD](docs/agentic/METHOD.md).
 
-Choisir le modèle le moins coûteux capable selon [MODELS](docs/agentic/MODELS.md),
-escalader sur preuves ; jamais au prix d’un gate. États, artefacts et rôles sont
-précisés par [WORKFLOW](docs/agentic/WORKFLOW.md) et l’index.
+[SAFETY](docs/agentic/SAFETY.md) : secrets protégés, actions sensibles validées,
+hooks si disponibles sans remplacer les règles. PREPARE traite auth, autorisation,
+tenant, données sensibles, secrets, actions externes, validation humaine, tests,
+observabilité et rollback selon risque. Code : [DEVELOPMENT](docs/agentic/DEVELOPMENT.md).
+Avant commit : [COMMITS](COMMITS.md), Gitmoji Unicode, titre impératif, intention
+atomique, `Fixes #<issue_number>`, garde staged via `agentic-commit.sh`.
+Preuves personnelles locales. Modèle le moins coûteux
+capable selon [MODELS](docs/agentic/MODELS.md), escalader sur preuves, jamais au
+prix d'un gate. SHIP applique le profil Lead Tech de [REVIEWER](docs/agentic/roles/REVIEWER.md).
 
 ## Communication commune à tous les agents
 
@@ -84,7 +81,7 @@ Format par défaut, sections vides omises :
 - **Attention :** risques ou décisions nécessaires, seulement si présents.
 - **Prochaine étape :** seulement si une action reste.
 
-Instructions prioritaires et formats spécifiques PRD → Ship priment sur ce
+Instructions prioritaires et formats spécifiques PREPARE → SHIP priment sur ce
 format conversationnel. Exactitude, sécurité, qualité et complétude des livrables
 ne sont jamais réduites pour économiser des tokens ; rapports techniques et
 métier restent complets. Voir [CONTEXT](docs/agentic/CONTEXT.md) pour la portée.

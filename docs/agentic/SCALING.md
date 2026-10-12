@@ -1,110 +1,32 @@
-# Scaling the Method
+# Échelles de la méthode
 
-Le même système doit fonctionner pour un petit script comme pour un SaaS complexe.
+`PREPARE → BUILD → SHIP` dans tous les modes. Choisir selon le risque, pas la
+taille du dépôt. La profondeur change ; sécurité, Verify, review indépendante,
+CI, contrôle du périmètre et autorisation de merge restent obligatoires.
 
-## Principe
+| Mode | Usage | PREPARE | BUILD / SHIP |
+|---|---|---|---|
+| LIGHT | correction ciblée, prototype, capacité simple à faible risque | six rubriques minimales dans un fichier, références/N/A motivés | plan et PR_SPLIT compacts ; tests adaptés ; review indépendante avec profil Lead Tech |
+| STANDARD | application, évolution courante | six rubriques concises, décisions existantes réutilisées | worktree/owner par PR non triviale, environnement reproductible selon besoin ; preuves et review indépendante avec profil Lead Tech |
+| LARGE | production critique, données sensibles, migrations risquées, contrats complexes | six rubriques structurées, ADR ciblés, DAG et risques détaillés | isolation/ressources explicites, goal mesurable, observabilité/rollback, review forte puis seconde lecture Lead Tech distincte |
 
-La méthode ne change pas :
+Six rubriques ne signifie pas six gros fichiers : PRD, TRD, APP_FLOW,
+UX_UI_BRIEF, BACKEND_SCHEMA, IMPLEMENTATION_PLAN peuvent tenir dans
+[PREPARE](templates/PREPARE.md) et référencer le socle validé.
+Sur existant, compléter le delta utile ; aucun Research/Design/Plan supplémentaire
+par tâche. Les templates V1 sont conservés pour reprise/legacy, facultatifs.
 
-`PRD -> Stories -> Story Review -> Architecture -> Design System -> Research -> Design -> Plan -> PR_SPLIT -> Worktree Setup -> Execute -> Verify -> Review -> Ship`
+PR_SPLIT avant tout BUILD non trivial, même LIGHT : une capacité autonome par PR,
+AC/tests/fichiers/contrats, branche/worktree et owner. Ne pas multiplier agents ou
+documents pour une tâche simple ; lancer réellement toute délégation annoncée.
+Un risque critique exige une seconde lecture indépendante même hors mode LARGE.
 
-Ce qui change est la profondeur des artefacts. Le point d’entrée dépend du contexte :
-un ticket cadré sur projet existant peut commencer à Research selon
-[EXISTING_PROJECT.md](EXISTING_PROJECT.md), quel que soit le mode choisi.
-Les exemples d’artefacts produit ci-dessous s’appliquent au parcours produit ;
-LIGHT n’autorise pas à sauter les gates par story.
+Choisir LARGE lorsque perte/exposition de données, production critique, rollback
+difficile, auth/paiement/migration ou conflits de ressources nécessitent des
+protections renforcées. Plusieurs agents augmentent les besoins d'isolation ;
+leur nombre seul n'impose pas six dossiers documentaires.
 
-## Mode LIGHT
-
-À utiliser pour :
-- petit projet personnel ;
-- prototype ;
-- correction isolée ;
-- feature à faible risque ;
-- codebase simple.
-
-Règles :
-- PRD peut tenir sur une page ;
-- Stories peut contenir quelques items ;
-- Story Review peut être une checklist ;
-- Architecture peut être un choix de stack succinct, avec sécurité et
-  contrats essentiels ; les décisions futures sont classées et reportées ;
-- Design System peut être minimal ;
-- Research + Design + Plan peuvent être courts mais doivent exister ;
-- PR_SPLIT tient dans Plan : une capacité, une PR, fichiers/AC/tests/contrats,
-  aucune dépendance si applicable ; pas de dossier ni délégation supplémentaires ;
-- Verify reste obligatoire ;
-- Review peut être légère mais indépendante pour les changements non triviaux.
-
-Objectif : préparer suffisamment pour éviter les aller-retours sans ralentir le travail.
-
-## Mode STANDARD
-
-À utiliser par défaut.
-
-Règles :
-- artefacts complets ;
-- architecture courte + ADR ciblés sur les arbitrages durables ;
-- worktree par PR significative ;
-- environnement reproductible ;
-- goals mesurables quand utile ;
-- evidence de vérification ;
-- review indépendante ;
-- CI avant Ship.
-
-## Mode LARGE
-
-À utiliser pour :
-- SaaS multi-tenant ;
-- plusieurs agents en parallèle ;
-- données sensibles ;
-- production critique ;
-- migrations ;
-- sécurité ;
-- gros refactors ;
-- intégrations nombreuses.
-
-Règles supplémentaires :
-- dependency map explicite ;
-- ADR ciblés obligatoires pour les arbitrages durables, regroupables ;
-- worktree isolé par PR ;
-- scripts d'environnement ;
-- goal mesurable ;
-- evidence complète ;
-- review indépendante forte ;
-- checks CI de la méthode ;
-- rollback ;
-- observabilité ;
-- sécurité et données revues explicitement.
-
-## Sélection du mode
-
-Choisir selon le risque, pas selon la taille du repo.
-
-Questions :
-- peut-on perdre des données ?
-- peut-on exposer des données ?
-- peut-on casser la production ?
-- plusieurs agents vont-ils travailler en parallèle ?
-- existe-t-il des dépendances entre stories ?
-- le rollback est-il difficile ?
-- la fonctionnalité touche-t-elle auth, paiement, sécurité ou multi-tenant ?
-
-Si plusieurs réponses sont oui, utiliser STANDARD ou LARGE.
-
-## Règle anti-bureaucratie
-
-Un artefact court et précis vaut mieux qu'un document long et vague.
-
-Dans tous les modes, Architecture prépare une direction puis avance : aucun
-benchmark, prototype ou coût chiffré requis pour PASS. LARGE augmente le détail
-des protections et contrats à risque, sans imposer une comparaison par outil.
-Les preuves viennent en Execute/Verify et les coûts d’exploitation peuvent être
-suivis après implémentation, selon les échéances du registre Architecture.
-
-Le but de la préparation est de réduire :
-- les décisions pendant Execute ;
-- les tokens gaspillés ;
-- les retours arrière ;
-- les conflits entre agents ;
-- les corrections après implémentation.
+Architecture fixe une direction courte. Aucun benchmark, prototype ni coût chiffré
+requis au gate ; validations différées avec responsable/échéance dans le plan et
+preuves en BUILD/Verify. Ne jamais économiser au prix d'un gate, d'un test ou d'une
+protection. Les coûts non exposés par le runtime restent null/non observables.

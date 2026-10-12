@@ -1,38 +1,42 @@
 # Navigation de la méthode
 
-Lire cet index après le README du projet. Charger les documents selon la phase
-et le risque, sans charger tout le dépôt à chaque tour. Les règles activées par
-un déclencheur restent obligatoires. Si la prochaine phase est inconnue, lire
-METHOD, repérer le dernier PASS et reprendre la phase suivante.
+Lire cet index après README. Charger uniquement les règles utiles à la phase et
+au risque ; chaque déclencheur rend sa lecture obligatoire. Si la phase est
+inconnue, lire METHOD, repérer le dernier PASS prouvé et reprendre la suite.
+
+`PREPARE → BUILD → SHIP`
 
 | Déclencheur | Lecture obligatoire | Résultat attendu |
 |---|---|---|
-| Début de mission | [SCALING](SCALING.md), [WORKFLOW](WORKFLOW.md), [SAFETY](SAFETY.md) | entrée, risque, phase et limites |
-| Première utilisation, phase ambiguë, architecture | [METHOD](METHOD.md) | pipeline et décisions applicables |
-| Nouveau produit / gros périmètre | [BOOTSTRAP](BOOTSTRAP.md), documents de docs/product, ADR | cinq gates produit |
-| Ticket sur existant | [EXISTING_PROJECT](EXISTING_PROJECT.md) | cadrage et socle observé |
-| Installation / usage personnel | [INSTALL](INSTALL.md), [LOCAL](LOCAL.md) si LOCAL | local par défaut, activation, migration |
-| Choix du niveau / délégation | [MODELS](MODELS.md), rôle concerné ci-dessous | capacité et contrat |
-| Tâche longue, recherche, reprise | [CONTEXT](CONTEXT.md), [HANDOFF](templates/HANDOFF.md) | checkpoint vérifiable |
-| Outil tiers envisagé | [OPTIONAL_TOOLS](OPTIONAL_TOOLS.md) | choix sans test préalable ; contrôles lors de l’intégration |
-| Story significative | [WORKTREE_ENVIRONMENT](templates/WORKTREE_ENVIRONMENT.md) | environnement reproductible |
+| Début de mission | [SCALING](SCALING.md), [WORKFLOW](WORKFLOW.md), [SAFETY](SAFETY.md) | entrée, risque, phase, limites |
+| Première utilisation / architecture | [METHOD](METHOD.md) | gates et décisions |
+| Nouveau produit / gros périmètre | [BOOTSTRAP](BOOTSTRAP.md), docs/product disponibles, ADR | six rubriques adaptées |
+| Ticket sur existant | [EXISTING_PROJECT](EXISTING_PROJECT.md) | décisions réutilisées, delta utile |
+| PREPARE | [PREPARE](templates/PREPARE.md) | PRD, TRD, APP_FLOW, UX_UI_BRIEF, BACKEND_SCHEMA, IMPLEMENTATION_PLAN |
+| Installation / usage personnel | [INSTALL](INSTALL.md), [LOCAL](LOCAL.md) si LOCAL | activation, protections et migration |
+| Modèles / délégation | [MODELS](MODELS.md), rôles ci-dessous | capacités réelles, contrats et observations |
+| Recherche / reprise / tâche longue | [CONTEXT](CONTEXT.md), [HANDOFF](templates/HANDOFF.md) | checkpoint local vérifiable |
+| Outil tiers envisagé | [OPTIONAL_TOOLS](OPTIONAL_TOOLS.md) | choix et validations planifiées |
+| BUILD non trivial / PR | [PULL_REQUESTS](PULL_REQUESTS.md), [PR_SPLIT](templates/PR_SPLIT.md) | split PASS avant BUILD, scope PASS avant SHIP |
+| Environnement significatif / risqué | [WORKTREE_ENVIRONMENT](templates/WORKTREE_ENVIRONMENT.md) | ownership, ressources, reproductibilité |
 | Tâche longue / complexe | [GOAL](templates/GOAL.md) | critères mesurables |
-| Écriture / correction / refactoring | [DEVELOPMENT](DEVELOPMENT.md) | code lisible, conventions et tests |
-| Avant Execute, découpage et revue de PR | [PULL_REQUESTS](PULL_REQUESTS.md) | PR_SPLIT PASS, DAG puis PR_SCOPE PASS |
-| Commit | [COMMITS](../../COMMITS.md) | Gitmoji, ticket et garde staged obligatoire |
-| PR à livrer | [Profil Lead Tech](roles/REVIEWER.md), [Ship](templates/SHIP.md) | avis indépendant sur la révision finale |
-| Suivi | [STATUS](STATUS.md) | état réel sans PASS fictif |
+| Écriture / correction / refactoring | [DEVELOPMENT](DEVELOPMENT.md) | conventions, scope et tests |
+| Commit | [COMMITS](../../COMMITS.md) | Gitmoji, ticket, garde staged |
+| SHIP | [Profil Lead Tech](roles/REVIEWER.md), [Ship](templates/SHIP.md) | examen indépendant et preuves fraîches |
+| Suivi | [STATUS](templates/STATUS.md) | état réel, aucun PASS fictif |
 
-Pour chaque phase charger son template : [PRD](templates/PRD.md),
-[Stories](templates/STORIES.md), [Story Review](templates/STORY_REVIEW.md),
-[Architecture](templates/ARCHITECTURE.md), [ADR](templates/ADR.md),
-[Design System](templates/DESIGN_SYSTEM.md), [Research](templates/RESEARCH.md),
-[Design](templates/DESIGN.md), [Plan](templates/PLAN.md),
-[PR_SPLIT](templates/PR_SPLIT.md),
-[Execute](templates/EXECUTE.md), [Verify](templates/VERIFY.md), [Review](templates/REVIEW.md),
-[Ship](templates/SHIP.md). Artefacts de story dans `docs/agentic/work/<story>/` :
-research, design, plan, handoff, verify, review ; goal si applicable.
+BUILD réutilise [Execute](templates/EXECUTE.md), [Verify](templates/VERIFY.md),
+[Review](templates/REVIEW.md) pour les activités et preuves, à profondeur adaptée.
+Les notes, handoffs et preuves personnels restent locaux, exclus de Git.
+Les templates V1 PRD/Stories/Story Review/Architecture/Design System/Research/Design/
+Plan restent conservés pour reprise/legacy et références ; facultatifs pour une
+nouvelle mission V2, aucun PASS distinct exigé. [ADR](templates/ADR.md) trace les
+décisions durables. Leur présence ne constitue pas un gate.
 
 Rôles : [orchestrator](roles/ORCHESTRATOR.md), [implementer](roles/IMPLEMENTER.md),
-[reviewer](roles/REVIEWER.md). Les spécialisations sont des contrats de mission,
-pas une collection d’agents toujours chargés.
+[reviewer](roles/REVIEWER.md). Les spécialisations sont des contrats temporaires,
+pas des agents automatiquement lancés. Les scripts `agentic-build.py`,
+`agentic-workspace.py`, `agentic-skills.py`, `agentic-models.py`,
+`agentic-scheduler.py`, `agentic-quality.py` sont utilisés si disponibles ; vérifier
+leur présence/capacités. Le runtime hôte réalise la délégation native et conserve
+ses reçus, sinon fallback honnête. Aucun lien de configuration native supposée.

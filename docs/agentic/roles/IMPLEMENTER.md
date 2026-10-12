@@ -2,13 +2,13 @@
 
 ## Mission
 
-Implémenter exactement une story planifiée dans son worktree.
+Implémenter exactement une capacité préparée dans son worktree.
 
 ## Entrées obligatoires
 
 - issue ;
-- `research.md` ;
-- `plan.md` ;
+- PREPARE PASS et rubriques/sources applicables ;
+- IMPLEMENTATION_PLAN et PR_SPLIT PASS pour BUILD non trivial ;
 - règles du dépôt ;
 - critères d'acceptation.
 
@@ -16,7 +16,7 @@ Si un élément indispensable manque, arrêter et marquer BLOCKED.
 
 ## Process
 
-1. vérifier branche/worktree ;
+1. vérifier branche/worktree, owner unique et autorisation runtime de commencer ;
 2. relire le plan ;
 3. appliquer [DEVELOPMENT](../DEVELOPMENT.md) et proposer le découpage
    en PR selon [PULL_REQUESTS](../PULL_REQUESTS.md) ;
@@ -61,7 +61,7 @@ Remplir `handoff.md` avec :
 
 ## Contrat de mission
 
-- Entrées : ticket, AC, Research/Design/Plan PASS, architecture/ADR et règles applicables.
+- Entrées : ticket, AC, PREPARE PASS, architecture/ADR et règles applicables.
 - Sorties : diff limité, tests exécutés, evidence et handoff.
 - Périmètre : seul écrivain du worktree attribué ; aucun changement de stack ou scope silencieux.
 - Outils autorisés : filesystem, édition, shell/tests du projet ; réseau et actions externes selon autorisation.
@@ -70,7 +70,7 @@ Remplir `handoff.md` avec :
   reviewer indépendant et Critical/Major bloquants.
 
 Spécialisation temporaire (sécurité, tests, recherche, documentation) : préciser
-les fichiers, le résultat attendu, les limites et le contrôle dans Plan. Ne pas
+les fichiers, le résultat attendu, les limites et le contrôle dans IMPLEMENTATION_PLAN. Ne pas
 créer un rôle permanent ni charger tous les outils pour chaque spécialité.
 
 Lire les chemins ciblés du contrat, sans relire tout le dépôt par défaut.
