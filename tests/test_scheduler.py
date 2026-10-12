@@ -93,6 +93,7 @@ class SchedulerTests(unittest.TestCase):
                                           'criteria': ['Expected behavior verified'],
                                           'tests': ['Fixture behavior test passed'],
                                           'head': self.git('rev-parse', 'HEAD', repo=self.root / pr),
+                                          'snapshot': SCHEDULER.snapshot(self.root / pr),
                                           'plan_sha256': state['plan_sha256']})
 
     def test_prepare_is_assignment_not_launch_and_reserves_all_files(self):
@@ -183,6 +184,8 @@ class SchedulerTests(unittest.TestCase):
         task = state['tasks']['a']
         self.assertEqual(task['state'], 'BLOCKED')
         self.assertIsNone(task['agent_id'])
+        self.assertIsNone(task['active'])
+        self.assertEqual(task['launch_status'], 'UNKNOWN')
         self.assertIn(task['owner']['id'], self.owners())
         self.assertNotIn('launch_observed', [event['event'] for event in state['events']])
 
@@ -400,9 +403,122 @@ class SchedulerTests(unittest.TestCase):
         self.git('commit', '-qm', 'after acceptance', repo=self.root / 'a')
         self.scheduler.dispatch(adapter)
         self.assertNotIn(('launch', 'b'), adapter.calls)
+        self.assertEqual(self.scheduler.resume()['tasks']['b']['state'], 'BLOCKED')
+
+    def test_accepted_parent_content_changes_invalidate_without_head_change(self):
+        self.add('b', ['a'])
+        for mode in ('untracked', 'tracked', 'staged'):
+            with self.subTest(mode=mode):
+                # Isolate the persisted graph for each content mutation.
+                path = self.root / ('state-' + mode + '.json')
+                scheduler = SCHEDULER.Scheduler(self.manifest, self.repo, path)
+                tree = self.root / 'a'
+                file = tree / 'a.py'
+                file.write_text('initial-' + mode + '\n')
+                if mode != 'untracked':
+                    self.git('add', 'a.py', repo=tree)
+                    self.git('commit', '-qm', 'in scope baseline', repo=tree)
+                adapter = SimulatedAdapter()
+                scheduler.dispatch(adapter)
+                state = scheduler.resume()
+                evidence = {'status': 'PASS', 'orchestrator_verified': True,
+                            'source': 'fixture test result', 'criteria': ['verified'], 'tests': ['passed'],
+                            'head': self.git('rev-parse', 'HEAD', repo=tree),
+                            'snapshot': SCHEDULER.snapshot(tree), 'plan_sha256': state['plan_sha256']}
+                scheduler.accept('a', evidence)
+                file.write_text('changed after validation\n')
+                if mode == 'staged':
+                    self.git('add', 'a.py', repo=tree)
+                self.assertEqual(self.git('rev-parse', 'HEAD', repo=tree), evidence['head'])
+                state = scheduler.resume()
+                self.assertFalse(state['tasks']['a']['accepted'])
+                self.assertEqual(state['tasks']['b']['state'], 'BLOCKED')
+                scheduler.dispatch(adapter)
+                self.assertNotIn(('launch', 'b'), adapter.calls)
+                with self.assertRaisesRegex(SCHEDULER.Blocked, 'content snapshot'):
+                    scheduler.accept('a', evidence)
+
+    def test_stale_parent_blocks_active_descendant_without_releasing(self):
+        self.add('b', ['a'])
+        self.scheduler.dispatch(SimulatedAdapter())
         self.accept('a')
+        self.scheduler.prepare('b')
+        self.receipt('b')
+        owner = self.scheduler.resume()['tasks']['b']['owner']['id']
+        (self.root / 'a' / 'a.py').write_text('parent changed\n')
+        state = self.scheduler.resume()
+        self.assertFalse(state['tasks']['a']['accepted'])
+        self.assertEqual(state['tasks']['b']['state'], 'BLOCKED')
+        self.assertTrue(state['tasks']['b']['active'])
+        self.assertEqual(state['tasks']['b']['agent_id'], 'simulated-b')
+        self.assertIn(owner, self.owners())
+        adapter = SimulatedAdapter()
         self.scheduler.dispatch(adapter)
-        self.assertIn(('launch', 'b'), adapter.calls)
+        self.assertEqual(adapter.calls, [])
+
+    def test_author_word_does_not_trigger_auth_but_french_security_does(self):
+        models = {'runtime_overrides': True, 'models': [
+            {'id': 'cheap', 'max_level': 'MEDIUM', 'efforts': ['medium'], 'cost_rank': 1},
+            {'id': 'strong', 'max_level': 'EXTRA_HIGH', 'efforts': ['xhigh'], 'cost_rank': 2}]}
+        self.plan['prs'][0]['reason'] = 'Update author profile'
+        other = self.add('b')
+        other['reason'] = 'Sécuriser permissions et authentification'
+        self.write()
+        scheduler = SCHEDULER.Scheduler(self.manifest, self.repo, self.path, models=models)
+        self.assertEqual(scheduler.prepare('a')['model_requested']['model'], 'cheap')
+        self.assertEqual(scheduler.prepare('b')['model_routing']['level'], 'EXTRA_HIGH')
+
+    def test_receipt_after_branch_change_blocks_observed_agent_without_stop(self):
+        self.scheduler.prepare('a')
+        self.git('switch', '-qc', 'feat/wrong', repo=self.root / 'a')
+        with self.assertRaisesRegex(SCHEDULER.Blocked, 'wrong branch'):
+            self.receipt()
+        task = self.scheduler.resume()['tasks']['a']
+        self.assertEqual(task['state'], 'BLOCKED')
+        self.assertTrue(task['active'])
+        self.assertEqual(task['agent_id'], 'simulated-a')
+        self.assertEqual(len(self.owners()), 1)
+
+    def test_receipt_after_committed_scope_change_blocks(self):
+        self.scheduler.prepare('a')
+        (self.root / 'a' / 'outside.py').write_text('outside\n')
+        self.git('add', 'outside.py', repo=self.root / 'a')
+        self.git('commit', '-qm', 'unexpected change', repo=self.root / 'a')
+        with self.assertRaisesRegex(SCHEDULER.Blocked, 'outside scope'):
+            self.receipt()
+        self.assertEqual(len(self.owners()), 1)
+
+    def test_dispatch_rechecks_scope_after_skill_loading_before_launch(self):
+        def change(task):
+            self.git('switch', '-qc', 'feat/wrong', repo=self.root / 'a')
+            return []
+        adapter = SimulatedAdapter()
+        with mock.patch.object(self.scheduler, '_load_skills', side_effect=change):
+            state = self.scheduler.dispatch(adapter)
+        self.assertEqual(adapter.calls, [])
+        self.assertEqual(state['tasks']['a']['state'], 'BLOCKED')
+        self.assertEqual(len(self.owners()), 1)
+
+    def test_receipt_rejects_changed_assignment_even_in_scope(self):
+        self.scheduler.prepare('a')
+        (self.root / 'a' / 'a.py').write_text('early worker edit\n')
+        self.git('add', 'a.py', repo=self.root / 'a')
+        self.git('commit', '-qm', 'early edit', repo=self.root / 'a')
+        with self.assertRaisesRegex(SCHEDULER.Blocked, 'assignment content changed'):
+            self.receipt()
+        task = self.scheduler.resume()['tasks']['a']
+        self.assertTrue(task['active'])
+        self.assertEqual(task['state'], 'BLOCKED')
+        self.assertEqual(len(self.owners()), 1)
+
+    def test_missing_quality_blocks_instead_of_downgrading_snapshot(self):
+        original = SCHEDULER.module
+        with mock.patch.object(SCHEDULER, 'module',
+                               side_effect=lambda name, optional=False:
+                               None if name == 'quality' else original(name, optional)):
+            with self.assertRaisesRegex(SCHEDULER.Blocked, 'Quality component not installed'):
+                self.scheduler.prepare('a')
+        self.assertEqual(self.owners(), {})
 
 
 if __name__ == '__main__':

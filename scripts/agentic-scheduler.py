@@ -16,6 +16,7 @@ from pathlib import Path
 import re
 import tempfile
 import time
+import unicodedata
 import uuid
 
 
@@ -33,6 +34,13 @@ BUILD, WORKSPACE = module('build'), module('workspace')
 Blocked = BUILD.Blocked
 require = BUILD._CHECK.require
 STATES = {'PLANNED', 'ASSIGNED', 'RUNNING', 'COMPLETED', 'BLOCKED'}
+
+
+def snapshot(repo):
+    """Use the shared content proof; missing Quality cannot downgrade acceptance."""
+    quality = module('quality', True)
+    require(quality is not None, 'Quality component not installed; acceptance blocked')
+    return quality.snapshot(repo)
 
 
 class Scheduler:
@@ -131,13 +139,17 @@ class Scheduler:
             context['skills']['selected'] = context['skills']['selection']['selected']
         if models and self.models is not None:
             description = delegation['objective'] + ' ' + ' '.join(delegation['files'])
+            description = ''.join(char for char in unicodedata.normalize('NFKD', description)
+                                  if not unicodedata.combining(char)).lower()
+            description = description.replace('_', ' ')
             classification = dict(unit.get('routing', {}))
             require(set(classification) <= {'type', 'risk', 'complexity'}, 'invalid routing metadata')
-            if re.search(r'auth|permission|tenant|secret|security', description, re.I):
+            if re.search(r'\b(auth|authentication|authentification|authorization|autorisation|'
+                         r'permissions?|tenants?|secrets?|security|securite|securiser)\b', description):
                 classification.update(type='authentication', risk='security_critical')
-            elif re.search(r'migration|\.sql\b|schema', description, re.I):
+            elif re.search(r'\b(migrations?|schema)\b|\.sql\b', description):
                 classification.update(type='migration', risk='critical')
-            elif re.search(r'refactor|architecture|cross.module', description, re.I):
+            elif re.search(r'\b(refactor|refactoring|architecture|cross.module)\b', description):
                 classification.setdefault('complexity', 'high')
             routing = models.route({'id': delegation['pr'], **classification}, self.models)
             require(routing['verdict'] == 'PASS', routing['reason'])
@@ -150,6 +162,7 @@ class Scheduler:
         require(not task.get('owner'), 'interrupted assignment; reconcile owner before dispatch')
         delegation = BUILD.prepare(self.manifest, self.repo, pr, self._done(state))
         require(delegation['plan_sha256'] == state['plan_sha256'], 'plan changed during prepare')
+        delegation['runtime_handshake'] = 'Remain read-only until orchestrator confirms launch receipt'
         context = self._context(delegation, task['unit'])
         owner = {'id': 'scheduler-' + uuid.uuid4().hex, 'task': pr,
                  'plan_sha256': delegation['plan_sha256']}
@@ -161,7 +174,8 @@ class Scheduler:
         task.update(delegation=delegation, owner=owner, reservation_status='INTENT',
                     reservation=reservation, **context, role='implementer',
                     result=None, model_observed=None, duration_seconds=None, accepted=False,
-                    starting_head=WORKSPACE.git(delegation['worktree'], 'rev-parse', 'HEAD'))
+                    starting_head=WORKSPACE.git(delegation['worktree'], 'rev-parse', 'HEAD'),
+                    assigned_snapshot=snapshot(delegation['worktree']))
         self._save(state)  # Durable intent reconciles a crash between the two registries.
         WORKSPACE.reserve(self.repo, owner, delegation['worktree'], resources)
         task.update(state='ASSIGNED', reservation_status='RESERVED')
@@ -176,7 +190,10 @@ class Scheduler:
             return copy.deepcopy(self._assign(state, pr))
 
     def _receipt(self, state, task, observation):
-        require(task['state'] == 'ASSIGNED', 'launch receipt requires ASSIGNED')
+        blocked = task['state'] == 'BLOCKED'
+        require(task['state'] == 'ASSIGNED' or (blocked and task.get('owner')
+                                              and task.get('agent_id') is None),
+                'launch receipt requires ASSIGNED or unresolved blocked launch')
         require({item['path'] for item in task['skills']['selected']}
                 <= {item['path'] for item in task['skills']['loaded']},
                 'selected skills must be loaded before launch')
@@ -188,12 +205,19 @@ class Scheduler:
         require(runtime in ('native', 'simulated', 'mono-agent'), 'unsupported runtime')
         require(not any(t.get('agent_id') == identity and t.get('active')
                         for t in state['tasks'].values()), 'runtime identity already active')
-        task.update(state='RUNNING', agent_id=identity, runtime=runtime, active=True,
+        task.update(agent_id=identity, runtime=runtime, active=True, launch_status='OBSERVED',
                     launched_at=time.time(), model_observed=observation.get('model_observed'),
                     identity_provenance='trusted orchestrator observation; not authenticated here',
                     independent_review=False)
         task['model_applied'] = bool(task['model_requested'] and task['model_observed']
                                      == task['model_requested'])
+        try:
+            self._launch_guard(task)
+        except (ValueError, OSError) as error:
+            self._block(state, task, str(error))
+            self._event(state, task, 'launch_observed_scope_invalid')
+            raise
+        task['state'] = 'BLOCKED' if blocked else 'RUNNING'
         self._event(state, task, 'launch_observed')
 
     def receipt(self, pr, observation):
@@ -207,6 +231,7 @@ class Scheduler:
         """Release only after trusted runtime confirms completion or stop."""
         with self._state() as state:
             self._sync(state)
+            self._validate_owners(state)
             task = state['tasks'][pr]
             require(task.get('owner'), 'task has no reservation')
             require(isinstance(observation, dict) and observation.get('stopped_confirmed') is True
@@ -260,10 +285,16 @@ class Scheduler:
         require(not (changed | BUILD.dirty_paths(tree)) - set(unit['files']),
                 'committed/dirty paths outside scope')
 
+    def _launch_guard(self, task):
+        self._scope(task)
+        require(task['assigned_snapshot'] == snapshot(task['delegation']['worktree']),
+                'assignment content changed before launch receipt')
+
     def accept(self, pr, evidence):
         """Trusted orchestrator accepts tests and contract for dependency readiness."""
         with self._state() as state:
             self._sync(state)
+            self._validate_owners(state)
             task = state['tasks'][pr]
             require(task['state'] == 'COMPLETED' and not task.get('active'),
                     'acceptance requires completed stopped execution')
@@ -280,22 +311,28 @@ class Scheduler:
                                                         'rev-parse', 'HEAD')
                     and evidence.get('plan_sha256') == state['plan_sha256'],
                     'stale acceptance head/plan')
+            require(evidence.get('snapshot') == snapshot(task['delegation']['worktree']),
+                    'stale acceptance content snapshot')
             task.update(accepted=True, acceptance_evidence=evidence)
             self._event(state, task, 'contract_accepted')
             return copy.deepcopy(task)
 
     def _validate_owners(self, state):
+        stale = set()
         for task in state['tasks'].values():
             if task.get('accepted'):
                 evidence = task['acceptance_evidence']
                 try:
-                    head = WORKSPACE.git(task['delegation']['worktree'], 'rev-parse', 'HEAD')
+                    current = snapshot(task['delegation']['worktree'])
                 except (ValueError, OSError) as error:
                     self._block(state, task, str(error))
-                    head = None
-                if evidence['plan_sha256'] != state['plan_sha256'] or evidence['head'] != head:
+                    current = None
+                if (evidence['plan_sha256'] != state['plan_sha256']
+                        or evidence.get('snapshot') != current):
                     task['accepted'] = False
                     self._event(state, task, 'acceptance_stale')
+                    stale.add(task['unit']['id'])
+        self._block_descendants(state, stale)
         with WORKSPACE.registry(self.repo) as owners:
             for task in state['tasks'].values():
                 if task.get('owner'):
@@ -305,6 +342,21 @@ class Scheduler:
                         self._block(state, task, 'reservation missing or changed')
                     else:
                         task['reservation_status'] = 'RESERVED'
+
+    def _block_descendants(self, state, stale):
+        """Changed dependency output invalidates consumers, including active ones."""
+        affected = set(stale)
+        while True:
+            descendants = {key for key, task in state['tasks'].items()
+                           if set(task['unit']['depends_on']) & affected}
+            new = descendants - affected
+            if not new:
+                break
+            for key in new:
+                task = state['tasks'][key]
+                task['accepted'] = False
+                self._block(state, task, 'dependency acceptance stale; revalidation required')
+            affected.update(new)
 
     def resume(self):
         """Inspect persisted tasks; never relaunch an assigned/running agent."""
@@ -349,6 +401,10 @@ class Scheduler:
                 try:
                     self._assign(state, pr)
                     loaded = self._load_skills(task)
+                    self._validate_owners(state)
+                    require(task['state'] == 'ASSIGNED', 'assignment changed before launch')
+                    self._launch_guard(task)
+                    task.update(active=None, launch_status='UNKNOWN', launch_attempted_at=time.time())
                     self._save(state)  # Crash during launch leaves ASSIGNED + owner, not PLANNED.
                     launch_task = copy.deepcopy(task)
                     launch_task['skill_instructions'] = loaded

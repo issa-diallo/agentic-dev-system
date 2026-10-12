@@ -2,7 +2,9 @@
 
 `scripts/agentic-scheduler.py` distribue les contrats validés par BUILD dans des
 worktrees existants. Python stdlib, Git et POSIX `flock` suffisent ; aucun service
-permanent ni commande shell issue du manifeste n'est lancé.
+permanent ni commande shell issue du manifeste n'est lancé. BUILD, Workspace et
+Quality doivent être installés ensemble ; une absence de Quality bloque la
+préparation/acceptation au lieu de réduire la fraîcheur des preuves.
 
 ## Contrat importable
 
@@ -27,7 +29,11 @@ sont réservés automatiquement via Workspace ; `resources` peut compléter une 
 du manifeste avec des ressources typées `{type, name}`. Les commandes `tests`
 restent des instructions à l'agent, jamais des commandes exécutées par le scheduler.
 
-Le callback launch doit lancer réellement puis retourner un reçu observé :
+Le contrat `runtime_handshake` demande à l'agent de rester en lecture jusqu'au
+reçu confirmé par l'orchestrateur. L'état du worktree est figé à l'attribution,
+revérifié juste avant le callback et au reçu ; une édition trop précoce bloque
+la tâche et conserve son propriétaire. Le callback launch doit lancer réellement
+puis retourner un reçu observé :
 
 ```json
 {"agent_id":"identifiant-observé", "runtime":"native", "launch_observed":true,
@@ -49,10 +55,16 @@ le scheduler ne les authentifie pas. L'orchestrateur vérifie les résultats et
 utilise une session distincte pour la review. `accept(pr, evidence)` rend une tâche
 COMPLETED utilisable comme dépendance : `status: PASS`, `orchestrator_verified: true`,
 `source` non vide, listes `criteria` et `tests` de preuves non vides, `head` Git
-actuel et `plan_sha256` actuel. Ces attestations restent sous responsabilité de
+actuel, `plan_sha256` actuel et `snapshot` issu de `Quality.snapshot(worktree)`
+(accessible également via `scheduler.snapshot`). Le snapshot inclut HEAD, index,
+diff binaire et contenu des fichiers untracked. Ces attestations restent sous responsabilité de
 l'orchestrateur : le scheduler ne lance pas les tests. Une simple fin d'agent ou
 un texte `result` ne débloque jamais les dépendances. Tout nouveau commit/hash
-invalide l'acceptation jusqu'à revalidation. Accept n'est pas une autorisation de merge.
+ou changement de contenu, même sans commit et dans le scope autorisé, invalide
+l'acceptation et bloque les descendants. Un descendant RUNNING reste actif,
+avec son identifiant et ses réservations jusqu'à arrêt confirmé ; BLOCKED ne
+signifie jamais arrêté. Les descendants exigent revalidation et un nouvel état,
+aucun relancement automatique. Accept n'est pas une autorisation de merge.
 
 Les outils natifs `collaboration` sont appelés par l'orchestrateur hôte ; Python
 ne peut pas les appeler. L'adaptateur conserve leur véritable identifiant et
@@ -102,6 +114,10 @@ une réservation. `handoff` libère seulement après confirmation d'arrêt. Un a
 confirmé sans lancement observé peut clôturer une attribution en BLOCKED avec
 `agent_id: null`; il ne peut pas produire COMPLETED. Une disparition externe de
 réservation bloque la tâche et exige une réconciliation par l'orchestrateur.
+Une exception launch sans reçu laisse `launch_status: UNKNOWN`, `active: null` :
+le scheduler ne connaît pas la réalité du lancement. Un reçu runtime valide mais
+un Git/contrat devenu invalide conserve l'identité observée, `active: true` et
+BLOCKED ; il ne transforme jamais l'erreur de scope en arrêt fictif.
 
 Le SHA initial est enregistré à l'attribution. `handoff` et `accept` contrôlent
 le diff commité depuis ce SHA et les fichiers dirty ; un commit propre hors scope
@@ -124,8 +140,10 @@ Si les scripts Skills/Models sont présents, `skill_roots` active la sélection
 et `models` fournit l'inventaire à router. Un routage impossible bloque la tâche.
 La classification utilise les métadonnées facultatives `routing: {type, risk,
 complexity}` de l'unité, validées par Models. Objectif/fichiers impliquant auth,
-permissions, secrets ou migrations SQL imposent conservativement un niveau fort,
-même sans métadonnées. La recommandation est transmise comme `model_requested`, sans changement du
+permissions, secrets, sécurité/authentification françaises ou migrations SQL
+imposent conservativement un niveau fort, même sans métadonnées. Les mots sont
+normalisés et reconnus aux frontières ; « author » n'est pas interprété comme « auth ».
+La recommandation est transmise comme `model_requested`, sans changement du
 modèle principal. `model_applied` devient vrai uniquement si l'observation complète
 du modèle correspond à la demande. Sans composants/configuration, ces champs
 restent vides/null.
