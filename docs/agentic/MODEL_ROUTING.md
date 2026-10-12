@@ -28,7 +28,13 @@ Chaque tentative concerne un `task_id`. Une escalade requiert `outcome: FAIL`,
 `level` observé, `diagnosis_kind: capacity` et une `diagnosis` concrète. Une erreur
 sans diagnostic ou une erreur d'implémentation bloque la relance automatique :
 analyser/corriger la cause, puis soumettre une nouvelle tâche ou tentative corrigée.
-Un échec au niveau maximal nécessite un handoff. Les échecs d'autres tâches
+Toutes les observations fournies doivent porter un task_id non vide, un outcome
+PASS ou FAIL et un level valide ; un état inconnu bloque même si une observation PASS suit. L'ordre
+fourni est chronologique et fait autorité ; les timestamps optionnels ne servent
+pas à trier silencieusement l'historique. Un PASS de correction, vérifié par
+l'orchestrateur, clôt les échecs précédents sans les retirer de attempt_history
+ni du compteur. Un nouvel échec non diagnostiqué bloque de nouveau. Un échec au
+niveau maximal nécessite un handoff. Les échecs d'autres tâches
 n'augmentent jamais le niveau d'une nouvelle tâche simple.
 
 Les métriques tokens, api_cost, codex_quota et duration_seconds restent null tant

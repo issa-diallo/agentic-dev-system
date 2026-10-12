@@ -64,23 +64,30 @@ def route(task, capabilities, attempts=None):
         raise ValueError("task id required to scope attempts")
     relevant = [a for a in (attempts or []) if task_id is not None and a.get("task_id") == task_id]
     escalations, blocked = [], None
-    for attempt in relevant:
-        if attempt.get("outcome") != "FAIL":
-            continue
-        diagnosis = attempt.get("diagnosis")
-        if (attempt.get("diagnosis_kind") != "capacity" or
-                not isinstance(diagnosis, str) or not diagnosis.strip()):
-            blocked = "Analyze and fix the failure before another model attempt"
-            break
-        previous = attempt.get("level")
-        if previous not in LEVELS:
-            raise ValueError("failed attempt requires its observed level")
-        previous_index = LEVELS.index(previous)
-        if previous_index == 3:
-            blocked = "Highest supported routing level failed; handoff required"
-            break
-        level = max(level, previous_index + 1)
-        escalations.append(diagnosis)
+    invalid = any(not isinstance(a.get("task_id"), str) or not a["task_id"].strip() or
+                  a.get("outcome") not in ("PASS", "FAIL") or
+                  a.get("level") not in LEVELS for a in (attempts or []))
+    if invalid:
+        blocked = "Invalid attempt history: explicit PASS/FAIL and observed level required"
+    else:
+        for attempt in relevant:
+            if attempt["outcome"] == "PASS":
+                # A verified correction closes earlier failures, retaining history.
+                blocked = None
+                level = classify(task)
+                continue
+            diagnosis = attempt.get("diagnosis")
+            if (attempt.get("diagnosis_kind") != "capacity" or
+                    not isinstance(diagnosis, str) or not diagnosis.strip()):
+                blocked = "Analyze and fix the failure before another model attempt"
+                continue
+            previous_index = LEVELS.index(attempt["level"])
+            if previous_index == 3:
+                blocked = "Highest supported routing level failed; handoff required"
+                continue
+            # A diagnosed subsequent attempt does not erase an unresolved failure.
+            level = max(level, previous_index + 1)
+            escalations.append(diagnosis)
     candidates, identifiers = [], set()
     for model in capabilities["models"]:
         if not isinstance(model, dict) or not isinstance(model.get("id"), str) or not model["id"].strip():
@@ -108,6 +115,7 @@ def route(task, capabilities, attempts=None):
             "reason": blocked or ("Least cost_rank capable model in supplied inventory" if selected
                                   else "No available model and effort support the required level"),
             "escalations": escalations,
+            "attempt_history": [dict(a) for a in relevant],
             "metrics": {"tokens": None, "api_cost": None, "codex_quota": None,
                         "duration_seconds": None, "attempts": len(relevant)}}
 
