@@ -9,22 +9,27 @@ Aucun formulaire ni six gros fichiers imposés. Justifier N/A selon le périmèt
 Les notes, preuves et checkpoints personnels restent locaux, exclus de Git.
 
 ## PRD
-Problème, utilisateurs, objectif, scope/non-scope, critères d'acceptation mesurables.
+Problème, utilisateurs, objectif, priorités, exigences fonctionnelles et contraintes.
+Scope/non-scope et critères d'acceptation mesurables.
 Ticket et décisions utilisateur réutilisés ; inconnues réellement bloquantes.
 
 ## TRD
-Stack observée ou choix retenus, responsabilités, contrats et dépendances.
+Stack observée ou choix retenus : frameworks, services, API, infrastructure,
+sécurité, déploiement et contraintes techniques ; responsabilités, contrats et dépendances.
 Décisions durables : ADR ciblé ; aucune qualification systématique des outils.
 Validations différées : hypothèse, responsable, échéance, preuve attendue, action si échec.
 
 ## APP_FLOW
-Parcours, transitions, états vides/erreurs et effets externes ; N/A motivé si absent.
+Parcours, navigation, actions utilisateur, transitions et états des écrans
+(chargement, vide, succès, erreur), effets externes ; N/A motivé si absent.
 
 ## UX_UI_BRIEF
-Conventions/composants existants, états et accessibilité ; N/A motivé si sans UI.
+Identité visuelle, design system et composants existants, typographie et couleurs.
+Responsive, états, interactions et accessibilité ; N/A motivé si sans UI.
 
 ## BACKEND_SCHEMA
-Données, contrats, stockage/migrations et intégrité ; N/A motivé si absent.
+Modèles, tables, relations et contraintes de données ; contrats, stockage,
+migrations et intégrité ; N/A motivé si absent.
 Auth, autorisation, tenant, données sensibles, secrets, actions externes,
 validation humaine : protections pertinentes ou non-applicabilité justifiée.
 
