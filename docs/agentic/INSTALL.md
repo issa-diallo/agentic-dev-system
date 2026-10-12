@@ -328,17 +328,36 @@ Le mode `run <mission> [options Codex]` préfixe une unique chaîne prompt par
 la lecture des règles équipe, LOCAL/index/PREPARE et le routage de la racine
 canonique skills du socle, plus celles déjà connues/autorisées par l’hôte. La mission
 reste une donnée argv, sans évaluation shell. Les autres invocations passent
-leurs arguments tels quels : `app-server` active les profils uniquement, et demande
+leurs arguments tels quels : `app-server` reçoit les overrides de configuration
+des profils uniquement, et demande
 un prompt LOCAL explicite pour activer la méthode dans le contexte principal. Les sous-agents reçoivent
 uniquement leur contrat, le socle utile et les skills sélectionnés.
 Les arguments utilisateur, le compte, les permissions et les règles équipe sont
 conservés. Aucun `danger-full-access`, modèle, effort ou feature n’est imposé.
-Les profils portent `name`, `description`, `developer_instructions` ; ils héritent
-des permissions hôte. Explorer/reviewer sans écriture est une instruction
+Les profils portent `name`, `description`, `developer_instructions` ; aucun
+réglage de permissions hôte n’est remplacé par le launcher. Explorer/reviewer sans écriture est une instruction
 coopérative, pas une sandbox OS. Les fichiers TOML modernes sont décrits dans la
 [documentation officielle Codex](https://developers.openai.com/codex/subagents).
 Le mode `config_file` est une compatibilité CLI à vérifier sur la version utilisée.
 Une validation parsing/initialize n’est pas une preuve de sous-agents lancés.
+
+Limites observées sur Codex CLI **0.162.1** : le parsing des profils et
+`app-server --strict-config`/initialize passent, mais le test réel de rôles n’a
+lancé ni démontré l’application d’aucun profil. Dans ce runtime, l’outil exposé
+`collaboration.spawn_agent` ne possède aucun sélecteur de rôle configuré ;
+`task_name` nomme une mission, il ne sélectionne pas `agentic_explorer` ou
+`agentic_reviewer`. Cette observation concerne l’hôte testé, pas une garantie
+sur tous les runtimes Codex. Un essai sous sandbox read-only a aussi échoué avec
+`bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted` lors du routage
+skills. Ce résultat ne prouve ni lancement natif ni application de skills.
+Ne pas contourner cet échec en augmentant automatiquement les permissions.
+
+Utiliser les outils de délégation réellement exposés par l’hôte avec contrats
+explicites, périmètres, skills utiles et reçus vérifiables. Le rôle est alors un
+contrat de mission, sans prétendre qu’un profil TOML a été injecté. Sans délégation
+disponible, déclarer le repli mono-agent et conserver la review dans une session
+indépendante. Aucun PASS de profil natif appliqué sans preuve runtime correspondante.
+
 
 Les skills restent ON_DEMAND. L’orchestrateur fournit explicitement le chemin
 canonique `skills/` du socle au routeur `agentic-skills.py`, puis charge uniquement

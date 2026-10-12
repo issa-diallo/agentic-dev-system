@@ -73,10 +73,19 @@ l’écrasement et ne pas supprimer les artefacts d’une story en cours.
 
 Les scripts V2, profils `codex/agents/` et six skills `skills/` restent sous le
 socle exclu. Depuis la racine métier, `bash .agentic-local/scripts/agentic-codex.sh run "Mission"`
-active les profils et demande la lecture du socle avec la mission comme prompt.
-Sans `run`, seuls les profils sont configurés pour cette invocation. Les règles équipe sont
+transmet les overrides de configuration des profils et demande la lecture du
+socle avec la mission comme prompt.
+Sans `run`, seuls ces overrides sont transmis pour cette invocation. Les règles équipe sont
 prioritaires ; les permissions, compte et arguments restent ceux de Codex.
 Aucun service permanent ni agent actif n’est déduit des fichiers. Les skills sont
 routés depuis la racine explicite `.agentic-local/skills` et chargés à la demande.
 Voir [INSTALL](INSTALL.md#distribution-v2-et-activation-codex) pour compatibilité et
 limites. Revenir à Codex normal désactive les overrides sans modifier de fichiers.
+
+Le parsing Codex CLI 0.162.1 a été vérifié ; aucun profil natif lancé/appliqué
+n’a été démontré par le test réel. Le runtime testé n’expose pas de sélecteur de
+rôle dans `collaboration.spawn_agent` : `task_name` reste un nom de mission.
+Le probe read-only a rencontré une erreur bwrap/loopback ; aucun contournement
+automatique de permissions. Utiliser les contrats/reçus du runtime hôte ou déclarer
+le repli mono-agent, avec review indépendante. La configuration d’un profil ne
+constitue jamais une preuve de son application.
