@@ -17,12 +17,14 @@
 
 - issue/story :
 - architecture/ADR :
-- research :
-- design :
-- plan :
+- PREPARE : PRD, TRD, APP_FLOW, UX_UI_BRIEF, BACKEND_SCHEMA, IMPLEMENTATION_PLAN :
+- sources réutilisées / delta du ticket et manifeste PR_SPLIT :
 - execute handoff :
 - verify evidence :
 - diff :
+
+Artefacts V1 facultatifs comme sources legacy ; aucun gate Research/Design/Plan
+supplémentaire. Vérifier les preuves et leur fraîcheur sur la révision examinée.
 
 ## Findings
 

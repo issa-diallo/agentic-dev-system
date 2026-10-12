@@ -52,12 +52,17 @@ le suivi produit après implémentation.
 
 Une unité PR peut partir en parallèle après PR_SPLIT PASS si :
 
-- elle ne dépend pas d'un changement non mergé ;
+- ses parents sont fusionnés, ou acceptés pour BUILD avec preuves fraîches ;
 - elle ne modifie pas la même zone structurelle qu'une autre PR ;
 - son contrat d'interface est stable ;
 - elle dispose d'un plan autonome.
 
-Sinon, elle attend.
+Pour une stack non fusionnée, BUILD exige un contrat stabilisé/testé et une
+acceptation vérifiée du parent sur HEAD, hash du plan et snapshot actuels ;
+COMPLETED seul ne suffit pas. Verify/Review examinent parent..enfant. Une mutation
+du parent invalide cette acceptation et bloque les descendants jusqu’à revalidation.
+SHIP exige les parents effectivement fusionnés dans la cible actualisée et des
+preuves/reviews du delta final. Sinon, l’unité attend.
 
 ## Priorité d'exécution
 

@@ -174,6 +174,37 @@ class ContextTests(unittest.TestCase):
         self.assertIn('sans gates supplémentaires', workflow)
         self.assertIn('seconde lecture', workflow)
 
+    def test_build_templates_and_stacked_dependency_contract(self):
+        # Templates linked by the V2 index must not reinstate legacy DoR gates.
+        execute = (SOURCE/'docs/agentic/templates/EXECUTE.md').read_text()
+        preconditions = execute.split('## Preconditions', 1)[1].split('## ', 1)[0]
+        required = re.findall(r'^- \[ \] (.+)$', preconditions, re.M)
+        self.assertTrue(any(item.startswith('PREPARE PASS') for item in required))
+        self.assertTrue(any(item.startswith('PR_SPLIT PASS') for item in required))
+        self.assertTrue(any('owner unique' in item for item in required))
+        self.assertTrue(any('ressources réservées' in item for item in required))
+        self.assertTrue(any('preuves fraîches' in item for item in required))
+        self.assertFalse(any(re.search(r'\b(Research|Design|Plan) PASS', item)
+                             for item in required))
+        for name, section in [('REVIEW', '## Inputs reviewed'),
+                              ('SHIP', '## Contrôle de périmètre PR_SCOPE')]:
+            text = (SOURCE/f'docs/agentic/templates/{name}.md').read_text()
+            inputs = text.split(section, 1)[1].split('## ', 1)[0]
+            self.assertIn('sources réutilisées', inputs)
+            self.assertNotRegex(inputs, re.compile(r'^- (research|design|plan)\s*:', re.M))
+            self.assertNotRegex(inputs, re.compile(
+                r'^-.*(?:Research/Design hérités|(?:Research|Design|Plan) PASS)', re.M))
+            self.assertIn('facultatifs comme sources legacy', text)
+        role = (SOURCE/'docs/agentic/roles/ORCHESTRATOR.md').read_text()
+        matrix = role.split('## Matrice de parallélisation', 1)[1].split('## ', 1)[0]
+        build_contract = matrix.split('BUILD exige', 1)[1].split('SHIP exige', 1)[0]
+        ship_contract = matrix.split('SHIP exige', 1)[1]
+        for fact in ['stabilisé/testé', 'HEAD', 'hash du plan', 'snapshot',
+                     'COMPLETED seul ne suffit pas', 'invalide cette acceptation']:
+            self.assertIn(fact, build_contract)
+        self.assertIn('parents effectivement fusionnés', ship_contract)
+        self.assertNotIn("ne dépend pas d'un changement non mergé", matrix)
+
     def test_all_modes_and_project_sizes(self):
         for mode in ['PRODUCT', 'EXISTING', 'LOCAL']:
             for scale in ['LIGHT', 'LARGE']:

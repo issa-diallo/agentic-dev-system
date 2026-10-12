@@ -2,13 +2,17 @@
 
 ## Preconditions
 
-- [ ] Research PASS
-- [ ] Design PASS
-- [ ] Plan PASS
+- [ ] PREPARE PASS, six rubriques/sources réutilisées accessibles
+- [ ] PR_SPLIT PASS pour BUILD non trivial
 - [ ] architecture/ADR compatibles
-- [ ] worktree correct si requis
-- [ ] environnement prêt
+- [ ] branche/worktree corrects et owner unique pour PR non triviale
+- [ ] ressources réservées sans collision, environnement prêt selon le risque
+- [ ] dépendances acceptées avec preuves fraîches et contrats compatibles
+- [ ] lancement observé et autorisation de commencer, ou fallback explicite
 - [ ] aucun blocker
+
+Les artefacts Research/Design/Plan V1 restent des sources legacy facultatives ;
+aucun PASS distinct supplémentaire requis. Une attribution n'est pas un lancement.
 
 ## Implementation checklist
 
