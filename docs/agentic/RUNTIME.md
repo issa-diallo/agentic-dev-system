@@ -143,6 +143,9 @@ complexity}` de l'unité, validées par Models. Objectif/fichiers impliquant aut
 permissions, secrets, sécurité/authentification françaises ou migrations SQL
 imposent conservativement un niveau fort, même sans métadonnées. Les mots sont
 normalisés et reconnus aux frontières ; « author » n'est pas interprété comme « auth ».
+Les familles authenticated/authentifiée et authorized/autorisé, ainsi que login,
+sign-in, OAuth et JWT, sont reconnues dans les objectifs et chemins. Cette
+inférence conservatrice prime sur une métadonnée qui sous-estimerait leur risque.
 La recommandation est transmise comme `model_requested`, sans changement du
 modèle principal. `model_applied` devient vrai uniquement si l'observation complète
 du modèle correspond à la demande. Sans composants/configuration, ces champs

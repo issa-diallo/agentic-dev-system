@@ -520,6 +520,41 @@ class SchedulerTests(unittest.TestCase):
                 self.scheduler.prepare('a')
         self.assertEqual(self.owners(), {})
 
+    def test_authentication_word_families_and_file_indicators_require_strong_model(self):
+        models = {'runtime_overrides': True, 'models': [
+            {'id': 'cheap', 'max_level': 'MEDIUM', 'efforts': ['medium'], 'cost_rank': 1},
+            {'id': 'strong', 'max_level': 'EXTRA_HIGH', 'efforts': ['xhigh'], 'cost_rank': 2}]}
+        objectives = [
+            'Add authenticated API access', 'Ajouter une API authentifiée',
+            'Add authorized API requests', 'Ajouter un accès autorisé',
+            'Authenticate requests', 'Authentifier les appels',
+            'Authorise API calls', 'API réservée aux utilisateurs autorisés',
+            'Add login form', 'Implement sign-in flow', 'Validate OAuth tokens', 'Verify JWT claims']
+        file_indicators = ['api/authenticated_access.py', 'api/authentifiee.py',
+                           'api/authorized.py', 'api/autorise.py', 'api/login.py',
+                           'api/sign_in.py', 'api/oauth2.py', 'api/jwt.py']
+        cases = [('Update author profile', 'a.py', 'MEDIUM')]
+        cases += [(objective, 'a.py', 'EXTRA_HIGH') for objective in objectives]
+        cases += [('Add API endpoint', file, 'EXTRA_HIGH') for file in file_indicators]
+        for index, (objective, file, expected) in enumerate(cases):
+            with self.subTest(objective=objective, file=file):
+                unit = self.plan['prs'][0]
+                # Conservative inference overrides an explicit insufficient classification.
+                unit.update(reason=objective, files=[file], routing={
+                    'risk': 'low', 'complexity': 'simple', 'type': 'implementation'})
+                self.write()
+                scheduler = SCHEDULER.Scheduler(self.manifest, self.repo,
+                                                self.root / ('case-' + str(index) + '.json'),
+                                                models=models)
+                task = scheduler.prepare('a')
+                self.assertEqual(task['model_routing']['level'], expected)
+                self.assertEqual(task['model_requested']['model'],
+                                 'cheap' if expected == 'MEDIUM' else 'strong')
+                # No runtime was launched; confirm the unused assignment stopped.
+                scheduler.handoff('a', {'agent_id': None, 'identity_verified': True,
+                                       'stopped_confirmed': True, 'outcome': 'BLOCKED',
+                                       'result': 'routing fixture; no runtime started'})
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -34,6 +34,9 @@ BUILD, WORKSPACE = module('build'), module('workspace')
 Blocked = BUILD.Blocked
 require = BUILD._CHECK.require
 STATES = {'PLANNED', 'ASSIGNED', 'RUNNING', 'COMPLETED', 'BLOCKED'}
+AUTH_TERMS = (r'\b(auth|authent(?:icat|ifi)\w*|authori[sz]\w*|autoris\w*|'
+              r'permissions?|tenants?|secrets?|security|secure|securite|securis\w*|'
+              r'login|log[- ]?in|sign[- ]?in|oauth2?|jwt)\b')
 
 
 def snapshot(repo):
@@ -144,8 +147,7 @@ class Scheduler:
             description = description.replace('_', ' ')
             classification = dict(unit.get('routing', {}))
             require(set(classification) <= {'type', 'risk', 'complexity'}, 'invalid routing metadata')
-            if re.search(r'\b(auth|authentication|authentification|authorization|autorisation|'
-                         r'permissions?|tenants?|secrets?|security|securite|securiser)\b', description):
+            if re.search(AUTH_TERMS, description):
                 classification.update(type='authentication', risk='security_critical')
             elif re.search(r'\b(migrations?|schema)\b|\.sql\b', description):
                 classification.update(type='migration', risk='critical')
