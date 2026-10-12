@@ -1,8 +1,10 @@
 # Contexte, recherche et reprise
 
 Le main agent garde objectif, contraintes, décisions, blockers et evidence.
-Avant une longue tâche, déléguer les explorations lourdes avec un contrat étroit ;
-le retour contient faits sourcés, chemins utiles, risques et décision attendue,
+Avant une longue tâche, déléguer les explorations lourdes si les outils natifs sont
+disponibles, avec un contrat étroit et un lancement réellement observé ; sinon
+consigner le fallback séquentiel sans annoncer de sous-agent lancé. Le
+retour contient faits sourcés, chemins utiles, risques et décision attendue,
 pas le journal complet. La politique de communication commune est définie dans
 [AGENTS](../../AGENTS.md) et s'applique aussi aux retours des sous-agents.
 
@@ -28,7 +30,7 @@ l'installateur ; le mode LOCAL garde son activation explicite.
 Partir du ticket, du chemin fourni et de l’index de méthode. Utiliser `rg --files`
 pour localiser puis `rg -n` dans les zones utiles et lire les passages concernés.
 Élargir seulement si l’hypothèse échoue. Grouper les lectures indépendantes,
-conserver chemins et conclusions dans Research ; ne pas relire systématiquement
+conserver chemins et conclusions dans PREPARE ou le checkpoint local ; ne pas relire systématiquement
 le même fichier. Le code réel prime sur une carte obsolète. Une recherche vide
 ou tronquée ne prouve pas l’absence : vérifier portée, exclusions et sortie brute.
 Charger skills/MCP/plugins uniquement pour un besoin identifié. Ne pas créer de
@@ -43,7 +45,11 @@ blockers, prochaines étapes et lectures ciblées. Distinguer fait et hypothèse
 Ne pas compacter tous les quelques messages ni imposer cinq questions : demander
 seulement une information réellement manquante. Si une commande de compaction
 existe dans le client, vérifier sa syntaxe ; le checkpoint fonctionne sans elle.
-Après reprise, vérifier état Git, artefacts et evidence avant l’étape suivante.
+Après reprise, vérifier état Git, hash du plan, owner/ressources, identifiant runtime,
+arrêt confirmé, artefacts et evidence avant l’étape suivante. Ne pas relancer un
+agent ou libérer son owner sur un simple timeout/BLOCKED. Réutiliser les décisions
+et preuves toujours valides ; un changement de contenu/SHA invalide les preuves
+concernées. Les checkpoints/handoffs personnels restent locaux, exclus de Git.
 Changer les préfixes peut modifier la réutilisation du cache ; aucune garantie
 sur le quota Codex ne découle du [cache API](https://developers.openai.com/api/docs/guides/prompt-caching).
 
@@ -52,7 +58,7 @@ sur le quota Codex ne découle du [cache API](https://developers.openai.com/api/
 Comparer une même tâche, version, modèle/niveau, outils, fichiers et critères,
 avec succès et retours correctifs. Noter nombre de fichiers lus, lectures redondantes, octets/lignes chargés, appels d’outils,
 durée et retries ; tokens/coût/quota seulement si une mesure réelle est exposée,
-sinon « non observable ». Octets/4 est une estimation grossière, pas une facture.
+sinon null ou « non observable ». Octets/4 est une estimation grossière, pas une facture.
 Le gain de taille d’AGENTS n’est ni un benchmark de qualité ni un gain de quota.
 Ne pas réécrire les vieux messages pour simuler une économie. Une optimisation
 qui fait perdre un diagnostic ou un AC est rejetée, même si la sortie raccourcit.

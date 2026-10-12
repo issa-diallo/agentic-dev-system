@@ -69,7 +69,7 @@ Ne pas renommer massivement le code existant dans une PR fonctionnelle.
 ## Ajouter une fonctionnalité
 1. Partir du ticket, des critères d'acceptation et du contrat existant.
 2. Identifier les responsabilités et les modules à réutiliser.
-3. Passer PR_SPLIT avant Execute : une raison métier principale par PR ;
+3. Passer PR_SPLIT avant BUILD non trivial : une raison métier principale par PR ;
    conserver code, tests, migrations et contrats indispensables ensemble.
    Découper les changements en incréments indépendants et testables,
    conformément à [PULL_REQUESTS](PULL_REQUESTS.md).

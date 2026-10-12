@@ -45,12 +45,12 @@ class ContextTests(unittest.TestCase):
         text = (SOURCE / 'AGENTS.md').read_text()
         # Includes the native communication policy; remains below the 8,764-byte baseline.
         self.assertLess(len(text.encode()), 5400)
-        for rule in ['seule PASS autorise', 'Research/Design/Plan PASS', 'Verify obligatoire',
+        for rule in ['seule PASS autorise', 'PREPARE PASS', 'Verify obligatoire',
                      'review indépendante', 'Critical/Major', 'merge et cleanup', 'READY_FOR_HUMAN',
                      'BLOCKED, ADR et ARCHITECTURE', 'Fixes #<issue_number>',
                      'dépendance structurante échoue', 'secrets', 'tenant', 'rollback']:
             self.assertIn(rule, text)
-        phases = 'PRD -> Stories -> Story Review -> Architecture -> Design System -> Research -> Design -> Plan -> PR_SPLIT -> Worktree Setup -> Execute -> Verify -> Review -> Goal -> Ship'
+        phases = 'PREPARE → BUILD → SHIP'
         self.assertIn(phases, text)
         self.assertIn(phases, (SOURCE/'docs/agentic/WORKFLOW.md').read_text())
         context = (SOURCE / 'docs/agentic/CONTEXT.md').read_text()
@@ -80,7 +80,7 @@ class ContextTests(unittest.TestCase):
                            'ne pas recopier', 'chemins', 'erreurs pertinentes',
                            'blocages, risques, incertitudes et validations manquantes',
                            'étapes internes', 'sections vides omises',
-                           'Instructions prioritaires', 'formats spécifiques PRD → Ship',
+                           'Instructions prioritaires', 'formats spécifiques PREPARE → SHIP',
                            'Exactitude, sécurité, qualité et complétude',
                            'rapports techniques et', 'métier restent complets']:
             self.assertIn(obligation, policy)
@@ -134,7 +134,7 @@ class ContextTests(unittest.TestCase):
 
     def test_lead_tech_review_contract(self):
         role = (SOURCE/'docs/agentic/roles/REVIEWER.md').read_text()
-        for rule in ['Profil Lead Tech', 'STANDARD/LARGE', 'LIGHT',
+        for rule in ['Profil Lead Tech', 'LIGHT/STANDARD', 'LARGE ou risque critique',
                      "distinct de l'implementer et du premier reviewer",
                      'Extra High', 'SHA de base et de tête', 'CI en attente/échec',
                      'BLOCKED', 'verdict précédent périmé', 'sans autorisation explicite',
@@ -149,6 +149,61 @@ class ContextTests(unittest.TestCase):
         self.assertIn('profil Lead Tech', (SOURCE/'AGENTS.md').read_text())
         self.assertEqual({p.stem for p in (SOURCE/'docs/agentic/roles').glob('*.md')},
                          {'ORCHESTRATOR', 'IMPLEMENTER', 'REVIEWER'})
+
+    def test_prepare_six_rubrics_and_build_gates(self):
+        prepare = (SOURCE/'docs/agentic/templates/PREPARE.md').read_text()
+        headings = re.findall(r'^## (.+)$', prepare, re.M)
+        self.assertEqual(headings, ['PRD', 'TRD', 'APP_FLOW', 'UX_UI_BRIEF',
+                                    'BACKEND_SCHEMA', 'IMPLEMENTATION_PLAN', 'Gate PREPARE'])
+        for rule in ['N/A', 'sources réutilisées', 'PR_SPLIT PASS', 'owner unique',
+                     'risques critiques traités', 'aucun blocker', 'CI', 'PR_SCOPE',
+                     'auth', 'autorisation', 'tenant', 'secrets', 'rollback']:
+            self.assertIn(rule.lower(), prepare.lower())
+        workflow = (SOURCE/'docs/agentic/WORKFLOW.md').read_text()
+        for rule in ['PREPARE PASS', 'PR_SPLIT PASS', 'BUILD non trivial',
+                     'outils natifs de lancement', "prepare n'est pas un lancement",
+                     'session de review indépendante', 'arrêt confirmé',
+                     'requested/observed', 'selected/loaded/applied', 'null',
+                     'PR_SCOPE PASS', 'CI PASS', 'autorisation de merge']:
+            self.assertIn(rule, workflow)
+        for name in ['README.md', 'docs/agentic/METHOD.md',
+                     'docs/agentic/EXISTING_PROJECT.md', 'docs/agentic/BOOTSTRAP.md']:
+            text = (SOURCE/name).read_text()
+            self.assertIn('Research/Design/Plan', text)
+            self.assertIn('V1', text)
+        self.assertIn('sans gates supplémentaires', workflow)
+        self.assertIn('seconde lecture', workflow)
+
+    def test_build_templates_and_stacked_dependency_contract(self):
+        # Templates linked by the V2 index must not reinstate legacy DoR gates.
+        execute = (SOURCE/'docs/agentic/templates/EXECUTE.md').read_text()
+        preconditions = execute.split('## Preconditions', 1)[1].split('## ', 1)[0]
+        required = re.findall(r'^- \[ \] (.+)$', preconditions, re.M)
+        self.assertTrue(any(item.startswith('PREPARE PASS') for item in required))
+        self.assertTrue(any(item.startswith('PR_SPLIT PASS') for item in required))
+        self.assertTrue(any('owner unique' in item for item in required))
+        self.assertTrue(any('ressources réservées' in item for item in required))
+        self.assertTrue(any('preuves fraîches' in item for item in required))
+        self.assertFalse(any(re.search(r'\b(Research|Design|Plan) PASS', item)
+                             for item in required))
+        for name, section in [('REVIEW', '## Inputs reviewed'),
+                              ('SHIP', '## Contrôle de périmètre PR_SCOPE')]:
+            text = (SOURCE/f'docs/agentic/templates/{name}.md').read_text()
+            inputs = text.split(section, 1)[1].split('## ', 1)[0]
+            self.assertIn('sources réutilisées', inputs)
+            self.assertNotRegex(inputs, re.compile(r'^- (research|design|plan)\s*:', re.M))
+            self.assertNotRegex(inputs, re.compile(
+                r'^-.*(?:Research/Design hérités|(?:Research|Design|Plan) PASS)', re.M))
+            self.assertIn('facultatifs comme sources legacy', text)
+        role = (SOURCE/'docs/agentic/roles/ORCHESTRATOR.md').read_text()
+        matrix = role.split('## Matrice de parallélisation', 1)[1].split('## ', 1)[0]
+        build_contract = matrix.split('BUILD exige', 1)[1].split('SHIP exige', 1)[0]
+        ship_contract = matrix.split('SHIP exige', 1)[1]
+        for fact in ['stabilisé/testé', 'HEAD', 'hash du plan', 'snapshot',
+                     'COMPLETED seul ne suffit pas', 'invalide cette acceptation']:
+            self.assertIn(fact, build_contract)
+        self.assertIn('parents effectivement fusionnés', ship_contract)
+        self.assertNotIn("ne dépend pas d'un changement non mergé", matrix)
 
     def test_all_modes_and_project_sizes(self):
         for mode in ['PRODUCT', 'EXISTING', 'LOCAL']:

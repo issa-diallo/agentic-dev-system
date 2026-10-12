@@ -59,6 +59,7 @@ for source in \
   docs/agentic/templates/GOAL.md \
   docs/agentic/templates/HANDOFF.md \
   docs/agentic/templates/PLAN.md \
+  docs/agentic/templates/PREPARE.md \
   docs/agentic/templates/PR_SPLIT.md \
   docs/agentic/templates/PRD.md \
   docs/agentic/templates/RESEARCH.md \

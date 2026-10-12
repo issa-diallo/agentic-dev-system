@@ -1,72 +1,41 @@
-# Bootstrap — installer la méthode dans un nouveau projet
+# Bootstrap — démarrer une mission
 
-Ce document rend le système reproductible.
+Installer le socle avec `install-agentic.sh` selon [INSTALL](INSTALL.md) et activer
+explicitement le mode personnel selon [LOCAL](LOCAL.md). Lire README, index,
+SCALING et SAFETY. Identifier PRODUCT/EXISTING et les capacités runtime réellement exposées.
 
-## 1. Copier le socle
+## PREPARE
 
-Copier dans le nouveau repo :
+Utiliser [PREPARE](templates/PREPARE.md) : six rubriques PRD, TRD, APP_FLOW,
+UX_UI_BRIEF, BACKEND_SCHEMA, IMPLEMENTATION_PLAN. LIGHT minimal, STANDARD concis,
+LARGE structuré. Aucun six gros fichiers ni dossier Research/Design/Plan par tâche.
+Référencer les décisions utilisateur et artefacts existants ; N/A motivés.
+Conserver les documents métier partagés à leurs chemins projet et les notes,
+statuts et preuves personnels dans les chemins locaux exclus de Git.
 
-```text
-AGENTS.md
-docs/agentic/
-```
+L'installation PRODUCT distribue encore cinq templates produit V1 pour transition.
+Ils restent facultatifs pour une nouvelle mission V2, utilisables pour reprise/legacy.
+Ne pas supprimer les données/décisions V1, remplir artificiellement les templates
+ou interpréter leur présence comme PASS. EXISTING réutilise le socle observé selon
+[EXISTING_PROJECT](EXISTING_PROJECT.md).
 
-Créer ensuite :
+## Prompt de démarrage
 
-```text
-docs/product/
-docs/agentic/work/
-```
+> Lis README, AGENTS.md et docs/agentic/README.md. Choisis le mode selon le risque.
+> Applique PREPARE → BUILD → SHIP : six rubriques adaptées, décisions réutilisées,
+> PR_SPLIT avant BUILD non trivial, worktree et owner unique, délégation réellement
+> lancée avec outils disponibles ou fallback honnête. Verify et review indépendante,
+> PR_SCOPE, CI et autorisation avant merge. N'invente aucun PASS ni modèle utilisé.
 
-## Projet existant
+## BUILD puis SHIP
 
-Après copie du socle (y compris COMMITS.md et scripts/agentic-check.sh), suivre
-[EXISTING_PROJECT.md](EXISTING_PROJECT.md). Choisir EXISTING dans STATUS.md et
-le mode selon le risque. Pour un ticket cadré, les étapes 2 et 3 ci-dessous sont
-remplacées par le prompt de cette entrée. La checklist produit ne s’applique pas
-à ce parcours ; le socle, les artefacts de story et les gates restent requis.
-Contrôle de présence : `bash scripts/agentic-check.sh --existing`.
+Identifier les capacités et passer PR_SPLIT ; préparer les unités par dépendances,
+branche/worktree, ownership, ressources et environnement reproductible selon besoin.
+Vérifier les scripts V2 disponibles avant de les utiliser ; un fichier de rôle
+n'est pas un agent lancé. Vérifier lancement/arrêt/handoff et preuves de qualité.
+Conserver la review indépendante, l'examen final Lead Tech et les autorisations.
 
-## 2. Initialiser les documents produit
-
-Copier les templates :
-
-```text
-docs/agentic/templates/PRD.md           -> docs/product/PRD.md
-docs/agentic/templates/STORIES.md       -> docs/product/STORIES.md
-docs/agentic/templates/STORY_REVIEW.md  -> docs/product/STORY_REVIEW.md
-docs/agentic/templates/ARCHITECTURE.md  -> docs/product/ARCHITECTURE.md
-docs/agentic/templates/DESIGN_SYSTEM.md -> docs/product/DESIGN_SYSTEM.md
-```
-
-Ne pas remplir les phases suivantes tant que le gate précédent n'est pas PASS.
-
-## 3. Commande/prompt de démarrage
-
-Donner à l'agent :
-
-> Lis AGENTS.md et docs/agentic/README.md. Applique strictement le pipeline PRD → Stories → Story Review → Architecture → Design System → Research → Design → Plan → Worktree Setup si requis → Execute → Verify → Review → Goal si applicable → Ship. Commence par la première phase non terminée. Ne saute aucune phase. À chaque phase, produis l'artefact prévu et indique PASS ou BLOCKED.
-
-## 4. Après validation du produit
-
-Pour chaque story :
-
-1. créer une issue ;
-2. créer `docs/agentic/work/<story>/` ;
-3. copier RESEARCH.md, DESIGN.md, PLAN.md, VERIFY.md, REVIEW.md, HANDOFF.md ;
-4. créer une branche/worktree ;
-5. exécuter Research → Design → Plan → Worktree Setup si requis → Execute → Verify → Review → Goal si applicable → Ship.
-
-## 5. Checklist de portabilité
-
-- [ ] AGENTS.md présent à la racine
-- [ ] METHOD.md présent
-- [ ] WORKFLOW.md présent
-- [ ] templates présents
-- [ ] PRD créé
-- [ ] Stories créées
-- [ ] Story Review passée
-- [ ] Architecture courte documentée selon son template : choix utilisateur conservés, validations différées affectées et échéancées, sans benchmark préalable
-- [ ] Design System documenté
-- [ ] STATUS.md initialisé
-- [ ] règles CI définies avant Ship
+Checklist : socle complet, PREPARE PASS, PR_SPLIT PASS pour non trivial, isolation
+et owner prêts, tests définis/réellement exécutés, review indépendante fraîche,
+PR_SCOPE PASS, CI PASS, autorisation de merge. Sans merge/cleanup : pas de DONE.
+Le contrôle `agentic-check.sh` teste les ressources, jamais les gates.

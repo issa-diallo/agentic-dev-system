@@ -10,7 +10,7 @@ Leur présence dans la même story ne justifie jamais une PR unique.
 Garder ensemble code, tests, migrations, contrats et protections indispensables
 au même comportement. Ne pas découper par couche ou nombre arbitraire de fichiers.
 
-## Gate PR_SPLIT — après Plan, avant Worktree Setup et Execute
+## Gate PR_SPLIT — dans PREPARE, avant BUILD non trivial
 
 L'orchestrateur applique ce gate sans instructions supplémentaires :
 
@@ -19,8 +19,9 @@ L'orchestrateur applique ce gate sans instructions supplémentaires :
 2. Affecter chaque capacité à une PR autonome, même sous les cibles de taille.
    Couvrir chaque capacité exactement une fois.
 3. Définir intention, fichiers exacts, AC, tests, contrats et compatibilité par PR.
-   Research/Design communs peuvent être hérités ; chaque unité conserve son Plan
-   et son DoR propres sans recréer les phases produit.
+   Les six rubriques et décisions communes peuvent être héritées ; chaque unité
+   conserve son delta IMPLEMENTATION_PLAN et son DoR sans Research/Design/Plan
+   supplémentaires par tâche.
 4. Construire le DAG technique et contractuel : ordre de fusion, vagues sans
    collisions de fichiers, stack éventuelle, branche/worktree/implementer par PR.
 5. Déléguer les unités indépendantes dans des worktrees distincts, un seul écrivain
@@ -30,7 +31,7 @@ L'orchestrateur applique ce gate sans instructions supplémentaires :
    le verdict métier explicite de l'orchestrateur.
 
 PASS exige couverture complète, périmètres autonomes, DAG acyclique et AC/tests/
-fichiers/contrats définis. Des capacités séparables regroupées rendent Execute
+fichiers/contrats définis. Des capacités séparables regroupées rendent BUILD
 BLOCKED, même sous les seuils. Tout changement de scope exige revalidation.
 Une indivisibilité technique exige contrainte concrète, preuve, risque du découpage
 et reviewer indépendant. « Story complète », même dossier ou commodité de l'auteur

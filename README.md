@@ -33,10 +33,10 @@ Le [Lead Tech](docs/agentic/roles/REVIEWER.md) réalise une synthèse indépenda
 architecture, risques, preuves de test, CI et préparation à la livraison. Son rapport
 indique le verdict, les problèmes concrets, les corrections et les incertitudes.
 
-Sur une PR STANDARD/LARGE, c'est un second agent distinct de l'implementer et du
-premier reviewer. Sur une petite PR LIGHT, le reviewer indépendant peut remplir
-cette mission directement. Le modèle doit être performant et disponible, avec
-raisonnement High ou Extra High selon le risque ; aucun nom de modèle n'est imposé.
+Sur une PR LIGHT/STANDARD, un reviewer indépendant avec profil Lead Tech peut
+assurer Review et examen final. En LARGE ou pour un risque critique, une seconde
+lecture est confiée à un agent distinct de l'implementer et du premier reviewer.
+Le modèle/effort dépend des capacités réellement disponibles et du risque.
 
 L'orchestrateur lui transmet le diff et les preuves pour un commit précis, puis
 fait corriger les problèmes et demande une revalidation. Un problème bloquant ou
@@ -80,32 +80,36 @@ les gates de qualité restent obligatoires.
 ## Du besoin à la livraison
 
 ```text
-PRD → Stories → Story Review → Architecture → Design System
- ↓
-Research → Design → Plan → PR_SPLIT → Worktree Setup → Execute
- ↓
-Verify → Review → Goal → Ship
+PREPARE → BUILD → SHIP
 ```
 
-Worktree Setup est requis pour les PR significatives ; Goal pour les tâches
-longues ou complexes. Chaque phase applicable exige son artefact et son verdict.
-Execute attend Research, Design, Plan et PR_SPLIT PASS. Verify apporte les preuves,
-puis un reviewer indépendant examine le résultat. Une PR prête à examiner
-reste READY_FOR_HUMAN ; DONE exige aussi merge et cleanup.
+PREPARE réunit six rubriques : **PRD**, **TRD**, **APP_FLOW**, **UX_UI_BRIEF**,
+**BACKEND_SCHEMA**, **IMPLEMENTATION_PLAN**. Elles peuvent tenir dans un seul
+[fichier](docs/agentic/templates/PREPARE.md), avec références et N/A motivés :
+LIGHT minimal, STANDARD concis, LARGE structuré. Sur un
+[projet existant](docs/agentic/EXISTING_PROJECT.md), réutiliser les décisions,
+conventions et artefacts validés ; compléter le delta du ticket sans ajouter
+Research/Design/Plan à chaque tâche. Les templates V1 restent facultatifs pour
+reprise/legacy ; aucune donnée ni décision existante n'est supprimée.
 
-Pour un ticket cadré sur un [projet existant](docs/agentic/EXISTING_PROJECT.md),
-commencer à Research avec l’architecture observée, sans recréer artificiellement
-les cinq documents produit. Un nouveau produit ou gros périmètre suit le cycle
-complet. La stack est choisie en Architecture et les décisions structurantes
-sont documentées par ADR.
+PR_SPLIT PASS avant BUILD non trivial, worktree et owner unique, puis implémentation,
+Verify obligatoire et review indépendante. L'orchestrateur route skills/modèles
+réellement disponibles et lance les agents natifs avec les outils exposés ; il
+conserve reçus, identités et handoffs vérifiés. Les scripts préparent et contrôlent,
+ils ne lancent pas les outils natifs à la place de l'hôte. Sans capacité disponible,
+repli séquentiel explicite, review dans une session indépendante, aucun lancement
+ni modèle principal fictif. La présence des scripts est vérifiée avant usage.
 
-Architecture reste courte : vos choix d’outils sont enregistrés, les principes
-utiles au premier incrément sont fixés, puis le travail avance. Aucun benchmark,
-prototype ou coût chiffré n’est demandé pour ce gate. Les ADR ciblent les
-arbitrages durables, sans dossier par outil. Les validations techniques sont
-planifiées en Execute/Verify ; les coûts d’exploitation peuvent être suivis
-après implémentation par le produit. Chaque suivi a un responsable et une échéance.
-Un retour en Architecture exige un fait nouveau invalidant une contrainte.
+SHIP exige PR_SCOPE, preuves fraîches, examen final Lead Tech, CI et autorisation
+avant fusion. Une PR prête reste READY_FOR_HUMAN ; DONE exige merge et cleanup.
+Goal mesurable pour tâches longues/complexes, environnement reproductible selon
+risque. Sécurité, auth/autorisation/tenant/secrets, observabilité et rollback sont
+traités selon le périmètre. Aucun PASS inventé ni coût/token non observé : null.
+
+Architecture reste courte : choix utilisateur conservés, ADR ciblés, validations
+différées avec responsable/échéance et preuves en BUILD/Verify. Aucun benchmark,
+prototype ni coût chiffré requis au gate. Un retour exige un fait nouveau invalidant
+une contrainte ; seules les unités affectées sont bloquées.
 
 ## Installer dans un projet
 
@@ -120,7 +124,7 @@ git clone git@github.com:issa-diallo/agentic-dev-system.git
 |---|---|---|
 | Usage local par défaut | `./agentic-dev-system/install-agentic.sh /chemin/du/projet` | Socle dans `.agentic-local/`, exclu de Git |
 | Usage local explicite | `./agentic-dev-system/install-agentic.sh --local --existing /chemin/du/projet` | Même protection ; aucun template produit créé |
-| Méthode partagée, nouveau produit | `./agentic-dev-system/install-agentic.sh --shared /chemin/du/projet` | Socle versionnable et cinq templates produit |
+| Méthode partagée, nouveau produit | `./agentic-dev-system/install-agentic.sh --shared /chemin/du/projet` | Socle versionnable et cinq templates produit legacy facultatifs |
 | Méthode partagée, projet existant | `./agentic-dev-system/install-agentic.sh --shared --existing /chemin/du/projet` | Socle versionnable sans documents produit |
 
 LOCAL exige la racine d’un dépôt Git (exécuter `git init` explicitement pour un
@@ -158,7 +162,7 @@ Après installation partagée, demander à l’agent :
 - **Code lisible et PR courtes** : [DEVELOPMENT](docs/agentic/DEVELOPMENT.md)
   fixe les conventions SOLID, noms et modules ;
   [PULL_REQUESTS](docs/agentic/PULL_REQUESTS.md) vise un objectif,
-  une raison métier principale, PR_SPLIT avant Execute et PR_SCOPE avant Ship.
+  une raison métier principale, PR_SPLIT avant BUILD non trivial et PR_SCOPE avant Ship.
   Les cibles 1 à 3 fichiers/100 lignes ne retirent jamais tests ni migrations.
 - **Qualité préservée** : DoR/DoD, Verify, revue indépendante, sécurité et commits
   Gitmoji liés à un ticket. Les rapports métier et techniques restent complets ;

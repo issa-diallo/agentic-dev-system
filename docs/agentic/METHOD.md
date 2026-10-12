@@ -1,242 +1,103 @@
-# Reusable Agentic Development Method
-
-Cette méthode est conçue pour être copiée dans n'importe quel dépôt logiciel.
-
-## Objectif
-
-Préparer suffisamment les tâches pour que l'implémentation soit rapide, claire et presque mécanique.
-
-La méthode doit fonctionner pour les petits comme les gros projets. La profondeur change, pas l'ordre mental.
+# Méthode de développement agentique
 
 ## Pipeline canonique
 
-```text
-PRD
- ↓
-Stories
- ↓
-Story Review
- ↓
-Architecture
- ↓
-Design System
- ↓
-Research
- ↓
-Design
- ↓
-Plan
- ↓
-PR_SPLIT
- ↓
-Worktree Setup
- ↓
-Execute
- ↓
-Verify
- ↓
-Review
- ↓
-Goal satisfied?
- ↓
-Ship
-```
+`PREPARE → BUILD → SHIP`
 
-Voir `SCALING.md` pour choisir LIGHT, STANDARD ou LARGE.
+Choisir LIGHT, STANDARD ou LARGE selon [SCALING](SCALING.md).
+La profondeur change, les garanties restent obligatoires. Chaque phase applicable
+produit un artefact et un verdict PASS/BLOCKED ; seule PASS autorise la suivante.
+Review accepte PASS_WITH_MINOR, jamais Critical/Major ouvert.
 
-## Règle d'or
+## PREPARE
 
-Aucune phase ne doit inventer ce que la phase précédente devait décider.
+Consolider le besoin et la préparation dans six rubriques : **PRD**, **TRD**,
+**APP_FLOW**, **UX_UI_BRIEF**, **BACKEND_SCHEMA**, **IMPLEMENTATION_PLAN**.
+Utiliser [PREPARE](templates/PREPARE.md) ou référencer des documents existants.
+Ce sont des rubriques, pas six gros fichiers obligatoires. N/A exige une raison.
 
-- Execute ne redéfinit pas le besoin.
-- Execute ne change pas la stack.
-- Plan ne redéfinit pas l'architecture.
-- Design ne réécrit pas les critères d'acceptation.
-- Research ne modifie pas silencieusement le scope.
-- Verify exige des preuves.
-- Review ne se contente pas des affirmations de l'implementer.
-- Ship ne masque pas une review ou un goal en échec.
+Nouveau produit/gros périmètre : préparer besoin, parcours, architecture, données,
+interface et incréments à la profondeur utile. Sur existant, réutiliser décisions,
+ADR, conventions et artefacts validés ; compléter uniquement le delta du ticket
+selon [EXISTING_PROJECT](EXISTING_PROJECT.md). Ne pas recréer Research/Design/Plan
+pour chaque tâche, ni inventer un PASS historique. Un template vide n'est pas une preuve.
 
-## Entrées dans la méthode
+PR_SPLIT est un gate avant BUILD non trivial, intégré à IMPLEMENTATION_PLAN :
+capacités autonomes, AC/tests/fichiers/contrats, DAG, vagues, branche/worktree et
+owner. Appliquer [PULL_REQUESTS](PULL_REQUESTS.md). Les décisions nécessaires,
+risques critiques et blockers sont résolus avant PASS ; les preuves de faisabilité
+planifiées en Verify ne constituent pas de nouveaux gates de qualification.
 
-- Nouveau produit ou gros périmètre : pipeline produit complet.
-- Ticket cadré sur projet existant, même sans documentation produit : appliquer
-  [EXISTING_PROJECT.md](EXISTING_PROJECT.md) et commencer à Research.
+## BUILD
 
-Dans ce second cas, consigner le cadrage, l’architecture observée et la justification
-par ticket dans Research. Aucun PASS produit fictif n’est nécessaire. Les gates
-par story restent obligatoires ; une information indispensable manquante bloque.
+Implémenter les capacités prévues dans des worktrees isolés, un seul écrivain par
+worktree. Préparer l'environnement reproductible selon le risque et la durée.
+L'orchestrateur vérifie l'entrée BUILD, réserve ressources et ownership, route
+skills et modèles, puis lance réellement les sous-agents avec les outils natifs
+exposés. Il conserve identifiants observés et handoffs ; un nom dans un fichier
+ne prouve pas un lancement. Sans ces outils, repli séquentiel explicite et session
+indépendante pour Review ; ne jamais inventer de délégation ou de modèle utilisé.
 
-## Gate universel
+Les commandes `agentic-build.py`, `agentic-workspace.py`, `agentic-skills.py`,
+`agentic-models.py` et `agentic-scheduler.py` fournissent les contrôles V2 quand
+elles sont disponibles. L'orchestrateur vérifie leur présence avant usage.
+Les scripts ne sont ni sandbox ni autorisation de merge ; préparer/attribuer
+ne lance aucun agent. Le contrat runtime distingue lancement, fin d'exécution et
+acceptation vérifiée. Un timeout ou BLOCKED ne signifie pas arrêt confirmé.
 
-Chaque phase applicable au parcours choisi doit répondre à :
-1. Quel artefact a été produit ?
-2. Quel est le verdict : PASS ou BLOCKED ?
-3. Quelles contraintes deviennent obligatoires pour la suite ?
+Execute reste l'activité d'implémentation. **Verify obligatoire** ensuite : tests
+réellement exécutés, build/API/navigateur/captures/logs/performance selon le risque.
+Une review indépendante confronte diff, AC et preuves. LIGHT/STANDARD peuvent
+confier Review et examen final à un reviewer distinct avec profil Lead Tech ;
+LARGE ou risque critique conserve une seconde lecture distincte du premier reviewer.
+Goal mesurable pour tâche longue/complexe, jusqu'à SATISFIED ou blocker réel.
 
-## Phase Produit
+## SHIP
 
-### 1. PRD
-Définir problème, utilisateurs, valeur, scope, non-scope, contraintes, risques et succès.
+Commit candidat par garde staged, PR_SCOPE PASS sur base/tête/cible actuelles,
+Review et examen final Lead Tech frais, CI PASS, validation humaine si requise,
+autorisation de merge applicable, fusion puis cleanup sûr. Nouveau commit,
+changement de contenu/base/plan : revalider les preuves concernées.
+Une mission limitée à une PR s'arrête à READY_FOR_HUMAN ; DONE exige merge et cleanup.
 
-Sortie : `docs/product/PRD.md`.
+## Reprise V1 et sécurité
 
-### 2. Stories
-Découper le PRD en tranches fonctionnelles livrables et testables.
+Conserver les données, décisions et artefacts V1. PRD/Stories/Story Review/
+Architecture/Design System/Research/Design/Plan sont des templates de reprise ou
+legacy facultatifs pour une nouvelle mission V2 ; leurs contenus peuvent alimenter
+les six rubriques. Ne pas exiger leurs PASS distincts ni les supprimer pour migrer.
+Leur présence ne constitue aucun PASS. Les anciennes preuves restent historiques.
 
-Sortie : `docs/product/STORIES.md`.
-
-### 3. Story Review
-Challenger couverture, dépendances, taille, critères et ordre.
-
-Sortie : `docs/product/STORY_REVIEW.md`.
-
-### 4. Architecture
-Fixer une direction exploitable : choix retenus, responsabilités, données et
-flux majeurs, protections pertinentes, livraison et stratégie de tests.
-Respecter les outils choisis par l’utilisateur. Consigner les hypothèses et
-validations différées avec responsable, échéance et action si échec.
-Une vérification de cohérence suffit avant PASS et la phase suivante.
-Les benchmarks, prototypes, preuves et coûts chiffrés ne sont pas requis ici.
-Créer des ADR courts uniquement pour les arbitrages aux conséquences durables.
-
-Sorties :
-- `docs/product/ARCHITECTURE.md`
-- `docs/adr/*.md`
-
-### 5. Design System
-Fixer le langage d'interface commun avant les designs de story.
-
-Sortie : `docs/product/DESIGN_SYSTEM.md`.
-
-## Phase Story
-
-### 6. Research
-Analyser le repo réel, les conventions, dépendances, tests, risques et points d'intégration.
-
-Sortie : `research.md`.
-
-### 7. Design
-Définir précisément écrans, états, flux, contrats ou comportements.
-
-Sortie : `design.md`.
-
-### 8. Plan
-Transformer les décisions précédentes en séquence d'implémentation concrète.
-
-Un bon plan doit minimiser les décisions restantes pendant Execute.
-
-Sortie : `plan.md`.
-
-### 9. PR_SPLIT
-Identifier les capacités métier, les affecter chacune à une PR autonome et
-valider couverture, contrats, DAG et vagues sans collisions. Plusieurs capacités
-séparables dans une PR bloquent Execute, même sous les cibles de taille.
-Une indivisibilité technique exige contrainte, preuve, risque et revue indépendante.
-Sortie : manifeste local selon [PR_SPLIT](templates/PR_SPLIT.md), verdict PASS/BLOCKED.
-En LIGHT, une entrée compacte dans Plan suffit ; aucun agent supplémentaire.
-
-### 10. Worktree Setup
-Pour une PR significative, préparer un environnement isolé et reproductible.
-
-Référence : `templates/WORKTREE_ENVIRONMENT.md`.
-
-### 11. Execute
-Implémenter le plan. Rester dans le scope. Ajouter les tests.
-
-Sorties :
-- code ;
-- tests ;
-- `handoff.md`.
-
-### 12. Verify
-Prouver que le résultat fonctionne.
-
-Evidence possibles :
-- tests ;
-- build ;
-- browser flow ;
-- API calls ;
-- screenshots ;
-- logs ;
-- mesures de performance.
-
-Sortie : `verify.md`.
-
-### 13. Review
-Faire une revue indépendante contre story, architecture, plan, evidence et diff.
-
-Sortie : `review.md`.
-
-### 14. Goal satisfied?
-Pour une tâche longue ou complexe, vérifier les critères mesurables du goal.
-
-Sortie : `goal.md`.
-
-Si aucun goal spécifique n'est nécessaire, les critères d'acceptation + Verify + Review font office de goal.
-
-### 15. Ship
-Préparer le commit candidat via la garde staged, contrôler PR_SCOPE contre ses
-SHA et la revue explicite (PULL_REQUESTS), puis publier la PR, passer CI et Lead
-Tech, obtenir validation humaine si requise, merger et nettoyer. Tout nouveau
-commit exige revalidation ; PR_SCOPE est un gate de livraison sur la tête réelle.
-
-## Préparation vs exécution
-
-Le système optimise volontairement le travail avant Execute.
-
-```text
-Plus de clarté avant Execute
-        ↓
-moins de décisions pendant Execute
-        ↓
-moins de retours arrière
-        ↓
-moins de tokens gaspillés
-        ↓
-implémentation plus rapide
-```
-
-## Context hygiene
-
-Avant les longues tâches, appliquer `CONTEXT.md`.
-
-## Safety
-
-Appliquer `SAFETY.md` et utiliser des hooks quand le harness le permet.
-
-## Ce qui est interdit
-
-- Idea -> Execute
-- Story -> Execute sans Research/Design/Plan/PR_SPLIT
-- Execute -> changement silencieux de stack
-- "ça marche" sans Verify/Evidence
-- Implementer -> auto-approval
-- tests non exécutés présentés comme PASS
-- merge avec Critical/Major ouvert
-- merge d'une story BLOCKED
+Appliquer [SAFETY](SAFETY.md), [DEVELOPMENT](DEVELOPMENT.md),
+[CONTEXT](CONTEXT.md) et [COMMITS](../../COMMITS.md) selon leur déclencheur.
+Auth, autorisation, tenant, données sensibles, secrets, actions externes,
+validation humaine, tests, observabilité et rollback sont traités selon le risque.
+Jamais d'auto-approval de l'implementer, test non exécuté annoncé PASS, merge avec
+Critical/Major ouvert, changement silencieux de stack ou coût non observé inventé.
 
 ## Contrat des décisions d’architecture
 
-ARCHITECTURE suit `templates/ARCHITECTURE.md`. Un choix utilisateur fait autorité :
+TRD réutilise les décisions d’ARCHITECTURE ; `templates/ARCHITECTURE.md` reste
+un support facultatif de reprise. Un choix utilisateur fait autorité :
 l’enregistrer sans redemander ses motivations ou son approbation. Sans choix,
 recommander une solution avec une raison courte. Comparer seulement un arbitrage
 encore ouvert ; pas d’ADR par outil ni de dossier de preuves avant développement.
-Un outil décidé ne déclenche aucun test de qualification en Architecture/ADR.
+Un outil décidé ne déclenche aucun test de qualification en PREPARE/TRD/ADR.
 Exception uniquement pour un cas particulier indispensable : contradiction
 concrète ou risque critique sans mitigation, test minimal et critère d’arrêt
 documentés. La préférence de l’agent ou une compatibilité non encore testée
 ne suffit pas à imposer ce test. Une fois les choix utiles consignés et les
-principes cohérents, terminer Architecture et avancer.
+principes cohérents, terminer la préparation de ces décisions et avancer.
 Sans changement structurant sur l’existant, le socle observé suffit.
 
 Un ADR court trace les arbitrages durables : frontières majeures, isolation des
 données, contrats partagés, engagements difficilement réversibles ou remplacement
 d’une décision approuvée. Regrouper les choix liés ; aucun gate supplémentaire.
 
-Les validations de faisabilité sont réalisées en Execute/Verify de la story
+Les validations de faisabilité sont réalisées en BUILD/Verify de la capacité
 concernée. Coûts d’exploitation et optimisations peuvent être suivis par le
-produit après implémentation. Reporter chaque validation dans Plan puis Verify.
+produit après implémentation. Reporter chaque validation dans IMPLEMENTATION_PLAN
+puis Verify.
 Sécurité, intégrité, contraintes légales et budget impératif se vérifient avant
 l’exposition, l’action irréversible ou l’engagement concerné.
 
