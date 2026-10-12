@@ -9,8 +9,11 @@ import re
 
 # Each capability has task triggers, file triggers, and skill metadata matches.
 CAPABILITIES = {
-    "security": (r"auth|permission|security|sécurité|tenant|secret|vulnerab",
-                 r"auth|permission|security", r"security|sécurité|vulnerab|secure.web"),
+    "security": (r"\b(auth|authenticat(?:ion|e[ds]?|ing|ed)|authoriz(?:ation|e[ds]?|ing)|"
+                 r"authentifi(?:cation|é(?:e|s|es)?|er)|autoris(?:ation|é(?:e|s|es)?|er)|"
+                 r"permissions?|security|sécurité|tenant|secrets?|vulnerabilities)\b|vulnérab",
+                 r"(^|[/_.-])(auth|authentication|authorization|permissions?|security)([/_.-]|$)",
+                 r"security|sécurité|vulnerab|secure.web"),
     "api": (r"\bapi\b|endpoint|openapi|graphql|\brest\b",
             r"(^|/)(api|routes?)/|openapi|graphql",
             r"api.design|api.pattern|design.*api|openapi|graphql|rest.*design"),
@@ -56,6 +59,17 @@ STACKS = {
     "swift": r"swift|ios|\.swift\b",
     "flutter": r"flutter|\.dart\b",
 }
+# Restrictions use declared purpose, not installation paths or a global whitelist.
+SPECIALIZED_PURPOSES = (
+    (r"image.generation|image.edit|nano.banana", r"image|photo|illustration|nano.banana"),
+    (r"\borbit\b|\bcarousel\b|layered visual stage", r"orbit|carousel|carrousel|circular"),
+    (r"cinematic|scroll.controlled|scroll.scrub|pinned.*scroll",
+     r"cinematic|cinématique|scroll|scrub|pinned"),
+    (r"figma", r"figma|\.fig(ma)?\b"),
+    (r"\bswift(ui)?\b|\bios\b", r"swift|ios|iphone|ipad|\.swift\b"),
+    (r"ui.ux.*audit|ui.ux.*auditing",
+     r"audit|review|revue|accessib|ux|ui|design"),
+)
 
 
 def _scalar(value):
@@ -117,31 +131,33 @@ def _metadata(path):
 
 def discover(roots):
     """Discover only supplied roots; canonical paths deduplicate links and loops."""
-    pending = sorted({Path(root).expanduser() for root in roots}, reverse=True)
-    visited, candidates, diagnostics = set(), set(), []
+    pending = list(reversed([(index, Path(root).expanduser())
+                             for index, root in enumerate(roots)]))
+    visited, candidates, diagnostics = set(), {}, []
     while pending:
-        path = pending.pop()
+        root_index, path = pending.pop()
         try:
             path = path.resolve()
             if path in visited:
                 continue
             visited.add(path)
             if path.is_file() and path.name == "SKILL.md":
-                candidates.add(path)
+                candidates.setdefault(path, root_index)
             elif path.is_dir():
                 manifest = path / "SKILL.md"
                 if manifest.is_file():
-                    pending.append(manifest)
+                    pending.append((root_index, manifest))
                 else:
-                    pending.extend(sorted(path.iterdir(), reverse=True))
+                    pending.extend((root_index, child)
+                                   for child in sorted(path.iterdir(), reverse=True))
             elif not path.exists():
                 diagnostics.append({"path": str(path), "error": "missing root or broken link"})
         except (OSError, RuntimeError):
             diagnostics.append({"path": str(path), "error": "unreadable path"})
     skills = []
-    for path in sorted(candidates):
+    for path in sorted(candidates, key=lambda path: (candidates[path], str(path))):
         try:
-            skills.append(_metadata(path))
+            skills.append({**_metadata(path), "root_index": candidates[path]})
         except (ValueError, OSError, UnicodeError):
             diagnostics.append({"path": str(path), "error": "invalid skill metadata"})
     return {"skills": skills, "diagnostics": sorted(diagnostics, key=lambda item: item["path"])}
@@ -178,6 +194,11 @@ def _requirements(task, files, phase):
 def _providers(skill, context):
     """A specialized skill does not provide every domain its description mentions."""
     name = skill["name"]
+    purpose = re.split(r"\.\s+", skill["description"], maxsplit=1)[0]
+    specialization = name + " " + purpose
+    for requirement, trigger in SPECIALIZED_PURPOSES:
+        if re.search(requirement, specialization, re.I) and not re.search(trigger, context, re.I):
+            return set()
     for stack, pattern in STACKS.items():
         if stack in name.lower() and not re.search(pattern, context, re.I):
             return set()
@@ -189,7 +210,7 @@ def _providers(skill, context):
         providers.discard("backend")
     if not providers:
         providers = {capability for capability, (_, _, pattern) in CAPABILITIES.items()
-                     if re.search(pattern, skill["description"], re.I)}
+                     if re.search(pattern, purpose, re.I)}
     return providers
 
 
@@ -200,8 +221,15 @@ def select(task, files, roots, phase="BUILD"):
         raise ValueError("unsupported phase")
     inventory = discover(roots)
     requirements = _requirements(task, [str(path).replace("\\", "/") for path in files], phase)
-    selected, library, covered = [], [], set()
+    selected, library, covered, equivalents = [], [], set(), {}
     for skill in inventory["skills"]:
+        identity = (skill["name"], " ".join(skill["description"].split()), skill["tier"])
+        if identity in equivalents:
+            original = equivalents[identity]
+            original.setdefault("equivalent_paths", []).append(skill["path"])
+            library.append({**skill, "tier": "LIBRARY", "state": "AVAILABLE",
+                            "duplicate_of": original["path"]})
+            continue
         providers = _providers(skill, task + " " + " ".join(map(str, files)))
         matched = [capability for capability in requirements if capability in providers]
         reasons = [reason for capability in matched for reason in requirements[capability]]
@@ -209,8 +237,10 @@ def select(task, files, roots, phase="BUILD"):
             reasons.insert(0, "metadata:CORE")
         if reasons:
             covered.update(matched)
-            selected.append({**skill, "tier": "CORE" if skill["tier"] == "CORE" else "ON_DEMAND",
-                             "capabilities": matched, "reasons": reasons, "state": "SELECTED"})
+            item = {**skill, "tier": "CORE" if skill["tier"] == "CORE" else "ON_DEMAND",
+                    "capabilities": matched, "reasons": reasons, "state": "SELECTED"}
+            equivalents[identity] = item
+            selected.append(item)
         else:
             library.append({**skill, "tier": "LIBRARY", "state": "AVAILABLE"})
     return {"phase": phase, "selected": selected, "library": library,

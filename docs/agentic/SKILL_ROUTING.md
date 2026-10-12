@@ -17,8 +17,13 @@ Les racines sont explicites : répertoire de skills déjà installé, bibliothè
 locale choisie, ou chemin `SKILL.md`. Le routeur ne découvre pas automatiquement
 le dossier personnel. L'orchestrateur transmet seulement les racines connues et
 autorisées. Les liens symboliques sont suivis ; leur cible canonique est indiquée.
-Les cycles et doublons de chemin sont éliminés, mais deux skills de même nom à
-des chemins distincts restent visibles. Une racine manquante ou une métadonnée
+Les cycles et doublons de chemin sont éliminés. Deux skills de même nom à des
+chemins distincts restent visibles dans l'inventaire. Lors de la sélection,
+des copies de même nom, description normalisée et tier partagent un provider :
+la première racine fournie prime, puis le chemin canonique dans cette racine.
+Le provider conserve `equivalent_paths` et les copies en bibliothèque indiquent
+`duplicate_of`. Les descriptions ou tiers différents restent des choix distincts.
+`root_index` trace la priorité de chaque source. Une racine manquante ou une métadonnée
 invalide produit un diagnostic, sans exposer le contenu du fichier.
 
 ## CORE, ON_DEMAND et LIBRARY
@@ -46,7 +51,12 @@ verification et review. Les besoins viennent de mots de domaine et chemins
 identifiés ; les providers viennent du nom et de la description de chaque skill.
 Un nom spécialisé prime sur les domaines simplement mentionnés dans sa
 description : un skill de migration Django ne devient pas un skill backend
-général. Les skills nommés pour une stack connue exigent un indice correspondant
+général. Le repli sur description examine uniquement sa phrase d'objectif,
+avant les exemples et mentions secondaires. Les objectifs spécialisés
+(génération d'images, orbit/carousel, séquence cinématique, Figma, Swift, audit
+UI/UX) exigent des déclencheurs correspondants dans la mission. Ces conditions
+portent sur les métadonnées, jamais sur des chemins personnels. Les skills
+nommés pour une stack connue exigent un indice correspondant
 dans la tâche ou les fichiers ; un skill Terraform parlant de sécurité ne sera
 pas sélectionné pour une API Django.
 VERIFY active verification ; REVIEW/SHIP activent verification et review ;

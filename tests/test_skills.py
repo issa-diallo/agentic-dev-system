@@ -113,6 +113,48 @@ class SkillRoutingTests(unittest.TestCase):
         result = self.route("Add SQL migration", ["migrations/003.sql"])
         self.assertEqual(self.names(result), {"database-migrations"})
 
+    def test_specialized_metadata_requires_its_actual_domain(self):
+        descriptions = {
+            "generate": "Nano Banana image generation skill. Generates frontend designs and images.",
+            "purposeful-orbit-interaction": "Design an interactive orbit and carousel. "
+                "Use when objects circle and react to pointer movement in a frontend.",
+            "cinematic-frontend": "Build a cinematic scroll-controlled frontend sequence. "
+                "Use for cinematic transitions and scroll scrubbing.",
+            "figma-frontend": "Implement frontend designs from Figma. Use for Figma translation.",
+            "swift-frontend": "Implement SwiftUI frontend views. Use for iOS screens.",
+            "ui-ux-pro-max": "UI/UX design intelligence and auditing. React frontend tools.",
+        }
+        for name, description in descriptions.items():
+            self.skill(name, description)
+        result = self.route("Fix React rendering", ["src/components/Profile.tsx"])
+        self.assertEqual(self.names(result), {"frontend-patterns"})
+        self.assertIn("cinematic-frontend", self.names(self.route("Build cinematic scroll frontend")))
+        self.assertIn("figma-frontend", self.names(self.route("Implement Figma frontend design")))
+        self.assertIn("swift-frontend", self.names(self.route("Build SwiftUI frontend views")))
+
+    def test_author_profile_is_not_authentication(self):
+        result = self.route("Update author profile", ["src/profile.py"])
+        self.assertNotIn("security-review", self.names(result))
+        for task in ("Add authentication", "Authorize API access", "API authentifiée",
+                     "Authenticated API", "Fix permissions"):
+            self.assertIn("security-review", self.names(self.route(task)))
+
+    def test_equivalent_skills_select_first_root_and_preserve_provenance(self):
+        other = self.root / "other" / "frontend-patterns"
+        other.mkdir(parents=True)
+        duplicate = other / "SKILL.md"
+        original = self.skills / "frontend-patterns" / "SKILL.md"
+        duplicate.write_bytes(original.read_bytes())
+        for roots, expected, shadow in (([other, self.skills], duplicate, original),
+                                        ([self.skills, other], original, duplicate)):
+            result = ROUTER.select("Fix React rendering", ["src/Profile.tsx"], roots)
+            self.assertEqual(len(result["selected"]), 1)
+            selected = result["selected"][0]
+            self.assertEqual(selected["path"], str(expected))
+            self.assertEqual(selected["equivalent_paths"], [str(shadow)])
+            source = next(item for item in result["library"] if item["path"] == str(shadow))
+            self.assertEqual(source["duplicate_of"], str(expected))
+
     def test_testing_e2e_and_ship_review(self):
         result = self.route("Test E2E browser flows", ["tests/e2e/accounts.test.ts"], "SHIP")
         self.assertTrue({"tdd", "playwright", "verification-loop", "code-review"}
