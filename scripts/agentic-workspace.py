@@ -105,9 +105,9 @@ def registry(repo):
                     and entry.get('id') == identifier
                     and isinstance(entry.get('worktree'), str)
                     and isinstance(entry.get('resources'), list), 'invalid registry entry')
-            require(all(isinstance(item, dict) and item.get('type') in TYPES
-                        and isinstance(item.get('name'), str)
-                        for item in entry['resources']), 'invalid registry resources')
+            require(entry['resources'], 'invalid registry resources')
+            for item in entry['resources']:
+                validate_canonical_resource(item)
         yield state
         fd, temporary = tempfile.mkstemp(dir=directory)
         try:
@@ -119,6 +119,26 @@ def registry(repo):
         finally:
             if os.path.exists(temporary):
                 os.unlink(temporary)
+
+
+def validate_canonical_resource(resource):
+    """Validate persisted normalized names lexically, without probing owner trees."""
+    require(isinstance(resource, dict), 'invalid registry resource')
+    kind, name = resource.get('type'), resource.get('name')
+    require(isinstance(kind, str) and kind in TYPES and isinstance(name, str),
+            'invalid registry resource type/name')
+    require(name.strip() == name and not any(ord(char) < 32 for char in name),
+            'invalid registry resource characters')
+    require(not any(char in name for char in '*?[') and '//' not in name
+            and '.' not in name.split('/') and '..' not in name.split('/')
+            and not name.endswith('/'), 'noncanonical registry resource')
+    if kind == 'file':
+        if name:  # Empty file prefix legitimately reserves all files.
+            path = clean_path(name)
+            require(not path.is_absolute() and '.git' not in path.parts,
+                    'noncanonical registry file')
+    else:
+        require(name, 'empty logical registry resource')
 
 
 def normalize_resource(resource, workspace):
