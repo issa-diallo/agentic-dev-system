@@ -63,8 +63,8 @@ un texte `result` ne débloque jamais les dépendances. Tout nouveau commit/hash
 ou changement de contenu, même sans commit et dans le scope autorisé, invalide
 l'acceptation et bloque les descendants. Un descendant RUNNING reste actif,
 avec son identifiant et ses réservations jusqu'à arrêt confirmé ; BLOCKED ne
-signifie jamais arrêté. Les descendants exigent revalidation et un nouvel état,
-aucun relancement automatique. Accept n'est pas une autorisation de merge.
+signifie jamais arrêté. Les descendants exigent revalidation et un `requeue`
+individuel, aucun relancement automatique. Accept n'est pas une autorisation de merge.
 
 Les outils natifs `collaboration` sont appelés par l'orchestrateur hôte ; Python
 ne peut pas les appeler. L'adaptateur conserve leur véritable identifiant et
@@ -89,6 +89,9 @@ python3 scripts/agentic-scheduler.py handoff plan.json --repo /repo --pr PR1 \
 # Après vérification réelle des critères, tests et contrat par l'orchestrateur.
 python3 scripts/agentic-scheduler.py accept plan.json --repo /repo --pr PR1 \
   --observation /chemin/validation-verifiee.json
+# Après arrêt confirmé et correction, préparer une nouvelle tentative explicite.
+python3 scripts/agentic-scheduler.py requeue plan.json --repo /repo --pr PR1 \
+  --observation /chemin/correction-verifiee.json
 python3 scripts/agentic-scheduler.py resume plan.json --repo /repo
 ```
 
@@ -102,6 +105,7 @@ coopérative est réservée à l'orchestrateur autorisé.
 ## Reprise, ownership et observations
 
 États persistants : PLANNED → ASSIGNED → RUNNING → COMPLETED, ou BLOCKED.
+INTEGRATED représente uniquement une dépendance historique fusionnée prouvée.
 Les mutations sont sous `flock`, les JSON écrits par remplacement atomique et
 `fsync`. L'intention de réservation est sauvegardée avant Workspace, permettant
 de détecter une interruption entre les deux registres. L'attribution est
@@ -127,8 +131,39 @@ bloque également la tâche. Les réservations demeurent jusqu'à l'arrêt confi
 modifiés et les propriétaires. Une unité modifiée ou supprimée et ses descendants
 sont bloqués avant dispatch ; les unités indépendantes inchangées continuent.
 Une modification des métadonnées globales invalide toutes les unités existantes.
-Après revalidation et arrêt des anciens agents, utiliser un nouvel état pour le
-plan révisé ; aucune réinitialisation automatique ne masque l'ancien historique.
+Après revalidation et arrêt des anciens agents, utiliser `requeue` pour les
+unités corrigées ; aucune réinitialisation automatique ne masque l'historique.
+
+`requeue(pr, evidence)` est autorisé uniquement pour BLOCKED ou COMPLETED non
+accepté, avec `active: false` exact et aucun propriétaire dans l'état ni aucune
+réservation du worktree dans Workspace. RUNNING, lancement inconnu, livraison
+acceptée et réservation persistante sont refusés. Requeue ne libère jamais de
+ressources ; `handoff` doit d'abord confirmer l'arrêt et libérer son propriétaire.
+
+L'attestation exige `orchestrator_verified: true`, `reason` et `proof` non vides,
+`plan_sha256` actuel et `snapshot` Quality actuel. Pour un lancement observé ou
+un lancement précédemment inconnu, elle exige également `stopped_confirmed: true`,
+`identity_verified: true` et `agent_id` cohérent avec l'identifiant connu (ou null
+après arrêt confirmé sans identité observée). Une tâche bloquée avant lancement
+n'exige aucun identifiant fictif. Le plan, la branche, le scope commité/dirty et
+les dépendances sont revérifiés par BUILD avant retour à PLANNED. Aucun agent
+n'est lancé par requeue. La tentative précédente, son résultat, sa véritable
+identité et la décision de reprise restent dans `history`, avec les événements
+globaux. Chaque descendant est repris séparément après acceptation fraîche du
+parent corrigé ; aucune vague n'est effacée en masse.
+
+Pour adopter un manifeste V1 avec des parents déjà fusionnés, `merged_commit`
+doit être un SHA exact connu et ancêtre de `plan.target` si fourni, sinon de HEAD
+du dépôt d'orchestration. Le scheduler résout le SHA et la cible et recontrôle
+l'ancestralité à chaque reprise/dispatch. La correspondance PR/SHA reste une
+attestation du manifeste confiée à l'orchestrateur, comme dans V1 ; Git seul ne
+prouve pas l'identité de la PR. Une preuve valide donne INTEGRATED et une
+provenance `historical`, avec `agent_id: null` et `verify: NOT_OBSERVED`. Aucun
+agent ni test historique n'est prétendu lancé. Seul ce cas permet d'ignorer un
+worktree historique supprimé et de satisfaire la dépendance sans réexécution.
+Un SHA inconnu, non intégré ou une cible devenue incompatible bloque la
+dépendance et ses consommateurs, tout en conservant leurs réservations actives.
+Une déclaration historique ne peut jamais remplacer un agent actif/propriétaire.
 
 La trace conserve identifiant runtime, rôle, état, résultat, blockers, hash du
 plan, événements horodatés et durée de lancement à arrêt mesurée. Le modèle

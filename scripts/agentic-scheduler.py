@@ -33,7 +33,7 @@ def module(name, optional=False):
 BUILD, WORKSPACE = module('build'), module('workspace')
 Blocked = BUILD.Blocked
 require = BUILD._CHECK.require
-STATES = {'PLANNED', 'ASSIGNED', 'RUNNING', 'COMPLETED', 'BLOCKED'}
+STATES = {'PLANNED', 'ASSIGNED', 'RUNNING', 'COMPLETED', 'BLOCKED', 'INTEGRATED'}
 AUTH_TERMS = (r'\b(auth|authent(?:icat|ifi)\w*|authori[sz]\w*|autoris\w*|'
               r'permissions?|tenants?|secrets?|security|secure|securite|securis\w*|'
               r'login|log[- ]?in|sign[- ]?in|oauth2?|jwt)\b')
@@ -126,11 +126,50 @@ class Scheduler:
             if key in state['tasks']:
                 self._block(state, state['tasks'][key], 'plan changed; revalidation required')
         state.update(plan=plan, plan_sha256=digest)
+        self._historical(state, units)
         return units
 
     def _done(self, state):
         return [key for key, task in state['tasks'].items()
-                if task['state'] == 'COMPLETED' and task.get('accepted')]
+                if (task['state'] == 'COMPLETED' and task.get('accepted'))
+                or (task['state'] == 'INTEGRATED' and task.get('integration_proven'))]
+
+    def _historical(self, state, units):
+        """Prove declared historical integration; never fabricate runtime/Verify."""
+        invalidated = set()
+        for pr, unit in units.items():
+            if 'merged_commit' not in unit:
+                continue
+            task = state['tasks'][pr]
+            try:
+                require(task.get('active') is False and 'owner' not in task,
+                        'historical integration cannot replace an active reservation')
+                commit = unit['merged_commit']
+                require(isinstance(commit, str) and re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', commit),
+                        'exact historical merged_commit required')
+                merged = BUILD._CHECK.resolve(str(self.repo), commit)
+                target_ref = state['plan'].get('target', 'HEAD')
+                target = BUILD._CHECK.resolve(str(self.repo), target_ref)
+                require(BUILD._CHECK.ancestor(str(self.repo), merged, target),
+                        'historical merged_commit not integrated in target')
+                proof = {'merged_commit': merged, 'target_ref': target_ref, 'target': target,
+                         'source': 'manifest PR/SHA attestation plus observed Git ancestry',
+                         'verify': 'NOT_OBSERVED'}
+                if task.get('agent_id') is not None or task['blockers']:
+                    previous = {key: value for key, value in task.items() if key != 'history'}
+                    task.setdefault('history', []).append({'task': copy.deepcopy(previous),
+                                                           'historical_import': proof})
+                changed = task.get('historical') != proof or task['state'] != 'INTEGRATED'
+                task.update(unit=unit, state='INTEGRATED', integration_proven=True, historical=proof,
+                            runtime='historical', agent_id=None, active=False, accepted=False,
+                            blockers=[], plan_sha256=state['plan_sha256'])
+                if changed:
+                    self._event(state, task, 'historical_integration_observed')
+            except (ValueError, OSError) as error:
+                task['integration_proven'] = False
+                self._block(state, task, str(error))
+                invalidated.add(pr)
+        self._block_descendants(state, invalidated)
 
     def _context(self, delegation, unit):
         context = {'skills': {'selected': [], 'loaded': [], 'applied': []},
@@ -257,7 +296,7 @@ class Scheduler:
                         and isinstance(item.get('evidence'), str) and item['evidence'].strip()
                         for item in applied), 'skill application requires loaded hash and evidence')
             task['skills']['applied'] = applied
-            task.update(active=False, result=observation['result'],
+            task.update(active=False, result=observation['result'], stop_evidence=observation,
                         duration_seconds=max(0, time.time() - task['launched_at'])
                         if task.get('launched_at') else None)
             if outcome == 'BLOCKED' or task['blockers']:
@@ -319,7 +358,55 @@ class Scheduler:
             self._event(state, task, 'contract_accepted')
             return copy.deepcopy(task)
 
+    def requeue(self, pr, evidence):
+        """Reconcile a stopped attempt and plan a new one without launch or release."""
+        with self._state() as state:
+            units = self._sync(state)
+            self._validate_owners(state)
+            task = state['tasks'][pr]
+            require(task['state'] in ('BLOCKED', 'COMPLETED') and not task.get('accepted'),
+                    'requeue requires blocked or unaccepted completed execution')
+            require(task.get('active') is False, 'runtime stop must be known before requeue')
+            require('owner' not in task, 'reservation must be released by confirmed handoff')
+            self._requeue_evidence(task, evidence, state['plan_sha256'])
+            require(pr in units, 'task removed from current plan')
+            delegation = BUILD.prepare(self.manifest, self.repo, pr, self._done(state))
+            require(delegation['plan_sha256'] == state['plan_sha256'], 'plan changed during requeue')
+            reconciled = {**task, 'unit': units[pr], 'delegation': delegation}
+            reconciled.setdefault('starting_head', WORKSPACE.git(delegation['worktree'],
+                                                                 'rev-parse', 'HEAD'))
+            self._scope(reconciled)
+            require(evidence.get('snapshot') == snapshot(delegation['worktree']),
+                    'stale requeue content snapshot')
+            with WORKSPACE.registry(self.repo) as owners:
+                require(not any(entry['worktree'] == delegation['worktree'] or
+                                entry['id'] == task.get('reservation', {}).get('id')
+                                for entry in owners.values()), 'workspace still reserved')
+            previous = {key: value for key, value in task.items() if key != 'history'}
+            history = task.get('history', []) + [{'task': copy.deepcopy(previous),
+                                                 'requeue': copy.deepcopy(evidence), 'time': time.time()}]
+            task.clear()
+            task.update(unit=units[pr], state='PLANNED', blockers=[], active=False,
+                        agent_id=None, accepted=False, plan_sha256=state['plan_sha256'],
+                        history=history, result=None)
+            self._event(state, task, 'requeued')
+            return copy.deepcopy(task)
+
+    def _requeue_evidence(self, task, evidence, digest):
+        require(isinstance(evidence, dict) and evidence.get('orchestrator_verified') is True,
+                'orchestrator-verified requeue evidence required')
+        for key in ('reason', 'proof'):
+            require(isinstance(evidence.get(key), str) and evidence[key].strip(),
+                    key + ' required for requeue')
+        require(evidence.get('plan_sha256') == digest, 'stale requeue plan')
+        if task.get('agent_id') is not None or task.get('launch_status') == 'UNKNOWN':
+            require(evidence.get('stopped_confirmed') is True
+                    and evidence.get('identity_verified') is True
+                    and evidence.get('agent_id') == task.get('agent_id'),
+                    'verified stop and coherent runtime identity required')
+
     def _validate_owners(self, state):
+        self._historical(state, {unit['id']: unit for unit in state['plan']['prs']})
         stale = set()
         for task in state['tasks'].values():
             if task.get('accepted'):
@@ -366,6 +453,8 @@ class Scheduler:
             self._sync(state)
             self._validate_owners(state)
             for task in state['tasks'].values():
+                if task['state'] == 'INTEGRATED' and task.get('integration_proven'):
+                    continue
                 try:
                     unit = task['unit']
                     tree = (self.repo / unit['worktree']).resolve()
@@ -398,7 +487,7 @@ class Scheduler:
                 if any(dep['state'] == 'BLOCKED' for dep in dependencies):
                     self._block(state, task, 'dependency blocked')
                     continue
-                if any(dep['state'] != 'COMPLETED' or not dep.get('accepted') for dep in dependencies):
+                if any(key not in self._done(state) for key in task['unit']['depends_on']):
                     continue
                 try:
                     self._assign(state, pr)
@@ -447,7 +536,7 @@ class Scheduler:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['prepare', 'receipt', 'handoff', 'resume',
-                                         'accept', 'load-skills'])
+                                         'accept', 'load-skills', 'requeue'])
     parser.add_argument('manifest')
     parser.add_argument('--repo', default='.')
     parser.add_argument('--state')

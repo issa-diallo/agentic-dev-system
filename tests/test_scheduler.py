@@ -96,6 +96,16 @@ class SchedulerTests(unittest.TestCase):
                                           'snapshot': SCHEDULER.snapshot(self.root / pr),
                                           'plan_sha256': state['plan_sha256']})
 
+    def requeue_evidence(self, pr='a', **extras):
+        state = self.scheduler.resume()
+        evidence = {'orchestrator_verified': True, 'reason': 'Corrected failed attempt',
+                    'proof': 'Fixture scope reconciled and runtime stopped',
+                    'snapshot': SCHEDULER.snapshot(self.root / pr),
+                    'plan_sha256': state['plan_sha256'], 'identity_verified': True,
+                    'stopped_confirmed': True, 'agent_id': state['tasks'][pr]['agent_id']}
+        evidence.update(extras)
+        return evidence
+
     def test_prepare_is_assignment_not_launch_and_reserves_all_files(self):
         self.plan['prs'][0]['files'].append('other.py')
         self.plan['prs'][0]['resources'] = [{'type': 'api', 'name': 'public'}]
@@ -554,6 +564,195 @@ class SchedulerTests(unittest.TestCase):
                 scheduler.handoff('a', {'agent_id': None, 'identity_verified': True,
                                        'stopped_confirmed': True, 'outcome': 'BLOCKED',
                                        'result': 'routing fixture; no runtime started'})
+
+    def test_failed_attempt_stop_fix_requeue_dispatch_preserves_history(self):
+        self.scheduler.dispatch(SimulatedAdapter({'a': 'BLOCKED'}))
+        prior = self.scheduler.resume()['tasks']['a']
+        (self.root / 'a' / 'a.py').write_text('corrected implementation\n')
+        evidence = self.requeue_evidence()
+        queued = self.scheduler.requeue('a', evidence)
+        self.assertEqual(queued['state'], 'PLANNED')
+        self.assertIsNone(queued['agent_id'])
+        self.assertEqual(queued['history'][0]['task']['result'], prior['result'])
+        self.assertEqual(queued['history'][0]['task']['agent_id'], 'simulated-a')
+        self.assertEqual(queued['history'][0]['requeue'], evidence)
+        self.assertEqual(self.owners(), {})
+        class Retry(SimulatedAdapter):
+            def launch(self, task):
+                observation = super().launch(task)
+                observation['agent_id'] = 'simulated-retry-a'
+                return observation
+        adapter = Retry()
+        state = self.scheduler.dispatch(adapter)
+        self.assertEqual(state['tasks']['a']['state'], 'COMPLETED')
+        self.assertEqual(state['tasks']['a']['agent_id'], 'simulated-retry-a')
+        self.assertEqual(len(state['tasks']['a']['history']), 1)
+        self.assertEqual(adapter.calls, [('launch', 'a'), ('wait', 'a')])
+
+    def test_descendant_requires_explicit_requeue_after_fresh_parent_acceptance(self):
+        self.add('b', ['a'])
+        self.scheduler.dispatch(SimulatedAdapter({'a': 'BLOCKED'}))
+        self.scheduler.dispatch(SimulatedAdapter())  # Propagate the failed parent.
+        with self.assertRaisesRegex(SCHEDULER.Blocked, 'dependencies not completed'):
+            self.scheduler.requeue('b', self.requeue_evidence('b'))
+        self.scheduler.requeue('a', self.requeue_evidence())
+        self.scheduler.dispatch(SimulatedAdapter())
+        self.assertEqual(self.scheduler.resume()['tasks']['b']['state'], 'BLOCKED')
+        self.accept('a')
+        queued = self.scheduler.requeue('b', self.requeue_evidence('b'))
+        self.assertIsNone(queued['history'][0]['task']['agent_id'])
+        adapter = SimulatedAdapter()
+        state = self.scheduler.dispatch(adapter)
+        self.assertEqual(state['tasks']['b']['state'], 'COMPLETED')
+        self.assertEqual(adapter.calls, [('launch', 'b'), ('wait', 'b')])
+
+    def test_requeue_refuses_active_runtime_and_unknown_launch(self):
+        class Unknown(SimulatedAdapter):
+            def launch(self, task):
+                raise TimeoutError('launch identity unavailable')
+        self.scheduler.dispatch(Unknown())
+        with self.assertRaisesRegex(SCHEDULER.Blocked, 'runtime stop must be known'):
+            self.scheduler.requeue('a', self.requeue_evidence())
+        self.assertEqual(len(self.owners()), 1)
+        self.handoff(agent_id=None, outcome='BLOCKED')
+        self.scheduler.requeue('a', self.requeue_evidence())
+        self.scheduler.prepare('a')
+        self.receipt()
+        with self.assertRaisesRegex(SCHEDULER.Blocked, 'requeue requires blocked'):
+            self.scheduler.requeue('a', self.requeue_evidence())
+        self.assertEqual(len(self.owners()), 1)
+
+    def test_requeue_never_releases_owner_even_when_no_runtime_started(self):
+        with mock.patch.object(self.scheduler, '_load_skills', side_effect=ValueError('read failed')):
+            self.scheduler.dispatch(SimulatedAdapter())
+        self.assertIs(self.scheduler.resume()['tasks']['a']['active'], False)
+        owners = self.owners()
+        with self.assertRaisesRegex(SCHEDULER.Blocked, 'reservation must be released'):
+            self.scheduler.requeue('a', self.requeue_evidence())
+        self.assertEqual(self.owners(), owners)
+
+    def test_requeue_refuses_accepted_execution_and_wrong_identity_or_evidence(self):
+        self.scheduler.dispatch(SimulatedAdapter({'a': 'BLOCKED'}))
+        for extras, message in [({'agent_id': 'wrong'}, 'coherent runtime identity'),
+                                ({'stopped_confirmed': False}, 'verified stop'),
+                                ({'proof': ''}, 'proof required'),
+                                ({'orchestrator_verified': False}, 'orchestrator-verified'),
+                                ({'snapshot': {}}, 'stale requeue content'),
+                                ({'plan_sha256': 'stale'}, 'stale requeue plan')]:
+            with self.subTest(extras=extras):
+                with self.assertRaisesRegex(SCHEDULER.Blocked, message):
+                    self.scheduler.requeue('a', self.requeue_evidence(**extras))
+        self.scheduler.requeue('a', self.requeue_evidence())
+        self.scheduler.dispatch(SimulatedAdapter())
+        self.accept()
+        with self.assertRaisesRegex(SCHEDULER.Blocked, 'unaccepted completed'):
+            self.scheduler.requeue('a', self.requeue_evidence())
+
+    def test_requeue_rechecks_branch_and_committed_scope(self):
+        self.scheduler.dispatch(SimulatedAdapter({'a': 'BLOCKED'}))
+        self.git('switch', '-qc', 'feat/wrong', repo=self.root / 'a')
+        with self.assertRaisesRegex(SCHEDULER.Blocked, 'wrong branch'):
+            self.scheduler.requeue('a', self.requeue_evidence())
+        self.git('switch', '-q', 'feat/a', repo=self.root / 'a')
+        (self.root / 'a' / 'outside.py').write_text('out of scope\n')
+        self.git('add', 'outside.py', repo=self.root / 'a')
+        self.git('commit', '-qm', 'out of scope', repo=self.root / 'a')
+        with self.assertRaisesRegex(SCHEDULER.Blocked, 'outside scope'):
+            self.scheduler.requeue('a', self.requeue_evidence())
+        self.assertEqual(self.owners(), {})
+
+    def test_cli_requeue_before_launch_requires_no_fictitious_runtime_identity(self):
+        self.plan['prs'][0]['branch'] = 'feat/wrong'
+        self.write()
+        self.scheduler.resume()
+        self.plan['prs'][0]['branch'] = 'feat/a'
+        self.write()
+        evidence = self.requeue_evidence()
+        for key in ('agent_id', 'identity_verified', 'stopped_confirmed'):
+            evidence.pop(key)
+        observation = self.root / 'requeue.json'
+        observation.write_text(json.dumps(evidence))
+        result = subprocess.run(['python3', str(SCRIPT), 'requeue', str(self.manifest),
+                                 '--repo', str(self.repo), '--state', str(self.path), '--pr', 'a',
+                                 '--observation', str(observation)], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        task = json.loads(result.stdout)['result']
+        self.assertEqual(task['state'], 'PLANNED')
+        self.assertIsNone(task['history'][0]['task']['agent_id'])
+        self.assertEqual(self.owners(), {})
+
+    def historical_parent(self, integrated=True):
+        self.add('b', ['a'])
+        tree = self.root / 'a'
+        (tree / 'a.py').write_text('delivered parent\n')
+        self.git('add', 'a.py', repo=tree)
+        self.git('commit', '-qm', 'historical parent', repo=tree)
+        merged = self.git('rev-parse', 'HEAD', repo=tree)
+        if integrated:
+            self.git('merge', '--ff-only', 'feat/a')
+        self.git('worktree', 'remove', str(tree))
+        self.plan['prs'][0]['merged_commit'] = merged
+        self.write()
+        return merged
+
+    def test_historical_merged_parent_without_worktree_allows_child(self):
+        merged = self.historical_parent()
+        adapter = SimulatedAdapter()
+        state = self.scheduler.dispatch(adapter)
+        parent = state['tasks']['a']
+        self.assertEqual(parent['state'], 'INTEGRATED')
+        self.assertEqual(parent['runtime'], 'historical')
+        self.assertIsNone(parent['agent_id'])
+        self.assertNotIn('launched_at', parent)
+        self.assertEqual(parent['historical']['merged_commit'], merged)
+        self.assertEqual(parent['historical']['verify'], 'NOT_OBSERVED')
+        self.assertEqual(parent['blockers'], [])
+        self.assertEqual(adapter.calls, [('launch', 'b'), ('wait', 'b')])
+        self.assertEqual(state['tasks']['b']['state'], 'COMPLETED')
+        self.assertEqual(self.scheduler.resume()['tasks']['a']['state'], 'INTEGRATED')
+
+    def test_historical_unknown_or_unintegrated_commit_cannot_dispatch_child(self):
+        self.historical_parent(integrated=False)
+        adapter = SimulatedAdapter()
+        state = self.scheduler.dispatch(adapter)
+        self.assertEqual(adapter.calls, [])
+        self.assertEqual(state['tasks']['a']['state'], 'BLOCKED')
+        self.assertFalse(state['tasks']['a']['integration_proven'])
+        self.plan['prs'][0]['merged_commit'] = 'f' * 40
+        self.write()
+        state = self.scheduler.dispatch(adapter)
+        self.assertEqual(adapter.calls, [])
+        self.assertFalse(state['tasks']['a']['integration_proven'])
+
+    def test_historical_ancestry_rechecked_and_active_child_keeps_owner(self):
+        base = self.git('rev-parse', 'HEAD')
+        merged = self.historical_parent()
+        self.git('branch', 'delivery', merged)
+        self.plan['target'] = 'delivery'
+        self.write()
+        self.scheduler.prepare('b')
+        self.receipt('b')
+        owner = self.scheduler.resume()['tasks']['b']['owner']['id']
+        # Move only a disposable fixture target; the delivered commit still exists.
+        self.git('update-ref', 'refs/heads/delivery', base)
+        state = self.scheduler.resume()
+        self.assertEqual(state['tasks']['a']['state'], 'BLOCKED')
+        self.assertFalse(state['tasks']['a']['integration_proven'])
+        self.assertEqual(state['tasks']['b']['state'], 'BLOCKED')
+        self.assertTrue(state['tasks']['b']['active'])
+        self.assertIn(owner, self.owners())
+        adapter = SimulatedAdapter()
+        self.scheduler.dispatch(adapter)
+        self.assertEqual(adapter.calls, [])
+
+    def test_explicit_target_proves_merge_outside_orchestration_head(self):
+        merged = self.historical_parent(integrated=False)
+        self.git('branch', 'delivery', merged)
+        self.plan['target'] = 'delivery'
+        self.write()
+        state = self.scheduler.dispatch(SimulatedAdapter())
+        self.assertEqual(state['tasks']['a']['state'], 'INTEGRATED')
+        self.assertEqual(state['tasks']['b']['state'], 'COMPLETED')
 
 
 if __name__ == '__main__':
