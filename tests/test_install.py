@@ -5,7 +5,10 @@ import json
 import shutil
 import selectors
 import sys
-import tomllib
+try:
+    import tomllib
+except ImportError:
+    tomllib = None
 from pathlib import Path
 import subprocess
 import tempfile
@@ -125,9 +128,6 @@ class InstallTests(unittest.TestCase):
         method = self.repo / '.agentic-local'
         for script in ['build', 'workspace', 'skills', 'models', 'scheduler', 'quality']:
             self.assertTrue((method / f'scripts/agentic-{script}.py').is_file())
-        for role in ['explorer', 'implementer', 'reviewer']:
-            data = tomllib.loads((method / f'codex/agents/{role}.toml').read_text())
-            self.assertEqual(set(data), {'name', 'description', 'developer_instructions'})
         skills = list((method / 'skills').glob('*/SKILL.md'))
         self.assertEqual(len(skills), 6)
         for path in ['.codex/config.toml', '.agents/skills/team/SKILL.md']:
@@ -151,6 +151,14 @@ class InstallTests(unittest.TestCase):
         guard = subprocess.run(['bash', str(method / 'scripts/agentic-staged-check.sh')],
                                cwd=self.repo, capture_output=True)
         self.assertNotEqual(guard.returncode, 0)
+
+    @unittest.skipUnless(tomllib is not None, 'tomllib requires Python 3.11 or newer')
+    def test_v2_agent_profiles_are_valid_toml(self):
+        self.install()
+        method = self.repo / '.agentic-local'
+        for role in ['explorer', 'implementer', 'reviewer']:
+            data = tomllib.loads((method / f'codex/agents/{role}.toml').read_text())
+            self.assertEqual(set(data), {'name', 'description', 'developer_instructions'})
 
     def test_v2_missing_source_preflight_leaves_target_unchanged(self):
         for missing in ['scripts/agentic-scheduler.py', 'codex/agents/reviewer.toml',
