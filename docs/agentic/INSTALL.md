@@ -113,12 +113,15 @@ projet cible ; ne pas remplacer son Architecture par un template vide.
 
 Prompt de reprise :
 
-> Applique le contrat court Architecture de METHOD. Conserve mes outils décidés.
-> Termine le cadrage avec les informations disponibles, sans tests de qualification,
-> benchmarks ou preuves préalables. Reporte les validations pertinentes en
-> Execute/Verify ou suivi produit, avec responsable et échéance. Si aucun cas
-> particulier indispensable ne bloque, indique Architecture PASS et poursuis
-> Design System puis les stories. Ne redemande pas les choix déjà autorisés.
+> Applique PREPARE → BUILD → SHIP et le contrat court Architecture de METHOD.
+> Réutilise mon architecture, mes outils et décisions validés. Complète seulement
+> les rubriques PREPARE nécessaires au delta, sans tests de qualification,
+> benchmarks ou preuves préalables. Référence les artefacts existants ; les
+> templates V1 restent facultatifs. Reporte les validations pertinentes dans
+> IMPLEMENTATION_PLAN puis Verify ou suivi produit, avec responsable et échéance.
+> Si aucun risque critique ou décision indispensable ne bloque, valide PREPARE,
+> exige PR_SPLIT PASS avant BUILD non trivial et poursuis les capacités prévues.
+> Ne redemande pas les choix déjà autorisés.
 
 Les profils LOCAL, PRODUCT partagé et EXISTING partagé copient le même socle : index, politique modèles, contexte,
 rôles et templates. STATUS est initialisé depuis le template neutre ; aucun
@@ -287,15 +290,19 @@ force push. Restaurer les contenus perdus sélectivement depuis l’archive vali
 Sauvegarder et comparer ; ne pas relancer l'installateur sur les personnalisations.
 Reporter sélectivement README/AGENTS, index, METHOD/WORKFLOW/SCALING,
 EXISTING_PROJECT, PULL_REQUESTS/DEVELOPMENT, rôles ORCHESTRATOR/REVIEWER et templates
-STORY/STORIES/DESIGN/PLAN/PR_SPLIT/SHIP. Ajouter `scripts/agentic-pr-check.py`,
+PREPARE/PR_SPLIT/SHIP. IMPLEMENTATION_PLAN porte le découpage ; les templates
+STORY/STORIES/DESIGN/PLAN hérités restent des références facultatives, à conserver
+sans imposer de nouveaux fichiers ou PASS. Ajouter `scripts/agentic-pr-check.py`,
 actualiser `scripts/agentic-check.sh` et, si utilisé, le template GitHub de PR.
 En LOCAL, tous ces chemins du socle sont sous `.agentic-local/` ; le contrôleur
 s'exécute depuis la racine Git applicative avec `--repo .`. Python 3 et Git requis,
 aucun package ajouté. Conserver STATUS, work/, décisions et règles d'équipe.
 
 Activer les nouvelles règles pour les nouvelles stories : demander à Codex
-d'appliquer PR_SPLIT automatiquement après Plan, déléguer les vagues compatibles
-et contrôler PR_SCOPE avant Ship. LIGHT reste une entrée compacte dans Plan.
+de réutiliser les décisions validées dans PREPARE/IMPLEMENTATION_PLAN, appliquer
+PR_SPLIT automatiquement avant BUILD non trivial, déléguer les vagues compatibles
+et contrôler PR_SCOPE avant SHIP. LIGHT garde un découpage compact dans
+IMPLEMENTATION_PLAN ou son support PREPARE agrégé, sans Plan supplémentaire.
 Ne modifier, découper, rebaser ou réécrire aucune PR déjà existante automatiquement.
 Un éventuel traitement d'une PR ouverte est une mission distincte explicitement
 cadrée. Vérifier présence (`agentic-check.sh --existing`), puis un manifeste local
