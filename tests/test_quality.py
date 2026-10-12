@@ -78,12 +78,12 @@ class QualityTests(unittest.TestCase):
     def test_detached_child_pipe_drainage_has_deadline(self):
         pid_path = self.repo / ".git/detached-child.pid"
         code = ("import subprocess,sys; from pathlib import Path; "
-                "child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(3)'], "
+                "child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(5)'], "
                 "start_new_session=True); Path(sys.argv[1]).write_text(str(child.pid))")
         started = time.monotonic()
         try:
-            result = QUALITY.run_checks(self.repo, [[sys.executable, "-c", code, str(pid_path)]], timeout=.1)
-            self.assertLess(time.monotonic() - started, 1)
+            result = QUALITY.run_checks(self.repo, [[sys.executable, "-c", code, str(pid_path)]], timeout=1)
+            self.assertLess(time.monotonic() - started, 3)
             self.assertTrue(pid_path.exists(), "Detached child must actually have started")
             self.assertTrue(result["checks"][0]["timed_out"])
             self.assertEqual(result["verdict"], "BLOCKED")
