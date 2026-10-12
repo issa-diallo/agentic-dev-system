@@ -1,5 +1,9 @@
 """Routing recommendations never constitute a runtime model change."""
 import importlib.util
+import json
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 import unittest
 
@@ -61,6 +65,37 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(MODELS.route({"id": "a"}, self.inventory, [failure])["verdict"], "BLOCKED")
         failure.update(level="EXTRA_HIGH", diagnosis_kind="capacity", diagnosis="Still insufficient")
         self.assertEqual(MODELS.route({"id": "a"}, self.inventory, [failure])["verdict"], "BLOCKED")
+
+    def test_unknown_outcome_blocks_api_and_cli_even_after_pass(self):
+        attempts = [{"task_id": "a", "outcome": "FAILED", "level": "MEDIUM"},
+                    {"task_id": "a", "outcome": "PASS", "level": "MEDIUM"}]
+        task = {"id": "a"}
+        self.assertEqual(MODELS.route(task, self.inventory, attempts)["verdict"], "BLOCKED")
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "input.json"
+            input_path.write_text(json.dumps({"task": task, "capabilities": self.inventory,
+                                             "attempts": attempts}))
+            result = subprocess.run([sys.executable, str(Path(MODELS.__file__)), str(input_path)],
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1)
+            self.assertEqual(json.loads(result.stdout)["verdict"], "BLOCKED")
+
+    def test_malformed_history_is_not_silently_ignored(self):
+        for observation in ({}, {"task_id": "other", "outcome": "UNKNOWN", "level": "LOW"}):
+            result = MODELS.route({"id": "a"}, self.inventory, [observation])
+            self.assertEqual(result["verdict"], "BLOCKED")
+
+    def test_verified_correction_closes_failure_but_retains_history(self):
+        failure = {"task_id": "a", "outcome": "FAIL", "level": "MEDIUM",
+                   "diagnosis_kind": "implementation", "diagnosis": "Bug in validation"}
+        corrected = {"task_id": "a", "outcome": "PASS", "level": "MEDIUM"}
+        attempts = [failure, corrected]
+        result = MODELS.route({"id": "a"}, self.inventory, attempts)
+        self.assertEqual(result["verdict"], "PASS")
+        self.assertEqual(result["metrics"]["attempts"], 2)
+        self.assertEqual(len(result["attempt_history"]), 2)
+        attempts.append(failure)
+        self.assertEqual(MODELS.route({"id": "a"}, self.inventory, attempts)["verdict"], "BLOCKED")
 
     def test_explicit_tiers_and_relative_cost_order(self):
         self.inventory["models"].append(
