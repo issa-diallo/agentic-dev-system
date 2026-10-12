@@ -10,7 +10,8 @@ import hashlib
 import json
 import os
 import signal
-import threading
+import selectors
+import time
 from pathlib import Path
 import subprocess
 
@@ -64,48 +65,67 @@ def run_checks(repo, commands, timeout=60):
         raise ValueError("timeout must be positive and at most 3600 seconds")
     before, checks = snapshot(repo), []
     for command in commands:
-        timed_out, code, exceeded = False, None, threading.Event()
+        timed_out, code, exceeded = False, None, False
         hashes = [hashlib.sha256(), hashlib.sha256()]
         process = None
-
-        def stop():
-            try:
-                os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-
-        def consume(stream, digest):
-            size = 0
-            with stream:
-                while chunk := stream.read(8192):
-                    size += len(chunk)
-                    digest.update(chunk)
-                    if size > 1024 * 1024:
-                        exceeded.set()
-                        stop()
-                        break
+        streams = []
+        deadline = time.monotonic() + timeout
         try:
             process = subprocess.Popen(command, cwd=repo, stdout=subprocess.PIPE,
                                        stderr=subprocess.PIPE, start_new_session=True)
-            readers = [threading.Thread(target=consume, args=(stream, digest))
-                       for stream, digest in zip((process.stdout, process.stderr), hashes)]
-            for reader in readers:
-                reader.start()
-            try:
-                code = process.wait(timeout=timeout)
-            except subprocess.TimeoutExpired:
-                timed_out = True
-                stop()
-                process.wait()
-            # Also stop descendant processes retaining stdout after the parent exits.
-            stop()
-            for reader in readers:
-                reader.join()
+            streams = [process.stdout, process.stderr]
+            sizes = [0, 0]
+            with selectors.DefaultSelector() as selector:
+                for index, stream in enumerate(streams):
+                    os.set_blocking(stream.fileno(), False)
+                    selector.register(stream, selectors.EVENT_READ, index)
+                while selector.get_map() or process.poll() is None:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        timed_out = True
+                        break
+                    if not selector.get_map():
+                        try:
+                            process.wait(timeout=remaining)
+                        except subprocess.TimeoutExpired:
+                            timed_out = True
+                        break
+                    for key, _ in selector.select(remaining):
+                        try:
+                            chunk = os.read(key.fileobj.fileno(), 8192)
+                        except BlockingIOError:
+                            continue
+                        if not chunk:
+                            selector.unregister(key.fileobj)
+                            continue
+                        index = key.data
+                        sizes[index] += len(chunk)
+                        hashes[index].update(chunk)
+                        if sizes[index] > 1024 * 1024:
+                            exceeded = True
+                            break
+                    if exceeded:
+                        break
+            code = process.poll()
         except OSError:
             pass
+        finally:
+            # Close our descriptors immediately, including detached-child pipes.
+            # This bounds drainage without claiming to sandbox detached children.
+            for stream in streams:
+                stream.close()
+            if process is not None:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                try:
+                    process.wait(timeout=.1)
+                except subprocess.TimeoutExpired:
+                    timed_out = True
         checks.append({"command_sha256": hashlib.sha256(json.dumps(command).encode()).hexdigest(),
                        "returncode": code, "timed_out": timed_out,
-                       "output_limit_exceeded": exceeded.is_set(),
+                       "output_limit_exceeded": exceeded,
                        "output_sha256": hashlib.sha256(
                            b"".join(d.digest() for d in hashes)).hexdigest()})
     unchanged = snapshot(repo) == before
