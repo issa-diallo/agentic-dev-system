@@ -77,6 +77,32 @@ for source in \
   [ -f "$SCRIPT_DIR/$source" ] || fail "Missing source: $source"
 done
 
+# V2 executable capabilities and native templates; preflight before target writes.
+V2_RESOURCES=(
+  docs/agentic/MODEL_ROUTING.md
+  docs/agentic/SKILL_ROUTING.md
+  docs/agentic/RUNTIME.md
+  scripts/agentic-build.py
+  scripts/agentic-workspace.py
+  scripts/agentic-skills.py
+  scripts/agentic-models.py
+  scripts/agentic-scheduler.py
+  scripts/agentic-quality.py
+  scripts/agentic-codex.sh
+  codex/agents/explorer.toml
+  codex/agents/implementer.toml
+  codex/agents/reviewer.toml
+  skills/api-design-backend-security/SKILL.md
+  skills/database-migrations/SKILL.md
+  skills/frontend-patterns/SKILL.md
+  skills/verification-code-review-change-impact-tdd-e2e/SKILL.md
+  skills/parallel-execution-worktrees/SKILL.md
+  skills/context-handoff-documentation/SKILL.md
+)
+for source in "${V2_RESOURCES[@]}"; do
+  [ -f "$SCRIPT_DIR/$source" ] || fail "Missing source: $source"
+done
+
 DEST="$TARGET"
 if [ "$MODE" = LOCAL ]; then
   root="$(git -C "$TARGET" rev-parse --show-toplevel)" || fail "Local mode requires a Git repository."
@@ -88,9 +114,16 @@ if [ "$MODE" = LOCAL ]; then
   [ ! -L "$EXCLUDE" ] && [ ! -L "$(dirname "$EXCLUDE")" ] || fail "Refusing a symlinked Git exclude path."
 else
   # Preflight all destinations before creating directories or copying files.
-  for dir in docs scripts hooks .github .github/ISSUE_TEMPLATE docs/product docs/adr; do
+  for dir in docs scripts hooks .github .github/ISSUE_TEMPLATE docs/product docs/adr codex codex/agents skills; do
     [ ! -L "$TARGET/$dir" ] || fail "Refusing symlink: $dir"
     [ ! -e "$TARGET/$dir" ] || [ -d "$TARGET/$dir" ] || fail "Not a directory: $dir"
+  done
+  for source in "${V2_RESOURCES[@]}"; do
+    for parent in "$(dirname "$source")"; do
+      [ ! -L "$TARGET/$parent" ] || fail "Refusing symlink: $parent"
+      [ ! -e "$TARGET/$parent" ] || [ -d "$TARGET/$parent" ] || fail "Not a directory: $parent"
+    done
+    [ ! -e "$TARGET/$source" ] && [ ! -L "$TARGET/$source" ] || fail "V2 resource exists: $source"
   done
   for protected in AGENTS.md COMMITS.md docs/agentic; do
     [ ! -e "$TARGET/$protected" ] && [ ! -L "$TARGET/$protected" ] || fail "$protected already exists. Use --local to preserve team files."
@@ -133,6 +166,9 @@ if [ "$MODE" = LOCAL ]; then
   while IFS= read -r -d '' source; do
     paths+=(".agentic-local/${source#"$SCRIPT_DIR/"}")
   done < <(find "$SCRIPT_DIR/docs/agentic" -path "$SCRIPT_DIR/docs/agentic/work" -prune -o -type f -print0)
+  for source in "${V2_RESOURCES[@]}"; do
+    paths+=(".agentic-local/$source")
+  done
   for path in "${paths[@]}"; do
     if ! git -C "$TARGET" check-ignore --no-index -q -- "$path"; then
       ignored=0
@@ -164,7 +200,11 @@ mkdir -p "$DEST/docs/agentic/work"
 for script in agentic-check.sh agentic-staged-check.sh agentic-commit.sh agentic-pr-check.py; do
   copy_if_missing "$SCRIPT_DIR/scripts/$script" "$DEST/scripts/$script"
 done
+for source in "${V2_RESOURCES[@]}"; do
+  copy_if_missing "$SCRIPT_DIR/$source" "$DEST/$source"
+done
 if [ "$MODE" = PRODUCT ]; then
+  copy_if_missing "$SCRIPT_DIR/docs/agentic/templates/PREPARE.md" "$DEST/docs/product/PREPARE.md"
   for name in PRD STORIES STORY_REVIEW ARCHITECTURE DESIGN_SYSTEM; do
     copy_if_missing "$SCRIPT_DIR/docs/agentic/templates/$name.md" "$DEST/docs/product/$name.md"
   done
@@ -179,11 +219,11 @@ fi
 echo "Installed $MODE in: $DEST"
 if [ "$MODE" = LOCAL ]; then
   echo "Team files are unchanged. Nothing is automatically activated."
-  echo "Prompt: Read the repository rules first, then .agentic-local/docs/agentic/LOCAL.md then its method index: scoped ticket uses EXISTING_PROJECT; new product uses product phases."
+  echo "Prompt: Read the repository rules first, then .agentic-local/docs/agentic/LOCAL.md then its method index: scoped ticket reuses existing decisions; new product prepares six reference sections."
   echo "Check: (cd .agentic-local && bash scripts/agentic-check.sh --existing)"
 else
   echo "Read AGENTS.md and docs/agentic/README.md."
-  echo "PRODUCT starts with product phases; EXISTING starts with a scoped ticket and Research."
+  echo "PRODUCT starts with aggregated PREPARE; EXISTING reuses its validated decisions."
   echo "Check: bash scripts/agentic-check.sh $([ "$MODE" = PRODUCT ] || printf '%s' '--existing')"
 fi
 echo "Choose LIGHT, STANDARD or LARGE by risk. Templates and presence checks do not imply gate PASS."

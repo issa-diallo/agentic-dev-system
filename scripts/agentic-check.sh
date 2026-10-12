@@ -69,9 +69,33 @@ for resource in \
   docs/agentic/STATUS.md; do
   check_file "$resource"
 done
+# V2 distribution: presence is not runtime execution or a PASS gate.
+for resource in \
+  docs/agentic/MODEL_ROUTING.md \
+  docs/agentic/SKILL_ROUTING.md \
+  docs/agentic/RUNTIME.md \
+  scripts/agentic-build.py \
+  scripts/agentic-workspace.py \
+  scripts/agentic-skills.py \
+  scripts/agentic-models.py \
+  scripts/agentic-scheduler.py \
+  scripts/agentic-quality.py \
+  scripts/agentic-codex.sh \
+  codex/agents/explorer.toml \
+  codex/agents/implementer.toml \
+  codex/agents/reviewer.toml \
+  skills/api-design-backend-security/SKILL.md \
+  skills/database-migrations/SKILL.md \
+  skills/frontend-patterns/SKILL.md \
+  skills/verification-code-review-change-impact-tdd-e2e/SKILL.md \
+  skills/parallel-execution-worktrees/SKILL.md \
+  skills/context-handoff-documentation/SKILL.md; do
+  check_file "$resource"
+done
 if [ "$entry" = "EXISTING" ]; then
   check_file "docs/agentic/EXISTING_PROJECT.md"
 else
+  check_file "docs/product/PREPARE.md"
   check_file "docs/product/PRD.md"
   check_file "docs/product/STORIES.md"
   check_file "docs/product/STORY_REVIEW.md"

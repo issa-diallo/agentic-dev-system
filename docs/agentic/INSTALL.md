@@ -43,7 +43,7 @@ activation automatique n’est promise. Les règles d’équipe restent priorita
 Pour un nouveau produit, créer les documents de cadrage depuis les templates
 sous `.agentic-local/docs/product/` jusqu’à validation. Publier seulement les
 documents métier validés que l’équipe veut versionner dans ses vrais chemins.
-Les gates produit restent obligatoires ; aucun document vide ne prouve PASS.
+Les gates PREPARE, PR_SPLIT, Verify et Review restent obligatoires ; aucun document vide ne prouve PASS.
 
 ## Installation partageable : demande explicite
 
@@ -53,7 +53,7 @@ Les gates produit restent obligatoires ; aucun document vide ne prouve PASS.
 ```
 
 `--shared` conserve l’ancienne installation PRODUCT aux chemins standards,
-avec cinq templates produit et `docs/adr/`. `--shared --existing` conserve le
+avec PREPARE agrégé, les cinq templates legacy facultatifs et `docs/adr/`. `--shared --existing` conserve le
 socle EXISTING sans documents produit. Ces ressources peuvent être versionnées
 après décision d’équipe ; les notes de story et statuts personnels restent locaux
 selon [COMMITS](../../COMMITS.md). S’il existe déjà AGENTS.md, COMMITS.md ou
@@ -82,7 +82,7 @@ Les templates produit copiés ne constituent pas des gates PASS.
 
 Pour l’entrée PRODUCT, une fois installé :
 
-> Lis AGENTS.md, COMMITS.md et docs/agentic/METHOD.md. Applique strictement PRD → Stories → Story Review → Architecture → Design System → Research → Design → Plan → PR_SPLIT → Worktree Setup si requis → Execute → Verify → Review → Goal si applicable → Ship. Identifie la première phase qui n'est pas PASS et commence uniquement par celle-ci. Pour chaque commit, utilise le Gitmoji approprié et respecte COMMITS.md.
+> Lis les règles équipe, puis AGENTS.md et l’index installé. Réutilise les décisions disponibles ; prépare les six rubriques utiles. Exige PR_SPLIT PASS avant BUILD non trivial, puis Verify, review indépendante et SHIP selon autorisation. Aucun template ne prouve PASS.
 
 ## Commits
 
@@ -303,3 +303,50 @@ cadrée. Vérifier présence (`agentic-check.sh --existing`), puis un manifeste 
 de présence ne prouve aucun PASS de périmètre. Vérifier exclusions personnelles
 avec la garde staged avant commit. Rollback : restaurer seulement les règles et
 scripts sauvegardés, conserver les artefacts et PR sans modification.
+
+
+## Distribution V2 et activation Codex
+
+Le socle distribue les scripts Planner, Workspace, Skills, Models, Scheduler et
+Quality, trois profils dans `codex/agents/` et six skills courts dans `skills/`.
+Aucune configuration `.codex/`, `.agents/`, globale ou d’authentification n’est
+créée ou remplacée. Les préflights couvrent ces ressources avant toute écriture.
+En mode partagé, une collision avec un fichier V2 existant est refusée.
+PRODUCT initialise `docs/product/PREPARE.md` et conserve les templates V1 ;
+les installations existantes sont comparées/manuellement mises à jour, jamais
+écrasées. Aucun document validé ni historique n’est supprimé.
+
+Depuis la vraie racine du projet, activation opt-in pour une invocation :
+
+```bash
+bash .agentic-local/scripts/agentic-codex.sh run "Ajouter une API authentifiée"
+# Mode partagé : bash scripts/agentic-codex.sh run "Mission"
+```
+
+Le launcher ajoute seulement `-c agents.agentic_<role>.config_file=<chemin>`.
+Le mode `run <mission> [options Codex]` préfixe une unique chaîne prompt par
+la lecture des règles équipe, LOCAL/index/PREPARE et le routage de la racine
+canonique skills du socle, plus celles déjà connues/autorisées par l’hôte. La mission
+reste une donnée argv, sans évaluation shell. Les autres invocations passent
+leurs arguments tels quels : `app-server` active les profils uniquement, et demande
+un prompt LOCAL explicite pour activer la méthode dans le contexte principal. Les sous-agents reçoivent
+uniquement leur contrat, le socle utile et les skills sélectionnés.
+Les arguments utilisateur, le compte, les permissions et les règles équipe sont
+conservés. Aucun `danger-full-access`, modèle, effort ou feature n’est imposé.
+Les profils portent `name`, `description`, `developer_instructions` ; ils héritent
+des permissions hôte. Explorer/reviewer sans écriture est une instruction
+coopérative, pas une sandbox OS. Les fichiers TOML modernes sont décrits dans la
+[documentation officielle Codex](https://developers.openai.com/codex/subagents).
+Le mode `config_file` est une compatibilité CLI à vérifier sur la version utilisée.
+Une validation parsing/initialize n’est pas une preuve de sous-agents lancés.
+
+Les skills restent ON_DEMAND. L’orchestrateur fournit explicitement le chemin
+canonique `skills/` du socle au routeur `agentic-skills.py`, puis charge uniquement
+les instructions sélectionnées ; pas d’auto-discovery native promise hors des
+racines supportées. Lire/charger un skill ne prouve pas son application. Les liens
+relatifs de chaque skill résolvent le socle dans les deux modes. CORE reste AGENTS.
+
+Pour arrêter l’activation, lancer Codex normalement : aucun lien ou config à
+retirer. Les artefacts personnels restent sous `.agentic-local/`, protégés par la
+garde staged même après `git add -f`. Le rollback de l’installation et la migration
+des anciennes données suivent les procédures ci-dessus.
