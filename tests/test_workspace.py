@@ -127,6 +127,29 @@ class WorkspaceTests(unittest.TestCase):
             self.reserve('b', self.b, self.resource('file', 'b.py'))
         self.assertEqual(state.read_text(), '{broken')
 
+    def test_corrupt_noncanonical_resource_names_block_without_rewriting(self):
+        self.reserve('a', self.a, self.resource('file', 'app.py'))
+        state_path = self.repo / '.git/agentic-workspace/owners.json'
+        original = json.loads(state_path.read_text())
+        for kind, names in [('file', ['src/../app.py', './app.py', '.git/control',
+                                     'src//app.py', 'src/', 'app*', 'app\n.py']),
+                            ('table', ['src/../users', './users', 'users/', 'users*', ''])]:
+            for name in names:
+                with self.subTest(kind=kind, name=name):
+                    state = json.loads(json.dumps(original))
+                    state['a']['resources'] = [self.resource(kind, name)]
+                    state_path.write_text(json.dumps(state))
+                    before = state_path.read_bytes()
+                    with self.assertRaises(WORKSPACE.Blocked):
+                        self.reserve('b', self.b, self.resource('file', 'app.py'))
+                    self.assertEqual(state_path.read_bytes(), before)
+        state_path.write_text(json.dumps(original))
+        WORKSPACE.release(self.repo, 'a')
+        self.reserve('a', self.a, self.resource('file', '*'))
+        with self.assertRaises(WORKSPACE.Blocked):
+            self.reserve('b', self.b, self.resource('file', 'app.py'))
+        WORKSPACE.release(self.repo, 'a')
+
     def test_concurrent_processes_only_one_resource_owner(self):
         processes = []
         for number in range(8):
