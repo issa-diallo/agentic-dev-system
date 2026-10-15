@@ -57,7 +57,13 @@ contradiction concrète ou un risque critique avec faits et périmètre affecté
 - changements hors périmètre ou découpage plus sûr possible ?
 - PR_SPLIT couvre-t-il toutes les capacités, une PR par capacité autonome ?
 - PR_SCOPE : fichiers réels, renames/binaires, taille justifiée et scope cohérent ?
+- `deliverables` : preuve par chemin réel du rôle production ou test associé ?
+  Refuser les scripts de travail, probes et lanceurs de vérification ponctuels ;
+  pour un Markdown, vérifier son utilisation effective par le produit.
 - aucune fonctionnalité/refactoring indépendant, même sous les seuils ?
+- aucun artefact de réflexion, préparation, plan ou rapport de mission dans le
+  diff, même approuvé, collectif ou placé dans un chemin métier ? Sa présence
+  bloque PR_SCOPE ; les preuves sont transmises hors du diff.
 - exception d’indivisibilité prouvée ; AC/tests/contrats/migrations conservés ?
 - dépendances effectivement fusionnées (URL PR + SHA, chaîne transitive), contrats compatibles ?
 
@@ -146,11 +152,10 @@ L'implementer corrige ; Verify et les checks concernés sont rejoués ; le Lead 
 réexamine les corrections et leur impact. Tout changement de base ou de tête rend
 le verdict précédent périmé jusqu'à revalidation, même si seul le compte rendu a
 changé. Consigner l'avis dans un artefact ne remplace pas cette vérification finale.
-Si le rapport est committé, il reste historique : il n'atteste pas son propre
-commit. Après ce commit et sa CI, demander une ultime attestation en lecture seule
-sur les SHA définitifs ; la conserver dans la réponse/session ou un support
-externe explicitement autorisé, sans nouveau commit. Le template Ship référence
-cette attestation finale ; ne pas boucler en committant chaque revalidation.
+Le rapport et ses revalidations restent locaux, exclus de Git ; ne jamais les
+committer. Conserver l'attestation sur les SHA définitifs dans la réponse/session
+ou un support externe explicitement autorisé, sans nouveau commit. Le template Ship local référence
+cette attestation finale ; aucun commit de rapport n'est nécessaire.
 Boucle sans convergence : escalader à l'orchestrateur, ne pas baisser les critères.
 L'avis favorable prépare READY_FOR_HUMAN ; la politique de validation humaine et
 l'autorisation de merge restent applicables. Ce contrôle fait partie de Ship.

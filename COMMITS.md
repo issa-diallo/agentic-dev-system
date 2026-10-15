@@ -369,13 +369,22 @@ Si une de ces règles n’est pas satisfaite, ne pas créer le commit.
 
 ## Contrôle obligatoire de l’index avant chaque commit Agentic
 
-Versionner le code, les tests, les documents métier, les ADR approuvés et la
-configuration nécessaire à l’application. Garder localement la méthode
-personnelle, les notes, statuts, checkpoints et preuves de story. Même en
+Versionner le code, les tests, migrations, contrats et configurations nécessaires
+à l’application. Garder localement toute préparation : réflexions, recherches,
+PRD/TRD, briefs, plans, schémas de conception, décisions de mission, statuts,
+checkpoints et preuves, y compris les rapports de review approuvés. Leur caractère
+collectif ou leur approbation ne les rend pas versionnables. Les scripts de
+réflexion et de vérification ponctuelle restent aussi locaux. Un Markdown doit
+être réellement utilisé par le produit livré ; une méthode documentaire peut
+elle-même être le produit explicitement demandé. PR_SCOPE exige une preuve
+indépendante par fichier du rôle production ou test associé. Voir
+[PULL_REQUESTS](docs/agentic/PULL_REQUESTS.md). Garder aussi locale la méthode
+personnelle. Même en
 installation partagée, `docs/agentic/work/` et `docs/agentic/STATUS.md` sont des
 artefacts internes personnels. Ne pas déplacer ces contenus vers un chemin
-métier pour contourner la séparation. Les règles AGENTS d’équipe et les documents
-`docs/product/`, `docs/adr/`, `.github/` ou `.codex/` ne sont pas interdits par nom.
+métier pour contourner la séparation. Les règles AGENTS d’équipe et les chemins
+`docs/product/`, `docs/adr/`, `.github/` ou `.codex/` ne sont pas interdits par nom ;
+leur contenu reste soumis à cette règle, notamment les plans et rapports.
 
 Après `git add -- <fichiers métier>` et inspection de `git diff --cached`, chaque
 commit effectué par le workflow doit utiliser, depuis la racine du projet :

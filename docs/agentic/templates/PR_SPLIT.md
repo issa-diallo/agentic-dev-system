@@ -115,10 +115,24 @@ fusion. Listes vides si aucune interface/dépendance.
   "no_independent_changes": {"pass": true, "evidence": "Diff examiné : uniquement CSV, aucun refactoring annexe"},
   "size": {"pass": true, "evidence": "Deux fichiers, sous 100 lignes"},
   "indivisibility": {"pass": true, "evidence": "Une capacité avec son test : N/A motivé"},
+  "deliverables": [
+    {"path": "src/export.py", "role": "production", "pass": true, "evidence": "Implémente AC1 : sérialisation des lignes autorisées"},
+    {"path": "tests/test_export.py", "role": "test", "pass": true, "evidence": "Teste le format CSV et le refus des lignes interdites d'AC1"}
+  ],
   "contracts": [{"name": "CSV v1", "pass": true, "evidence": "Tests format/autorisations PASS, lecture inchangée"}],
   "dependencies": []
 }
 ```
+
+`deliverables` est obligatoire : chaque chemin du diff réel exactement une fois,
+y compris les sources et destinations des renames et les suppressions. Rôles
+acceptés : `production` ou `test`, avec `pass: true` et preuve concrète du lien au
+comportement livré. Pour une suppression, justifier le retrait dans ce comportement
+ou la migration autorisée d'un artefact hérité. Un Markdown utilisé par le produit
+peut passer ; un script ponctuel de réflexion ou de vérification reste local.
+Les anciens avis sans ce champ deviennent BLOCKED : refaire la review sur les SHA
+actuels. Le manifeste version 1 reste compatible. Le script vérifie couverture,
+rôles et chemins locaux connus ; le reviewer vérifie la réalité des preuves.
 
 Tout changement de cible, même sans modification du merge-base, exige revue
 actualisée des contrats et nouvelle attestation. Un nom dans JSON ne prouve pas

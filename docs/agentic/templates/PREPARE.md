@@ -6,7 +6,11 @@ Périmètre, responsable et autorisations : TODO.
 
 Les six rubriques tiennent dans ce fichier ou référencent des artefacts existants.
 Aucun formulaire ni six gros fichiers imposés. Justifier N/A selon le périmètre.
-Les notes, preuves et checkpoints personnels restent locaux, exclus de Git.
+Ce fichier rempli et tous les artefacts de préparation restent locaux, exclus de
+Git, même approuvés ou collectifs. Stockage :
+`.agentic-local/docs/agentic/work/<ticket>/`, avec exclusion Git effective,
+y compris en installation partagée. Les templates distribués ne sont pas les
+livrables remplis d'une mission. Appliquer `docs/agentic/PULL_REQUESTS.md` du socle.
 
 ## PRD
 Problème, utilisateurs, objectif, priorités, exigences fonctionnelles et contraintes.

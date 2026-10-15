@@ -92,7 +92,72 @@ class PrSplitTests(unittest.TestCase):
         review["dependencies"] = [{"pr": dep, "pass": True,
                                    "evidence": "PR URL and actual merged SHA reviewed"}
                                   for dep in pr["depends_on"]]
+        paths = self.git("diff", "--name-only", "--no-renames", "-z",
+                         base or self.base, head or self.git("rev-parse", "HEAD")).split("\0")
+        review["deliverables"] = [{"path": path, "role": "test" if path.startswith("tests/") else "production",
+                                   "pass": True, "evidence": "Required for the export behavior or its regression test"}
+                                  for path in paths if path]
         return review
+
+    def test_ship_requires_exact_per_file_deliverable_review(self):
+        self.atomic_change()
+        review = self.review()
+        for field in (None, [], review["deliverables"][:1],
+                      review["deliverables"] + [review["deliverables"][0]],
+                      review["deliverables"] + [{"path": "unused.py", "role": "production",
+                                                  "pass": True, "evidence": "Not in diff"}]):
+            with self.subTest(field=field):
+                candidate = {**review, "deliverables": field}
+                self.assertEqual(self.check("ship", review=candidate)["verdict"], "BLOCKED")
+        self.assertEqual(self.check("ship", review=review)["verdict"], "PASS")
+
+    def test_workflow_helpers_cannot_pass_as_an_extra_deliverable(self):
+        # Neither a declared path nor a size exception permits local tooling.
+        self.plan["prs"][0]["files"].append("scripts/probe.py")
+        self.plan["prs"][0]["size_exception"] = justification()
+        self.atomic_change()
+        self.write("scripts/probe.py", "print('temporary validation')\n")
+        self.commit()
+        review = self.review()
+        for role, evidence, passed in [("tooling", "Ad hoc probe", True),
+                                        ("test-helper", "Local test launcher", True),
+                                        ("production", "", True),
+                                        ("production", "Not required by feature", False)]:
+            candidate = copy.deepcopy(review)
+            finding = next(item for item in candidate["deliverables"] if item["path"] == "scripts/probe.py")
+            finding.update(role=role, evidence=evidence, **{"pass": passed})
+            self.assertEqual(self.check("ship", review=candidate)["verdict"], "BLOCKED")
+
+    def test_known_local_artifacts_block_even_with_production_claim(self):
+        for path in (".agentic-local/plan.md", "nested/.agentic-local/probe.py",
+                     "docs/agentic/work/T05/probe.sh", "docs/agentic/STATUS.md"):
+            with self.subTest(path=path):
+                plan = manifest(unit("export", [path]))
+                self.write(path, "local process content\n")
+                head = self.commit()
+                review = self.review(plan, base=self.git("rev-parse", head + "^"))
+                result = self.check("ship", plan=plan, base=review["base"],
+                                    target=review["base"], review=review)
+                self.assertEqual(result["verdict"], "BLOCKED")
+                self.assertIn("local process artifact", result["reason"])
+
+    def test_required_production_markdown_and_test_fixture_can_ship(self):
+        plan = manifest(unit("help", ["app/help.md", "tests/fixtures/help.md"]))
+        self.write("app/help.md", "Help rendered by the application's help route\n")
+        self.write("tests/fixtures/help.md", "Expected help text for route regression\n")
+        self.commit()
+        self.assertEqual(self.check("ship", plan=plan, review=self.review(plan))["verdict"], "PASS")
+
+    def test_deletion_of_legacy_local_artifact_can_ship(self):
+        path = "docs/agentic/work/old-plan.md"
+        self.write(path, "legacy plan\n")
+        base = self.commit()
+        (self.repo / path).unlink()
+        self.commit()
+        plan = manifest(unit("cleanup", [path]))
+        review = self.review(plan, base=base)
+        self.assertEqual(self.check("ship", plan=plan, base=base, target=base,
+                                    review=review)["verdict"], "PASS")
 
     def atomic_change(self):
         self.write("export.py", "export behavior\n")

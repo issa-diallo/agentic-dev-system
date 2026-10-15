@@ -60,7 +60,7 @@ tenant, données sensibles, secrets, actions externes, validation humaine, tests
 observabilité et rollback selon risque. Code : [DEVELOPMENT](docs/agentic/DEVELOPMENT.md).
 Avant commit : [COMMITS](COMMITS.md), Gitmoji Unicode, titre impératif, intention
 atomique, `Fixes #<issue_number>`, garde staged via `agentic-commit.sh`.
-Preuves personnelles locales. Modèle le moins coûteux
+Préparation et rapports hors Git/PR. Modèle le moins coûteux
 capable selon [MODELS](docs/agentic/MODELS.md), escalader sur preuves, jamais au
 prix d'un gate. SHIP applique le profil Lead Tech de [REVIEWER](docs/agentic/roles/REVIEWER.md).
 
