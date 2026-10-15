@@ -183,7 +183,33 @@ def diff_evidence(repo, base, head):
             "lines": lines, "binaries": binary_sizes}
 
 
-def check_review(review, pr, digest, base, head, target):
+def check_deliverables(review, evidence):
+    """Require independent purpose evidence; do not infer intent from extensions."""
+    for change in evidence["changes"]:
+        if change["status"] == "D":
+            continue  # Allow cleanup of previously committed local artifacts.
+        for name in change["paths"]:
+            parts = PurePosixPath(name).parts
+            require(".agentic-local" not in parts
+                    and name != "docs/agentic/STATUS.md"
+                    and not (name == "docs/agentic/work" or name.startswith("docs/agentic/work/")),
+                    f"local process artifact in PR: {name}")
+    findings = review.get("deliverables")
+    require(isinstance(findings, list), "per-file deliverable reviews required")
+    names = []
+    for item in findings:
+        require(isinstance(item, dict) and nonempty(item.get("path")),
+                "deliverable path required")
+        name = item["path"]
+        require(item.get("role") in ("production", "test") and item.get("pass") is True
+                and nonempty(item.get("evidence")),
+                f"production or associated test evidence required: {name}")
+        names.append(name)
+    require(len(names) == len(set(names)) and set(names) == set(evidence["paths"]),
+            "review must justify every changed path exactly once, including rename sources")
+
+
+def check_review(review, pr, digest, base, head, target, evidence):
     require(isinstance(review, dict), "review must be an object")
     require(review.get("pr") == pr["id"] and review.get("plan_sha256") == digest
             and review.get("base") == base and review.get("head") == head
@@ -192,6 +218,7 @@ def check_review(review, pr, digest, base, head, target):
     require(nonempty(review.get("reviewer")) and review["reviewer"] != pr["implementer"],
             "independent semantic reviewer required")
     require(review.get("verdict") == "PASS", "semantic review must PASS")
+    check_deliverables(review, evidence)
     for key in ("scope", "no_independent_changes", "size", "indivisibility"):
         finding = review.get(key)
         require(isinstance(finding, dict) and finding.get("pass") is True
@@ -252,7 +279,7 @@ def ship(args, plan, units, digest, result):
     snapshot["size_exception_required"] = oversized
     if oversized:
         justified(pr.get("size_exception"), "actual size exceeds targets or includes binary")
-    check_review(load_json(args.review), pr, digest, base, head, target)
+    check_review(load_json(args.review), pr, digest, base, head, target, evidence)
     return snapshot
 
 

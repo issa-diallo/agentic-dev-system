@@ -64,6 +64,8 @@ L'agent prépare les worktrees pendant l'exécution des stories ; les scripts
 `worktree-setup.sh`, `worktree-dev.sh`, `worktree-test.sh` et `worktree-down.sh`
 sont à fournir dans `scripts/` lorsque le projet en a besoin, selon le
 [contrat d'environnement](docs/agentic/templates/WORKTREE_ENVIRONMENT.md).
+Les scripts créés pour la seule mission restent locaux, hors PR ; réutiliser les
+commandes existantes sans ajouter de lanceurs de vérification au code livré.
 Les agents et leur orchestration s'appuient sur les capacités de votre outil.
 
 ## Une méthode, trois échelles
@@ -137,9 +139,15 @@ migration des anciens fichiers déjà suivis.
 
 Les commits du workflow passent obligatoirement par `agentic-commit.sh` après
 staging explicite : sa garde refuse les fichiers personnels, même ajoutés avec
-`git add -f`. Aucun hook ni réglage Git global n’est installé. Les documents
-métier, ADR approuvés, règles d’équipe et configurations applicatives restent
-versionnables. Voir [COMMITS](COMMITS.md).
+`git add -f`. Aucun hook ni réglage Git global n’est installé. Toute préparation,
+réflexion, plan et rapport de mission reste hors des commits et PR, même approuvé
+ou collectif. La garde contrôle des chemins ; la review vérifie aussi le contenu.
+Les PR applicatives livrent le code et les tests, migrations, contrats et
+configurations indispensables au comportement livré. Chaque chemin réel doit
+avoir une preuve indépendante de son utilité en production ou pour les tests
+associés ; les scripts de travail restent locaux. Un Markdown doit être utilisé
+par le produit, y compris lorsqu'une méthode documentaire est le produit demandé.
+Voir [COMMITS](COMMITS.md).
 
 Après installation partagée, demander à l’agent :
 

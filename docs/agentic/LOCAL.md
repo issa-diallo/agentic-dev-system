@@ -27,8 +27,9 @@ le code et les tests dans le vrai projet ; exécuter les commandes applicatives
 à sa racine. Ne pas déplacer le code dans le dossier de la méthode.
 
 Pour un nouveau produit, préparer les six rubriques avec le template PREPARE
-sous `.agentic-local/docs/product/`. Les documents métier approuvés que l’équipe
-souhaite partager peuvent ensuite être versionnés dans ses chemins habituels.
+sous `.agentic-local/docs/agentic/work/<ticket>/`. Cette préparation reste hors
+Git, même approuvée ou destinée à l'équipe. Aucun déplacement vers un chemin
+métier ne doit l'introduire dans une PR. Voir [PULL_REQUESTS](PULL_REQUESTS.md).
 Le mode d’installation local ne change pas le choix du pipeline ni ses gates.
 
 Stocker le delta PREPARE, les preuves Verify/Review et Handoff dans
@@ -52,8 +53,10 @@ bash .agentic-local/scripts/agentic-commit.sh -F /chemin/vers/message-commit.txt
 
 Le wrapper fait le contrôle automatique staged avant chaque commit du workflow.
 Il refuse les chemins personnels (sources de rename/copy comprises) et les
-exclusions cassées, sans hook ni changement de configuration Git. Les documents
-métier, ADR, règles AGENTS d’équipe et configurations applicatives sont permis.
+exclusions cassées, sans hook ni changement de configuration Git. Les règles
+AGENTS d'équipe et configurations applicatives sont permises ; leur nom ou le
+chemin d'un document ne dispense pas de vérifier son contenu. Les plans et
+rapports de mission restent interdits même hors des chemins reconnus par la garde.
 Pour classer des fichiers personnels hérités et retirer seulement leur index
 après accord explicite, suivre [INSTALL](INSTALL.md#migrer-une-installation-ancienne).
 Un commit Git direct hors workflow échappe à ce contrôle ; ne pas l’utiliser

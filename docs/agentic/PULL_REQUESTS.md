@@ -10,6 +10,52 @@ Leur présence dans la même story ne justifie jamais une PR unique.
 Garder ensemble code, tests, migrations, contrats et protections indispensables
 au même comportement. Ne pas découper par couche ou nombre arbitraire de fichiers.
 
+## Aucun artefact de préparation dans le diff
+
+Une PR applicative contient uniquement le code et les tests, migrations, contrats
+et configurations indispensables au comportement livré : ces derniers sont des
+dépendances de production ou des tests associés, pas un périmètre de support libre.
+Réflexions, recherches,
+PRD, TRD, parcours préparatoires, briefs, schémas de conception, plans, manifestes
+PR_SPLIT, statuts, checkpoints, handoffs et rapports Execute/Verify/Review/Lead Tech
+restent locaux, exclus de Git. Cela vaut aussi pour les artefacts approuvés ou
+collectifs : les appeler « documentation métier » ou changer leur chemin ne
+les rend pas livrables. Distinguer un schéma de conception d'une migration ou
+d'un contrat exécuté par l'application, qui reste avec son code.
+
+Scripts de réflexion, probes, benchmarks ponctuels, lanceurs de tests ajoutés pour
+la mission, générateurs de preuves et outils de préparation restent aussi locaux.
+Réutiliser les commandes de test du projet ; conserver avec le code les vrais
+tests de régression et leurs fixtures indispensables. Ne pas ajouter des scripts
+de travail à la PR sous prétexte qu'ils ont aidé à vérifier la fonctionnalité.
+Un fichier Markdown n'est livré que si le produit l'utilise réellement et que
+son lien avec le comportement demandé est prouvé ; son extension ou son titre
+ne constitue ni une autorisation ni un motif de refus automatique.
+
+Stocker ces travaux sous `.agentic-local/docs/agentic/work/<ticket>/`, avec
+exclusion Git effective, en installation locale comme partagée. Donner les preuves
+au reviewer hors du diff ; résumer les résultats dans la description de PR sans
+y recopier les dossiers de préparation. Aucun rapport ne doit être committé pour
+attester le commit qu'il examine. Une exception de taille ne lève pas cette règle.
+
+PR_SPLIT exclut les ajouts/modifications de ces artefacts ; un retrait hérité
+autorisé reste déclarable. Le refus automatique intervient à PR_SCOPE sur le diff
+réel. PR_SCOPE exige une attestation indépendante pour chaque
+chemin réellement changé : rôle `production` ou `test`, PASS et preuve concrète de
+son utilité pour le comportement livré. Aucun rôle « tooling » ou « préparation »
+n'est accepté. Fichier omis, ajouté à la revue hors diff ou attesté deux fois :
+BLOCKED. Une affirmation globale de conformité ou une exception de taille ne
+suffit pas. Les chemins locaux connus sont refusés même déclarés « production » ;
+leur suppression pure reste possible pour une migration autorisée.
+La garde staged reconnaît des chemins, pas la nature du contenu : l'inspection
+indépendante du diff reste obligatoire. Ne pas supprimer les fichiers
+locaux ni retirer de l'index des fichiers hérités sans l'accord prévu par INSTALL.
+
+Une documentation utilisée par le produit (aide affichée, référence API consommée)
+ou une évolution explicitement demandée d'un produit documentaire comme cette
+méthode peut être un livrable de production. Sa nécessité est attestée fichier par
+fichier selon le même contrôle ; aucune dérogation pour les notes de mission.
+
 ## Gate PR_SPLIT — dans PREPARE, avant BUILD non trivial
 
 L'orchestrateur applique ce gate sans instructions supplémentaires :

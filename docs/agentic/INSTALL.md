@@ -41,8 +41,11 @@ Suivre le prompt et la résolution des chemins de [LOCAL](LOCAL.md). Codex peut
 lire la méthode, les rôles et tous les templates dans `.agentic-local/` ; aucune
 activation automatique n’est promise. Les règles d’équipe restent prioritaires.
 Pour un nouveau produit, créer les documents de cadrage depuis les templates
-sous `.agentic-local/docs/product/` jusqu’à validation. Publier seulement les
-documents métier validés que l’équipe veut versionner dans ses vrais chemins.
+sous `.agentic-local/docs/agentic/work/<ticket>/`, avec exclusion Git effective.
+Ces documents restent locaux après validation, en mode local comme partagé.
+Ne pas publier les plans ou rapports sous un chemin métier. Seule une documentation
+livrée explicitement à l'utilisateur a son propre objectif de PR, selon
+[PULL_REQUESTS](PULL_REQUESTS.md).
 Les gates PREPARE, PR_SPLIT, Verify et Review restent obligatoires ; aucun document vide ne prouve PASS.
 
 ## Installation partageable : demande explicite

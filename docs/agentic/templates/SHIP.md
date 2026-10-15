@@ -20,6 +20,10 @@
 ## Pull Request
 
 - [ ] Un objectif précis ; 1 à 3 fichiers et diff court visés
+- [ ] Aucun artefact de préparation, plan ou rapport de mission dans le diff ;
+  preuves conservées localement et transmises au reviewer hors du diff
+- [ ] `deliverables` indépendant couvre chaque chemin réel avec preuve de son
+  utilité en production ou pour les tests associés ; aucun script de travail
 - [ ] Tout dépassement est expliqué sans omettre tests ni migration
 - [ ] Un commit logique prévu après squash, selon
   [PULL_REQUESTS](../PULL_REQUESTS.md)

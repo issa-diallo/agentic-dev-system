@@ -10,8 +10,9 @@ Utiliser [PREPARE](templates/PREPARE.md) : six rubriques PRD, TRD, APP_FLOW,
 UX_UI_BRIEF, BACKEND_SCHEMA, IMPLEMENTATION_PLAN. LIGHT minimal, STANDARD concis,
 LARGE structuré. Aucun six gros fichiers ni dossier Research/Design/Plan par tâche.
 Référencer les décisions utilisateur et artefacts existants ; N/A motivés.
-Conserver les documents métier partagés à leurs chemins projet et les notes,
-statuts et preuves personnels dans les chemins locaux exclus de Git.
+Conserver toute préparation, y compris collective ou approuvée, dans
+`.agentic-local/docs/agentic/work/<ticket>/`, exclu de Git. Les documents existants
+restent consultables ; ne pas ajouter de plan ou rapport dans une PR applicative.
 
 L'installation PRODUCT distribue encore cinq templates produit V1 pour transition.
 Ils restent facultatifs pour une nouvelle mission V2, utilisables pour reprise/legacy.
