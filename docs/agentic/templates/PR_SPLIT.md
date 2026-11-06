@@ -91,7 +91,14 @@ parent..enfant ; Ship reste bloqué jusqu'à fusion des parents et actualisation
 Le reviewer vérifie que le SHA de fusion correspond à la PR déclarée.
 Sortie JSON : gate, verdict, raison, hash canonique SHA256 du manifeste, vagues et
 ordre. Ship ajoute SHA résolus, chemins/statuts, lignes, taille des blobs binaires
-avant/après, dépendances et ancestralité. Aucun filtre externe Git ni commande du
+avant/après, dépendances, ancestralité et `commit_count` sur `target..head`.
+Un seul commit doit rester avant la revue finale et PR_SCOPE : tous les commits
+absents de la cible sont comptés, y compris ceux derrière un merge. Plusieurs
+commits de travail restent permis en BUILD et ne bloquent pas `split`.
+Si le nombre dépasse un, regrouper les commits avant la revue finale, puis
+actualiser les preuves et l'attestation sur le nouveau SHA ; un squash à la
+fusion ne suffit pas à passer ce contrôle. Le script ne réécrit jamais Git.
+Aucun filtre externe Git ni commande du
 manifeste exécuté ; aucune écriture Git. 0=PASS, 1=BLOCKED, usage CLI invalide=2.
 Le contrôle de présence n'est pas ce gate.
 
