@@ -424,7 +424,16 @@ aux chemins locaux. Les règles de messages de commit de l’équipe priment en 
 
 ## Un commit logique final par Pull Request
 
-La PR fusionnée doit présenter un seul commit cohérent avec son objectif.
-Les commits intermédiaires sont permis pendant le développement ; préférer
-la fusion squash après validation, sans réécrire les commits d'autrui.
+Chaque ticket d'implémentation a une PR et un commit final portant une intention
+précise, avec ses tests indispensables. Découper les intentions livrables
+indépendamment en sous-tickets et PR distincts, même si le diff est court.
+`Fixes #<issue_number>` vise le ticket d'implémentation ; référencer le ticket
+parent sans le fermer tant que ses autres sous-tickets restent ouverts.
+Les commits intermédiaires sont permis pendant le développement. Les regrouper
+en un seul commit propre à la PR avant la revue finale et PR_SCOPE, puis conserver
+un seul commit lors de la fusion. Attendre le squash de fusion ne suffit pas.
+Le regroupement ne réduit pas le diff : vérifier le découpage avant de regrouper.
+Ne pas réécrire les commits d'autrui ni forcer un push sans l'autorisation requise.
+Un squash, amend ou rebase changeant les SHA impose une nouvelle attestation de
+revue sur les SHA définitifs et la revalidation des preuves concernées.
 Voir [PULL_REQUESTS](docs/agentic/PULL_REQUESTS.md) pour les limites de taille.

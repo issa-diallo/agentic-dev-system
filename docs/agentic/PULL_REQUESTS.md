@@ -2,9 +2,13 @@
 
 ## Une raison métier principale de changer
 
-Une story exprime un besoin complet et peut produire plusieurs PR. Chaque PR
-livre un changement autonome, cohérent et testable, avec une raison métier
-principale de changer. Authentification, sessions, profil, fichiers privés, NER
+Une story ou fonctionnalité parent exprime un besoin complet et peut regrouper
+plusieurs sous-tickets. Chaque ticket d'implémentation correspond à une seule PR
+et à un seul commit final. Si le besoin demande plusieurs PR, le découper en
+sous-tickets avant BUILD ; le ticket parent suit leur avancement sans porter
+une PR regroupant leurs changements. Chaque PR livre le plus petit changement
+autonome, cohérent et testable, avec une raison métier principale de changer.
+Authentification, sessions, profil, fichiers privés, NER
 et facturation sont distincts lorsqu'ils peuvent évoluer et être validés séparément.
 Leur présence dans la même story ne justifie jamais une PR unique.
 Garder ensemble code, tests, migrations, contrats et protections indispensables
@@ -62,8 +66,9 @@ L'orchestrateur applique ce gate sans instructions supplémentaires :
 
 1. Identifier toutes les capacités et leurs critères à partir de la story et du
    code réel ; distinguer support indispensable et comportement autonome.
-2. Affecter chaque capacité à une PR autonome, même sous les cibles de taille.
-   Couvrir chaque capacité exactement une fois.
+2. Affecter chaque capacité à un ticket d'implémentation et une PR autonomes,
+   même sous les cibles de taille. Couvrir chaque capacité exactement une fois ;
+   consigner la correspondance ticket/PR dans le plan et la description de PR.
 3. Définir intention, fichiers exacts, AC, tests, contrats et compatibilité par PR.
    Les six rubriques et décisions communes peuvent être héritées ; chaque unité
    conserve son delta IMPLEMENTATION_PLAN et son DoR sans Research/Design/Plan
@@ -84,10 +89,18 @@ et reviewer indépendant. « Story complète », même dossier ou commodité de 
 ne suffisent pas. Exemple recevable : migration et lecteur doivent basculer ensemble,
 preuve d'incompatibilité des versions mixtes à l'appui.
 
+Le découpage continue pendant BUILD et avant chaque revue : dès qu'un changement
+peut être compris, testé et livré indépendamment, le sortir dans un sous-ticket
+et une PR distincts. Réviser le plan, les dépendances et PR_SPLIT avant de poursuivre
+les unités affectées ; ne pas attendre de dépasser un seuil. Un second bug ou un
+refactoring indépendant ne s'ajoute pas à la correction en cours. Garder avec
+chaque unité ses tests, protections, migrations et contrats indispensables.
+
 ## Taille et dépendances
 
 - Cibles indicatives : 1 à 3 fichiers et au plus 100 lignes ajoutées + supprimées.
-- Un seul commit logique final, squash possible des commits de travail.
+- Un seul commit avant la revue finale et PR_SCOPE ; commits de travail permis
+  auparavant, à regrouper selon [COMMITS](../../COMMITS.md).
 - Une branche et une PR par unité liée au ticket ; identifiant `<story>-PR<n>`.
 - Tout dépassement réel exige `size_exception` : contrainte, preuve et risque du
   découpage, confirmés par revue. Un binaire exige aussi cette justification ;
@@ -104,13 +117,15 @@ tête du parent. Une dépendance structurante échouée bloque les unités dépe
 
 ## Gate PR_SCOPE — avant Ship pour chaque PR
 
-`ship` compare Git réel base/tête/cible : chemins exacts (source et destination
+`ship` compare Git réel base/tête/cible : nombre de commits propres à la PR,
+chemins exacts (source et destination
 des renames), taille, binaires, dépendances fusionnées et attestation indépendante
 liée aux SHA et au hash du plan. Résultat JSON PASS/BLOCKED avec raison vérifiable.
 L'orchestrateur actualise d'abord les refs distantes ; un checkout obsolète ne
 prouve pas l'état serveur. Le script ne modifie ni Git ni les PR existantes.
 
 Le reviewer examine explicitement ce que Git ne peut décider : capacité unique,
+correspondance entre le ticket d'implémentation et sa seule PR,
 absence de fonctionnalité/refactoring indépendant, AC/tests, exceptions d'atomicité
 et taille, compatibilité des contrats et identité des parents effectivement fusionnés
 (lien de PR et SHA de fusion). Chaque axe reçoit PASS/BLOCKED avec preuve concrète.

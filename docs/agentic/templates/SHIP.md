@@ -25,8 +25,8 @@
 - [ ] `deliverables` indépendant couvre chaque chemin réel avec preuve de son
   utilité en production ou pour les tests associés ; aucun script de travail
 - [ ] Tout dépassement est expliqué sans omettre tests ni migration
-- [ ] Un commit logique prévu après squash, selon
-  [PULL_REQUESTS](../PULL_REQUESTS.md)
+- [ ] Un seul commit propre à la PR déjà présent avant revue finale et PR_SCOPE ;
+  attestation à jour sur les SHA définitifs, selon [PULL_REQUESTS](../PULL_REQUESTS.md)
 
 - URL :
 - issue liée :

@@ -26,6 +26,12 @@ Seuils de revue indicatifs, sauf standard du framework plus approprié :
 - imbrication : viser 3 niveaux au maximum avec des sorties anticipées.
 Tout dépassement invite à examiner la responsabilité et la lisibilité ;
 ne pas rendre le code plus obscur pour faire passer un seuil.
+Pour le code ajouté ou modifié, la revue motive les dépassements ou demande une
+simplification. Un fichier existant long ne justifie pas un refactoring annexe :
+isoler sa remise en ordre si elle peut être livrée indépendamment.
+« Un commit, une fonction » signifie une intention précise, pas une fonction
+syntaxique obligatoire : plusieurs fonctions liées et leurs tests peuvent former
+un seul petit changement cohérent.
 
 ## Emplacement des responsabilités
 - Constantes : noms descriptifs, pas de valeurs métier magiques dispersées.
@@ -62,7 +68,8 @@ Ne pas renommer massivement le code existant dans une PR fonctionnelle.
 ## Corriger un bug
 1. Reproduire et diagnostiquer la cause avec preuves ; vérifier code et tests.
 2. Définir le comportement attendu et les cas limites.
-3. Corriger au périmètre minimal ; conserver les API et comportements non visés.
+3. Corriger un seul problème au périmètre minimal ; conserver les API et comportements
+   non visés. Tout autre bug indépendant reçoit son propre ticket et sa propre PR.
 4. Ajouter un test de non-régression adapté.
 5. Lancer les vérifications utiles et inspecter le diff.
 
@@ -73,7 +80,9 @@ Ne pas renommer massivement le code existant dans une PR fonctionnelle.
    conserver code, tests, migrations et contrats indispensables ensemble.
    Découper les changements en incréments indépendants et testables,
    conformément à [PULL_REQUESTS](PULL_REQUESTS.md).
-4. Implémenter sans refactoring annexe ni duplication évitable.
+4. Implémenter sans refactoring annexe ni duplication évitable. Dès qu'un changement
+   indépendant apparaît, revoir le découpage ticket/PR avant de poursuivre selon
+   PULL_REQUESTS ; cette vérification s'applique aussi aux petites modifications.
 5. Tester les règles métier, interfaces et contrats touchés.
 6. Vérifier le résultat concret et préparer les preuves de revue.
 
