@@ -279,6 +279,10 @@ def ship(args, plan, units, digest, result):
     snapshot["size_exception_required"] = oversized
     if oversized:
         justified(pr.get("size_exception"), "actual size exceeds targets or includes binary")
+    snapshot["commit_count"] = int(git(args.repo, "rev-list", "--count", f"{target}..{head}"))
+    require(snapshot["commit_count"] == 1,
+            "exactly one commit required before final review; squash work commits, "
+            "then refresh review and evidence for the new head SHA")
     check_review(load_json(args.review), pr, digest, base, head, target, evidence)
     return snapshot
 

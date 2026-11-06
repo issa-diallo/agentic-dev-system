@@ -117,7 +117,8 @@ class PrSplitTests(unittest.TestCase):
         self.plan["prs"][0]["size_exception"] = justification()
         self.atomic_change()
         self.write("scripts/probe.py", "print('temporary validation')\n")
-        self.commit()
+        self.git("add", "--all")
+        self.git("commit", "--amend", "--no-edit", "-q")
         review = self.review()
         for role, evidence, passed in [("tooling", "Ad hoc probe", True),
                                         ("test-helper", "Local test launcher", True),
@@ -181,7 +182,8 @@ class PrSplitTests(unittest.TestCase):
         plan = manifest(pr)
         self.atomic_change()
         self.write("csv-schema.json", '{"version": 1}\n')
-        self.commit()
+        self.git("add", "--all")
+        self.git("commit", "--amend", "--no-edit", "-q")
         result = self.check("ship", plan=plan, review=self.review(plan))
         self.assertEqual(result["verdict"], "PASS")
         self.assertEqual(result["evidence"]["diff"]["files"], 3)
@@ -243,9 +245,43 @@ class PrSplitTests(unittest.TestCase):
         self.assertEqual(result["verdict"], "PASS")
         self.assertEqual(result["waves"], [["export"]])
         self.assertFalse(result["evidence"]["size_exception_required"])
+        self.assertEqual(result["evidence"]["commit_count"], 1)
         text = (SOURCE / "docs/agentic/templates/PR_SPLIT.md").read_text()
         self.assertIn("JSON temporaires", text)
         self.assertIn("aucun document à rédiger par l’utilisateur ni nouvelle review", text)
+
+    def test_work_commits_require_squash_and_fresh_review_before_ship(self):
+        self.atomic_change()
+        self.write("export.py", "updated export behavior\n")
+        self.commit()
+        review = self.review()
+        before = self.git("status", "--porcelain"), self.git("rev-parse", "HEAD")
+        self.assertEqual(self.check()["verdict"], "PASS")
+        result = self.check("ship", review=review)
+        self.assertEqual(result["verdict"], "BLOCKED")
+        self.assertEqual(result["evidence"]["commit_count"], 2)
+        self.assertIn("squash work commits", result["reason"])
+        self.assertEqual(before, (self.git("status", "--porcelain"), self.git("rev-parse", "HEAD")))
+        self.git("reset", "--soft", self.base)
+        self.git("commit", "-qm", "squashed export")
+        stale = self.check("ship", review=review)
+        self.assertEqual(stale["verdict"], "BLOCKED")
+        self.assertIn("stale review", stale["reason"])
+        self.assertEqual(self.check("ship", review=self.review())["verdict"], "PASS")
+
+    def test_merge_commit_cannot_hide_side_commits_behind_first_parent(self):
+        self.write("export.py", "export behavior\n")
+        side = self.commit()
+        self.git("checkout", "--detach", self.base)
+        self.write("existing.py", "updated target\n")
+        target = self.commit()
+        self.git("merge", "--no-ff", "-m", "merge export", side)
+        self.assertEqual(self.git("rev-list", "--first-parent", "--count", f"{target}..HEAD"), "1")
+        result = self.check("ship", base=target, target=target,
+                            review=self.review(base=target, target=target))
+        self.assertEqual(result["verdict"], "BLOCKED")
+        self.assertEqual(result["evidence"]["commit_count"], 2)
+        self.assertIn("exactly one commit", result["reason"])
 
     def test_out_of_scope_file_blocked_and_proof_retained(self):
         self.atomic_change()
@@ -260,7 +296,8 @@ class PrSplitTests(unittest.TestCase):
         self.atomic_change()
         review = self.review()
         self.write("export.py", "updated behavior\n")
-        self.commit()
+        self.git("add", "--all")
+        self.git("commit", "--amend", "--no-edit", "-q")
         self.assertEqual(self.check("ship", review=review)["verdict"], "BLOCKED")
         review = self.review()
         self.plan["prs"][0]["reason"] = "Revised scope"
