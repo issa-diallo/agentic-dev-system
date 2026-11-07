@@ -42,8 +42,12 @@ agentic ?
 ```
 
 - « **Agentic Dev System prêt à commencer.** » : c'est bon, passer à la suite.
-- « Agentic Dev System NON prêt : … » : la raison indique ce qui manque
-  (`.agentic-local/` absent, hook `pre-push` non posé) ; voir « Installer » et « Mettre à jour ».
+- « Agentic Dev System NON prêt : … » : agir selon la raison indiquée :
+  - `.agentic-local/` absent : projet non installé, lancer « Installer ».
+  - hook `pre-push` absent (projet installé avant la garde) : lancer « Mettre à jour un
+    projet déjà installé », dont la dernière commande `install-guard` pose le hook.
+  - hook `pre-push` déjà présent ou `core.hooksPath` défini : la garde n'est jamais
+    posée par-dessus ; l'indiquer à l'équipe.
 - Toute autre réponse : le fichier global est absent ou ancien ; refaire les deux
   `cp` ci-dessus, puis relancer `codex`.
 
