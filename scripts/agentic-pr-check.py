@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path, PurePosixPath
 import re
 import subprocess
@@ -287,14 +288,125 @@ def ship(args, plan, units, digest, result):
     return snapshot
 
 
+GUARD_MARKER = "# agentic-dev-system push guard"
+UNPROTECTED_BRANCHES = ("main", "master")
+MANIFEST_PATTERNS = (".agentic-local/docs/agentic/work/*/pr-split.json",
+                     "docs/agentic/work/*/pr-split.json")
+
+
+def default_target(repo):
+    for ref in ("refs/remotes/origin/HEAD", "origin/main", "origin/master"):
+        try:
+            return resolve(repo, ref)
+        except Blocked:
+            continue
+    raise Blocked("cannot resolve the target branch (origin/HEAD, origin/main, origin/master)")
+
+
+def declaring_manifest(repo, branch):
+    """Return the one validated plan whose PR declares this branch."""
+    found = []
+    for pattern in MANIFEST_PATTERNS:
+        for path in sorted(Path(repo).glob(pattern)):
+            try:
+                plan = load_json(path)
+                units, _ = check_plan(plan, repo)
+            except (Blocked, OSError, ValueError, TypeError, KeyError):
+                continue
+            found.extend((path, unit) for unit in units.values() if unit["branch"] == branch)
+    require(found, f"no valid pr-split.json declares branch {branch}: run PR_SPLIT first "
+                   "(work/<ticket>/pr-split.json)")
+    require(len(found) == 1, f"branch {branch} is declared by several PRs or manifests")
+    return found[0]
+
+
+def guard_push(repo, pushed_refs):
+    """PR_SPLIT must pass and the pushed diff must stay inside the declared files."""
+    target = default_target(repo)
+    reports = []
+    for line in pushed_refs.splitlines():
+        parts = line.split()
+        if len(parts) != 4:
+            continue
+        _, local_sha, remote_ref, _ = parts
+        if not remote_ref.startswith("refs/heads/") or set(local_sha) <= {"0"}:
+            continue
+        branch = remote_ref[len("refs/heads/"):]
+        if branch in UNPROTECTED_BRANCHES:
+            continue
+        manifest, unit = declaring_manifest(repo, branch)
+        base = git(repo, "merge-base", target, local_sha).decode().strip()
+        paths = diff_evidence(repo, base, local_sha)["paths"]
+        extra = sorted(set(paths) - set(unit["files"]))
+        require(not extra, f"{branch}: files outside PR {unit['id']}: " + ", ".join(extra))
+        reports.append({"branch": branch, "pr": unit["id"], "manifest": str(manifest),
+                        "files": len(paths)})
+    return reports
+
+
+def guard_hook_path(repo):
+    configured = subprocess.run(["git", "-C", repo, "config", "--get", "core.hooksPath"],
+                                capture_output=True)
+    require(configured.returncode != 0,
+            "core.hooksPath is set: install the guard in that hooks directory by hand")
+    return Path(git(repo, "rev-parse", "--path-format=absolute", "--git-path",
+                    "hooks/pre-push").decode().strip())
+
+
+def install_guard(repo):
+    hook = guard_hook_path(repo)
+    require(not hook.exists() or GUARD_MARKER in hook.read_text(),
+            f"a pre-push hook already exists and is not ours; left unchanged: {hook}")
+    hook.parent.mkdir(parents=True, exist_ok=True)
+    hook.write_text(f"#!/bin/sh\n{GUARD_MARKER}\n"
+                    f"exec python3 '{Path(__file__).resolve()}' hook\n")
+    hook.chmod(0o755)
+    return str(hook)
+
+
+def uninstall_guard(repo):
+    hook = guard_hook_path(repo)
+    if hook.exists():
+        require(GUARD_MARKER in hook.read_text(), f"pre-push hook is not ours; left unchanged: {hook}")
+        hook.unlink()
+    return str(hook)
+
+
+def run_guard(args):
+    result = {"gate": "PR_PUSH", "verdict": "BLOCKED"}
+    try:
+        args.repo = git(args.repo, "rev-parse", "--show-toplevel").decode().strip()
+        if args.mode == "hook":
+            if os.environ.get("AGENTIC_SKIP_PUSH_GUARD") == "1":
+                print("WARNING: AGENTIC_SKIP_PUSH_GUARD=1, push guard bypassed", file=sys.stderr)
+                result.update(verdict="PASS", reason="bypassed explicitly", pushes=[])
+            else:
+                result.update(verdict="PASS", reason="PR_SPLIT valid and pushed files in scope",
+                              pushes=guard_push(args.repo, sys.stdin.read()))
+        else:
+            action = install_guard if args.mode == "install-guard" else uninstall_guard
+            result.update(verdict="PASS", reason=args.mode, hook=action(args.repo))
+    except (Blocked, OSError, ValueError, TypeError, KeyError) as error:
+        result["reason"] = str(error)
+        if args.mode == "hook":
+            print("Push refused by the agentic guard. Fix the plan/scope, or bypass visibly "
+                  "with AGENTIC_SKIP_PUSH_GUARD=1.", file=sys.stderr)
+    print(json.dumps(result, ensure_ascii=True, sort_keys=True))
+    return 0 if result["verdict"] == "PASS" else 1
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("split", "ship"))
-    parser.add_argument("manifest")
+    parser.add_argument("mode", choices=("split", "ship", "hook", "install-guard", "uninstall-guard"))
+    parser.add_argument("manifest", nargs="?")
     parser.add_argument("--repo", default=".")
     for name in ("pr", "base", "head", "target", "review"):
         parser.add_argument("--" + name)
     args = parser.parse_args()
+    if args.mode in ("hook", "install-guard", "uninstall-guard"):
+        return run_guard(args)
+    if not args.manifest:
+        parser.error("manifest required")
     result = {"gate": "PR_SPLIT" if args.mode == "split" else "PR_SCOPE", "verdict": "BLOCKED"}
     try:
         plan = load_json(args.manifest)

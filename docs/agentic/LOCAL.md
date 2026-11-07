@@ -12,6 +12,12 @@ sur demande explicite.
 > Pour un ticket cadré, utilise EXISTING_PROJECT.md ; pour un nouveau produit ou
 > un gros périmètre, prépare les six rubriques adaptées avant BUILD.
 
+### Garde avant publication
+
+Optionnelle : `python3 .agentic-local/scripts/agentic-pr-check.py install-guard`
+refuse un `git push` de branche sans `pr-split.json` valide ni fichiers dans le
+périmètre déclaré. Détails dans [PR_SPLIT](templates/PR_SPLIT.md#garde-avant-publication-optionnelle).
+
 ### Activation permanente avec `codex` nu
 
 Sans fichier à la racine, `codex` seul ne lit pas `.agentic-local/` : la méthode
