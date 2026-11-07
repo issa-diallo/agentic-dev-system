@@ -35,8 +35,20 @@ cp ~/.codex/AGENTS.md ~/.codex/AGENTS.md.bak
 cp ~/agentic-dev-system/codex/global-AGENTS.md ~/.codex/AGENTS.md
 ```
 
-**Vérifier** : dans une session `codex` neuve, demander « Quels fichiers d'instructions
-as-tu chargés au démarrage ? » ; la réponse doit citer `~/.codex/AGENTS.md`.
+**Vérifier que ça marche** : ouvrir `codex` dans le projet (session neuve) et écrire :
+
+```text
+agentic ?
+```
+
+- « **Agentic Dev System prêt à commencer.** » : c'est bon, passer à la suite.
+- « Agentic Dev System NON prêt : … » : la raison indique ce qui manque
+  (`.agentic-local/` absent, hook `pre-push` non posé) ; voir « Installer » et « Mettre à jour ».
+- Toute autre réponse : le fichier global est absent ou ancien ; refaire les deux
+  `cp` ci-dessus, puis relancer `codex`.
+
+Codex lit alors réellement `.agentic-local/` et le hook avant de répondre : ses
+lectures sont visibles dans la session.
 
 Installation partagée (versionnée avec l'équipe), collisions et migration :
 [INSTALL](docs/agentic/INSTALL.md). Usage personnel : [LOCAL](docs/agentic/LOCAL.md).
