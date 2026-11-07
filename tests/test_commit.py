@@ -7,6 +7,7 @@ import tempfile
 import unittest
 
 SOURCE = Path(__file__).resolve().parents[1]
+os.environ['CODEX_HOME'] = tempfile.mkdtemp(prefix='codex-home-')  # installs must not write the real home
 
 
 class CommitTests(unittest.TestCase):

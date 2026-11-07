@@ -15,28 +15,15 @@ sur demande explicite.
 ### Activation permanente avec `codex` nu
 
 Sans fichier à la racine, `codex` seul ne lit pas `.agentic-local/` : la méthode
-n'est alors pas appliquée (PR_SPLIT sauté, une seule grosse PR). Deux voies :
-le lanceur `.agentic-local/scripts/agentic-codex.sh run "<mission>"`, ou un fichier
-**personnel** `~/.codex/AGENTS.md`, chargé par Codex au démarrage d'une session
-neuve dans tout dépôt. L'installation ne le crée jamais ; elle ne touche pas au
-dossier personnel. Contenu minimal :
-
-```markdown
-# Méthode agentic-dev-system (global)
-
-Si le dépôt courant contient `.agentic-local/AGENTS.md`, lis-le intégralement, ainsi que
-`.agentic-local/docs/agentic/LOCAL.md`, avant toute action.
-
-- Avant tout BUILD non trivial, exécute la gate PR_SPLIT
-  (`.agentic-local/docs/agentic/PULL_REQUESTS.md`).
-- Une capacité autonome = un sous-ticket = une PR ; des capacités séparables
-  regroupées rendent BUILD BLOCKED.
-- Aucun ticket, branche, commit, push ni PR avant approbation du découpage.
-- Commits via `agentic-commit.sh`. Sans `.agentic-local/`, ignore ce fichier.
-```
+n'est alors pas appliquée (PR_SPLIT sauté, une seule grosse PR). Codex charge au
+démarrage d'une session neuve le fichier personnel `~/.codex/AGENTS.md`
+(`$CODEX_HOME/AGENTS.md` si défini). L'installation locale le crée s'il n'existe
+pas, avec le contenu de `codex/global-AGENTS.md` du service, et ne remplace jamais
+un fichier existant (un fichier déjà présent doit contenir ces règles). Le lanceur
+`.agentic-local/scripts/agentic-codex.sh run "<mission>"` reste possible.
 
 Vérifier dans une session neuve : « Quels fichiers d'instructions as-tu chargés
-au démarrage ? » doit citer `~/.codex/AGENTS.md`. Les règles de l'équipe priment.
+au démarrage ? » doit citer `~/.codex/AGENTS.md`.
 
 Les règles de l’équipe priment sur les conventions personnelles, y compris les
 commits, branches, outils autorisés et validations. Les AGENTS.md et COMMITS.md

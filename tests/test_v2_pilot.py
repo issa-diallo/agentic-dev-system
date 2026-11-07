@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import os
 import tempfile
 import time
 import unittest
@@ -17,6 +18,7 @@ import unittest
 from test_scheduler import SimulatedAdapter
 
 SOURCE = Path(__file__).resolve().parents[1]
+os.environ['CODEX_HOME'] = tempfile.mkdtemp(prefix='codex-home-')  # installs must not write the real home
 CHECKS = [[sys.executable, "-B", "-m", "unittest", "discover", "-s", "tests"],
           ["git", "diff", "--check"]]
 MODEL_FIXTURE = {"runtime_overrides": True, "models": [
