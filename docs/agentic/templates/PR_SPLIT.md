@@ -102,6 +102,29 @@ Aucun filtre externe Git ni commande du
 manifeste exécuté ; aucune écriture Git. 0=PASS, 1=BLOCKED, usage CLI invalide=2.
 Le contrôle de présence n'est pas ce gate.
 
+## Garde avant publication (optionnelle)
+
+Une consigne n'empêche pas un `git push` direct. La garde est un hook Git
+`pre-push` **local**, installé seulement sur demande, qui refuse de pousser une
+branche sans plan valide :
+
+```bash
+python3 scripts/agentic-pr-check.py install-guard     # depuis la racine du dépôt
+python3 scripts/agentic-pr-check.py uninstall-guard   # retire uniquement notre hook
+```
+
+- Le plan est le fichier `work/<ticket>/pr-split.json` (sous `.agentic-local/docs/agentic/`
+  en LOCAL, sous `docs/agentic/` sinon) ; une de ses PR doit déclarer la branche poussée.
+- Le plan doit passer `split`, et les fichiers modifiés (contre `origin/HEAD`, sinon
+  `origin/main`, `origin/master`) doivent rester dans les `files` de cette PR.
+- `main` et `master` ne sont pas contrôlés (protection de branche : SAFETY.md).
+- Un hook `pre-push` existant n'est jamais modifié ; `core.hooksPath` est refusé.
+- Contournement visible, jamais silencieux : `AGENTIC_SKIP_PUSH_GUARD=1 git push`
+  affiche un avertissement ; `--no-verify` reste possible pour Git.
+- La garde ne remplace pas PR_SCOPE (taille, commit unique, revue indépendante,
+  vérifiés par `ship`) : elle bloque le découpage absent et les fichiers hors périmètre.
+  Elle ne voit pas la création de PR en soi, qui suppose un push préalable.
+
 ## Attestation indépendante avant Ship
 
 Produite séparément par le reviewer après examen réel, avec les SHA/hash issus du
