@@ -237,6 +237,7 @@ echo "Installed $MODE in: $DEST"
 if [ "$MODE" = LOCAL ]; then
   echo "Team files are unchanged. Nothing is automatically activated."
   echo "Prompt: Read the repository rules first, then .agentic-local/docs/agentic/LOCAL.md then its method index: scoped ticket reuses existing decisions; new product prepares six reference sections."
+  echo "Plain codex ignores .agentic-local: use scripts/agentic-codex.sh or see docs/agentic/LOCAL.md (permanent activation)."
   echo "Check: (cd .agentic-local && bash scripts/agentic-check.sh --existing)"
 else
   echo "Read AGENTS.md and docs/agentic/README.md."
