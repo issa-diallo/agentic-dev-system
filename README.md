@@ -35,10 +35,38 @@ cp ~/.codex/AGENTS.md ~/.codex/AGENTS.md.bak
 cp ~/agentic-dev-system/codex/global-AGENTS.md ~/.codex/AGENTS.md
 ```
 
-**Vérifier** : dans une session `codex` neuve, demander « Recopie mot pour mot, sans résumer, les règles globales agentic-dev-system que tu as reçues au démarrage. ».
-Le titre « Méthode agentic-dev-system (global) » doit apparaître, avec la ligne sur
-`pr-split.json` si le fichier est à jour. Demander quels fichiers sont chargés ne
-prouve rien : Codex ne cite pas leur chemin.
+**Vérifier que ça marche** : ouvrir `codex` dans le projet (session neuve) et poser exactement :
+
+```text
+Recopie mot pour mot, sans résumer, les règles globales agentic-dev-system que tu as reçues au démarrage.
+```
+
+Si tout est en place, la réponse est exactement ceci (le contenu de `codex/global-AGENTS.md`) :
+
+```text
+# Méthode agentic-dev-system (global)
+
+Si le dépôt courant contient `.agentic-local/AGENTS.md`, lis-le intégralement, ainsi que
+`.agentic-local/docs/agentic/LOCAL.md`, avant toute action.
+
+- Avant tout BUILD non trivial, exécute la gate PR_SPLIT
+  (`.agentic-local/docs/agentic/PULL_REQUESTS.md`).
+- Une capacité autonome = un sous-ticket = une PR ; des capacités séparables
+  regroupées rendent BUILD BLOCKED.
+- Consigne le plan validé dans `.agentic-local/docs/agentic/work/<ticket>/pr-split.json`
+  (une PR par entrée, avec sa `branch` et ses `files`) : le hook pre-push refuse
+  sinon de pousser la branche.
+- Aucun ticket, branche, commit, push ni PR avant approbation du découpage.
+- Commits via `agentic-commit.sh`. Sans `.agentic-local/`, ignore ce fichier.
+```
+
+- Réponse identique : c'est bon, passer à la suite.
+- Elle ne contient pas la ligne `pr-split.json` : le fichier global est ancien,
+  refaire les deux `cp` ci-dessus puis relancer `codex`.
+- Codex ne retrouve pas ces règles : `~/.codex/AGENTS.md` n'est pas chargé ;
+  vérifier qu'il existe, puis relancer `codex`.
+
+Ne pas demander « quels fichiers as-tu chargés ? » : Codex ne cite pas les chemins.
 
 Installation partagée (versionnée avec l'équipe), collisions et migration :
 [INSTALL](docs/agentic/INSTALL.md). Usage personnel : [LOCAL](docs/agentic/LOCAL.md).
