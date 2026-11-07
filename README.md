@@ -118,6 +118,41 @@ différées avec responsable/échéance et preuves en BUILD/Verify. Aucun benchm
 prototype ni coût chiffré requis au gate. Un retour exige un fait nouveau invalidant
 une contrainte ; seules les unités affectées sont bloquées.
 
+## Démarrage rapide (copier-coller)
+
+Remplacer `~/mon-projet` par la racine du dépôt Git du projet. Prérequis : Bash,
+Git, Python 3.
+
+**Installer (une fois par projet)**
+
+```bash
+git clone git@github.com:issa-diallo/agentic-dev-system.git ~/agentic-dev-system   # une seule fois
+~/agentic-dev-system/install-agentic.sh ~/mon-projet
+```
+
+L'installation pose la méthode dans `.agentic-local/` (exclu de Git), crée
+`~/.codex/AGENTS.md` s'il n'existe pas et pose le hook Git `pre-push`. Fermer puis
+relancer `codex` dans le projet ; il applique alors la méthode.
+
+**Mettre à jour un projet déjà installé**
+
+```bash
+git -C ~/agentic-dev-system pull
+python3 ~/agentic-dev-system/update-agentic.py ~/mon-projet --dry-run   # voir ce qui change
+python3 ~/agentic-dev-system/update-agentic.py ~/mon-projet
+python3 ~/mon-projet/.agentic-local/scripts/agentic-pr-check.py install-guard --repo ~/mon-projet
+```
+
+**Mettre à jour le fichier global Codex** (jamais écrasé par l'installation)
+
+```bash
+cp ~/.codex/AGENTS.md ~/.codex/AGENTS.md.bak
+cp ~/agentic-dev-system/codex/global-AGENTS.md ~/.codex/AGENTS.md
+```
+
+**Vérifier** : dans une session `codex` neuve, demander « Quels fichiers d'instructions
+as-tu chargés au démarrage ? » ; la réponse doit citer `~/.codex/AGENTS.md`.
+
 ## Installer dans un projet
 
 Prérequis : Bash, un dossier cible existant et Git pour l’installation.
@@ -144,7 +179,8 @@ migration des anciens fichiers déjà suivis.
 
 Les commits du workflow passent obligatoirement par `agentic-commit.sh` après
 staging explicite : sa garde refuse les fichiers personnels, même ajoutés avec
-`git add -f`. Aucun hook ni réglage Git global n’est installé. Toute préparation,
+`git add -f`. L'installation pose seulement un hook Git `pre-push` local (jamais global, jamais en remplacement d'un hook existant) ;
+voir [PR_SPLIT](docs/agentic/templates/PR_SPLIT.md#garde-avant-publication). Toute préparation,
 réflexion, plan et rapport de mission reste hors des commits et PR, même approuvé
 ou collectif. La garde contrôle des chemins ; la review vérifie aussi le contenu.
 Les PR applicatives livrent le code et les tests, migrations, contrats et
@@ -181,8 +217,8 @@ Après installation partagée, demander à l’agent :
   Gitmoji liés à un ticket. Les rapports métier et techniques restent complets ;
   les formats propres aux phases priment sur le format conversationnel.
 
-L’installateur copie ce socle automatiquement : pas de réglage Codex global ni
-de dépendance tierce ajoutés. STATUS part d’un template neutre ; les preuves des
+L’installateur copie ce socle automatiquement et crée `~/.codex/AGENTS.md` s'il
+n'existe pas, sans dépendance tierce ni écrasement d'un fichier existant. STATUS part d’un template neutre ; les preuves des
 stories du dépôt source ne sont pas distribuées. Les installations existantes
 se mettent à jour par comparaison et sauvegarde, pas par synchronisation automatique.
 Personnaliser les documents projet et les `AGENTS.md` des sous-applications en
