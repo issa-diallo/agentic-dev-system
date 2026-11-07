@@ -237,7 +237,15 @@ echo "Installed $MODE in: $DEST"
 if [ "$MODE" = LOCAL ]; then
   echo "Team files are unchanged. Nothing is automatically activated."
   echo "Prompt: Read the repository rules first, then .agentic-local/docs/agentic/LOCAL.md then its method index: scoped ticket reuses existing decisions; new product prepares six reference sections."
-  echo "Plain codex ignores .agentic-local: use scripts/agentic-codex.sh or see docs/agentic/LOCAL.md (permanent activation)."
+  # Plain codex only reads .agentic-local through the personal global file; never overwrite it.
+  codex_global="${CODEX_HOME:-$HOME/.codex}/AGENTS.md"
+  if [ -e "$codex_global" ] || [ -L "$codex_global" ]; then
+    echo "Codex global file already exists, left unchanged: $codex_global (expected content: codex/global-AGENTS.md)."
+  else
+    mkdir -p "$(dirname "$codex_global")"
+    cp "$SCRIPT_DIR/codex/global-AGENTS.md" "$codex_global"
+    echo "Created $codex_global so plain codex applies the method in projects that have .agentic-local."
+  fi
   echo "Check: (cd .agentic-local && bash scripts/agentic-check.sh --existing)"
 else
   echo "Read AGENTS.md and docs/agentic/README.md."

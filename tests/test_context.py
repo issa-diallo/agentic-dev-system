@@ -3,11 +3,13 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import os
 import tempfile
 import unittest
 from urllib.parse import unquote, urlsplit
 
 SOURCE = Path(__file__).resolve().parents[1]
+os.environ['CODEX_HOME'] = tempfile.mkdtemp(prefix='codex-home-')  # installs must not write the real home
 
 
 def required_resources():

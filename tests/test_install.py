@@ -22,6 +22,7 @@ class InstallTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
+        self.home = self.root / 'home'
         self.repo = self.root / 'team project'
         self.repo.mkdir()
         self.git('init', '-q')
@@ -32,7 +33,7 @@ class InstallTests(unittest.TestCase):
     def install(self, *args, ok=True, target=None, force='0'):
         result = subprocess.run(
             ['bash', str(SOURCE / 'install-agentic.sh'), *args, str(target or self.repo)],
-            text=True, capture_output=True, env={**os.environ, 'FORCE': force})
+            text=True, capture_output=True, env={**os.environ, 'FORCE': force, 'HOME': str(self.home), 'CODEX_HOME': str(self.home / '.codex')})
         self.assertEqual(result.returncode == 0, ok, result.stdout + result.stderr)
         return result
 
@@ -66,10 +67,20 @@ class InstallTests(unittest.TestCase):
         other.mkdir()
         subprocess.run(['git', '-C', str(other), 'init', '-q'], check=True)
         result = self.install('--local', target=other)
-        self.assertIn('Plain codex ignores .agentic-local', result.stdout)
+        global_file = self.home / '.codex/AGENTS.md'
+        self.assertEqual(global_file.read_text(), (SOURCE / 'codex/global-AGENTS.md').read_text())
+        self.assertIn('Created', result.stdout)
         self.assertFalse((other / 'CLAUDE.md').exists())
         self.assertTrue((other / '.agentic-local/scripts/agentic-claude.sh').is_file())
         self.assertTrue((other / '.agentic-local/docs/agentic/templates/agentic.config.json').is_file())
+
+    def test_existing_codex_global_file_is_never_overwritten(self):
+        global_file = self.home / '.codex/AGENTS.md'
+        global_file.parent.mkdir(parents=True)
+        global_file.write_text('mine\n')
+        result = self.install('--local')
+        self.assertEqual(global_file.read_text(), 'mine\n')
+        self.assertIn('left unchanged', result.stdout)
 
     def test_local_preserves_team_and_status(self):
         for name in ['AGENTS.md', 'COMMITS.md', '.gitignore']:
