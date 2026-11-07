@@ -197,7 +197,7 @@ conservant les invariants communs.
 | Choisir le niveau et gérer un modèle indisponible | [Politique de modèles](docs/agentic/MODELS.md) |
 | Recherche, concision, reprise et mesures | [Gestion du contexte](docs/agentic/CONTEXT.md) |
 | Répartir et vérifier le travail | [Orchestrateur](docs/agentic/roles/ORCHESTRATOR.md), [implementer](docs/agentic/roles/IMPLEMENTER.md), [reviewer](docs/agentic/roles/REVIEWER.md) |
-| Évaluer RTK, QMD, Headroom ou Ponytail | [Outils optionnels](docs/agentic/OPTIONAL_TOOLS.md) |
+| Évaluer RTK, QMD, Headroom, Ponytail ou le skill Cloudflare security-audit | [Outils optionnels](docs/agentic/OPTIONAL_TOOLS.md) |
 | Sécurité et historique Git | [Safety](docs/agentic/SAFETY.md) et [conventions Gitmoji](COMMITS.md) |
 
 Les outils complémentaires sont évalués, jamais installés par défaut. Aucune

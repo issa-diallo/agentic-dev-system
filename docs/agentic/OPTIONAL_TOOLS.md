@@ -1,7 +1,8 @@
 # Outils optionnels : choix et intégration
 
 Socle opérationnel sans aucun de ces outils. Étude documentaire du 2026-10-08,
-compatibilités déclarées par les projets, non testées ici. Aucune dépendance,
+compatibilités déclarées par les projets, non testées ici. Entrée Cloudflare
+security-audit ajoutée après lecture du skill le 2026-11-07. Aucune dépendance,
 clé, hook, proxy, serveur MCP ni configuration globale installés par la méthode.
 
 ## Choix sans gate de qualification
@@ -58,6 +59,18 @@ sans mitigation, avec justification et test minimal selon METHOD.
 - Maintenance : plugin, Node, hooks et copies d’instructions à suivre.
 - Activation : inspiration documentaire suffit ici ; pilote opt-in si besoin démontré.
 - Retrait : off désactive sans désinstaller ; retirer plugin/hooks/copies selon [INSTALL](https://github.com/DietrichGebert/ponytail/blob/main/INSTALL.md), vérifier règles résiduelles.
+
+## Cloudflare security-audit
+
+- Source : [dépôt officiel](https://github.com/cloudflare/security-audit-skill) et [SKILL.md](https://github.com/cloudflare/security-audit-skill/blob/main/skills/security-audit/SKILL.md), nom déclaré `security-audit`.
+- Fonction : conseil sécurité et recherche de vulnérabilités fondée sur le code, les frontières de confiance et des preuves vérifiées indépendamment. Complète les skills de développement sécurisé sans remplacer les gates Verify/Review/SHIP.
+- Activation : conseil ciblé par défaut ; workflow complet seulement sur demande explicite d'audit de code, de pentest, de revue complète ou de rapports. Charger ou sélectionner le skill n'autorise ni audit complet ni création de rapports.
+- Audit complet : reconnaissance, recherche guidée par couverture, validation des candidats, sortie structurée, vérification indépendante puis rapports. Distinguer `confirmed`, `needs_validation` et `rejected` ; aucune sévérité sur `needs_validation`.
+- Prérequis : outils de sous-agents avec isolation des écritures ; Node.js pour les validateurs JSON sans dépendance. Tout code cible exécuté exige une sandbox imposée par l'OS : réseau externe coupé, environnement minimal autorisé, cible/outils en lecture seule, écritures dans le scratch assigné et limites de ressources/temps. Sans ces contrôles, ne pas exécuter le code cible ; consigner la validation manquante.
+- Périmètre : lecture source et reproductions locales bornées ; aucun test de service déployé, d'infrastructure partagée ou d'identité réelle. L'audit décrit les corrections, sans modifier la source cible.
+- Rapports : hors du dépôt cible par défaut ; chemin interne seulement si explicitement choisi par l'utilisateur et entièrement ignoré par Git. Les rapports restent hors des PR applicatives selon [PULL_REQUESTS](PULL_REQUESTS.md).
+- Installation : volontaire via le mécanisme de skills de l'hôte, depuis `skills/security-audit` du dépôt officiel ; fournir ensuite cette racine installée au [routeur](SKILL_ROUTING.md). Aucun téléchargement ni copie du skill tiers par `install-agentic.sh`.
+- Maintenance et retrait : suivre la version installée, ses instructions et validateurs ; aucune exhaustivité ni économie garantie. Retirer la référence de la sélection ou désinstaller via l'hôte, sans supprimer les preuves d'audit conservées.
 
 ## Protocole d’un pilote demandé
 
