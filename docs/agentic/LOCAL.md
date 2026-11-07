@@ -14,9 +14,11 @@ sur demande explicite.
 
 ### Garde avant publication
 
-Optionnelle : `python3 .agentic-local/scripts/agentic-pr-check.py install-guard`
-refuse un `git push` de branche sans `pr-split.json` valide ni fichiers dans le
-périmètre déclaré. Détails dans [PR_SPLIT](templates/PR_SPLIT.md#garde-avant-publication-optionnelle).
+L'installation pose un hook Git `pre-push` local qui refuse un `git push` de
+branche sans `pr-split.json` valide ni fichiers dans le périmètre déclaré. Elle
+ne remplace jamais un hook existant et ignore `core.hooksPath` (message à la
+fin de l'installation). Détails et contournement visible dans
+[PR_SPLIT](templates/PR_SPLIT.md#garde-avant-publication).
 
 ### Activation permanente avec `codex` nu
 
