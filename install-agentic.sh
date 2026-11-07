@@ -109,6 +109,8 @@ V2_RESOURCES=(
   skills/verification-code-review-change-impact-tdd-e2e/SKILL.md
   skills/parallel-execution-worktrees/SKILL.md
   skills/context-handoff-documentation/SKILL.md
+  skills/spec-driven-development/SKILL.md
+  skills/planning-and-task-breakdown/SKILL.md
 )
 for source in "${V2_RESOURCES[@]}"; do
   [ -f "$SCRIPT_DIR/$source" ] || fail "Missing source: $source"

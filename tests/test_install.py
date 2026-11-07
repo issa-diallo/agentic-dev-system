@@ -150,7 +150,7 @@ class InstallTests(unittest.TestCase):
         for script in ['build', 'workspace', 'skills', 'models', 'scheduler', 'quality']:
             self.assertTrue((method / f'scripts/agentic-{script}.py').is_file())
         skills = list((method / 'skills').glob('*/SKILL.md'))
-        self.assertEqual(len(skills), 6)
+        self.assertEqual(len(skills), 8)
         for path in ['.codex/config.toml', '.agents/skills/team/SKILL.md']:
             self.assertEqual((self.repo / path).read_text(), 'team content')
         self.assertEqual(self.git('status', '--porcelain'), before)
@@ -166,6 +166,9 @@ class InstallTests(unittest.TestCase):
             self.assertEqual({item['name'] for item in result['selected']}, {expected})
             self.assertEqual(result['loaded'], [])
             self.assertEqual(result['applied'], 'NOT_OBSERVED')
+        result = router.select('Write a spec and break it into tasks', [], [method / 'skills'])
+        self.assertEqual({item['name'] for item in result['selected']},
+                         {'spec-driven-development', 'planning-and-task-breakdown'})
         self.git('add', '-A')
         self.assertFalse(any('.agentic-local' in p for p in self.git('diff', '--cached', '--name-only').splitlines()))
         self.git('add', '-f', '.agentic-local/codex/agents/explorer.toml')

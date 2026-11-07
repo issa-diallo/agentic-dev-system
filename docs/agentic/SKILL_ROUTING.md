@@ -47,7 +47,8 @@ Il est possible d'utiliser les skills existants sans ajouter ce champ.
 
 Le routage couvre API, backend, frontend, migrations, sécurité, impact de
 changement, tests, E2E, parallélisme, worktrees, documentation, contexte, handoff,
-verification et review. Les besoins viennent de mots de domaine et chemins
+verification, review et planification/spécification (`spec`, PRD, découpage,
+planning ; une spec OpenAPI ou Swagger n'en fait pas partie). Les besoins viennent de mots de domaine et chemins
 identifiés ; les providers viennent du nom et de la description de chaque skill.
 Un nom spécialisé prime sur les domaines simplement mentionnés dans sa
 description : un skill de migration Django ne devient pas un skill backend

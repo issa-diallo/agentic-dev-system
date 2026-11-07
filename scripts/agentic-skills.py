@@ -48,6 +48,11 @@ CAPABILITIES = {
                 r"(?!)", r"context|contexte|compact|memory|mémoire"),
     "handoff": (r"handoff|interruption|resume|reprise|checkpoint",
                 r"(?!)", r"handoff|checkpoint|resume|reprise"),
+    # An API contract spec (OpenAPI, Swagger) is not a feature specification.
+    "planning": (r"(?<!openapi )(?<!api )(?<!swagger )\bspecs?\b|\bspecifications?\b|spécification|"
+                 r"\bprd\b|breakdown|découpage|découper|user stor(?:y|ies)|\bplanning\b|"
+                 r"planification|implementation.plan|plan d.implémentation",
+                 r"(?!)", r"spec.driven|planning|task.breakdown|specification|planification"),
 }
 METADATA_LIMIT = 16384
 STACKS = {
