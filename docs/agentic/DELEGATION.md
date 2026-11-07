@@ -97,7 +97,7 @@ diagnostic bloque, comme dans [MODEL_ROUTING](MODEL_ROUTING.md).
 (package.json, pyproject, go.mod, Makefile…) et choisit par unité les commandes de son
 profil (front, back, données, contrat) ; ticket doc seule : aucune commande requise. Rien
 n'est inventé : commande absente = signalée, à fournir dans la config ou le plan.
-`scripts/agentic-prepare.py init|check|units` prépare PREPARE à partir des fichiers visés.
+`agentic-prepare.py init|check|units` prépare PREPARE depuis les fichiers visés.
 
 ## Tests d'abord (TDD)
 
@@ -109,4 +109,8 @@ Le ticket liste ses règles métier (RM1…) et les tests unitaires qui les vali
    d'import, reste à confirmer en review). L'orchestrateur commite alors les tests.
 2. **Vert** : l'agent implémente ; les tests sont hors périmètre, donc toute modification est
    rejetée par le gate de périmètre. Les commandes de vérification doivent passer.
+`run.tdd` : `red_level` (MEDIUM, HIGH pour des tests plus sûrs), `green_level` (LOW ; auth et
+migration remontent seuls), `review_before_green` (`auto` : pause après le commit rouge si le
+ticket touche auth, secrets, migration, paiement ou permissions ; `--review-red`/`--no-review-red`).
+En pause : relire les tests, puis relancer la même commande avec `--green-only`.
 `--no-tdd` pour docs, config, refactor couvert ou spike (à motiver dans PREPARE : `Exception TDD : …`).

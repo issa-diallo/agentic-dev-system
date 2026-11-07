@@ -64,18 +64,24 @@ class TddTests(unittest.TestCase):
     def set_mode(self, mode):
         self.agent.with_name('mode').write_text(mode)
 
-    def config(self, tdd=True):
+    tdd_config = {}
+
+    def config(self):
         models = [{'id': 'cheap', 'harness': 'fake', 'model': 'x', 'max_level': 'MEDIUM',
-                   'efforts': ['medium'], 'cost_rank': 1}]
-        config = {'version': 1, 'models': models, 'run': {'timeout_seconds': 20, 'tdd': tdd},
+                   'efforts': ['medium'], 'cost_rank': 1},
+                  {'id': 'strong', 'harness': 'fake', 'model': 'y', 'max_level': 'HIGH',
+                   'efforts': ['high'], 'cost_rank': 5},
+                  {'id': 'top', 'harness': 'fake', 'model': 'z', 'max_level': 'EXTRA_HIGH',
+                   'efforts': ['xhigh'], 'cost_rank': 9}]
+        config = {'version': 1, 'models': models, 'run': {'timeout_seconds': 20, 'tdd': {'enabled': True, **self.tdd_config}},
                   'harnesses': {'fake': {'argv': [sys.executable, str(self.agent), '{worktree}',
                                                   '{prompt}']}}}
         path = self.root / 'config.json'
         path.write_text(json.dumps(config))
         return str(path)
 
-    def quick(self, rules=('RM1: A vaut 1',), **kwargs):
-        return RUN.quick(self.repo, 't1', 'Livrer a', ['a.py', 'test_a.py'], ['A est 1'], self.tests,
+    def quick(self, rules=('RM1: A vaut 1',), task_id='t1', **kwargs):
+        return RUN.quick(self.repo, task_id, 'Livrer a', ['a.py', 'test_a.py'], ['A est 1'], self.tests,
                          worktree_root=self.root / 'wt', config_path=self.config(), rules=list(rules),
                          **kwargs)
 
@@ -118,6 +124,43 @@ class TddTests(unittest.TestCase):
         with self.assertRaises(RUN.Blocked):
             RUN.quick(self.repo, 't2', 'x', ['a.py'], ['ac'], self.tests, worktree_root=self.root / 'wt',
                       config_path=self.config(), rules=['RM1: x'])
+
+    def test_red_phase_can_use_a_stronger_model_than_green(self):
+        self.tdd_config = {'red_level': 'HIGH', 'green_level': 'LOW', 'review_before_green': False}
+        report = self.quick()
+        self.assertEqual(report['red']['t1-red']['model_requested']['model'], 'strong')
+        self.assertEqual(report['tasks']['t1']['model_requested']['model'], 'cheap')
+
+    def test_default_levels_use_the_economical_model_without_review_pause(self):
+        report = self.quick()
+        self.assertEqual(report['phase'], 'green')
+        self.assertEqual(report['red']['t1-red']['model_requested']['model'], 'cheap')
+
+    def test_risky_ticket_pauses_after_red_commit_then_resumes_green_only(self):
+        paused = RUN.quick(self.repo, 't1', 'Login password reset', ['a.py', 'test_a.py'], ['A'],
+                           self.tests, worktree_root=self.root / 'wt', config_path=self.config(),
+                           rules=['RM1: A vaut 1'])
+        self.assertEqual(paused['phase'], 'awaiting-review')
+        self.assertFalse((Path(paused['worktree']) / 'a.py').exists())
+        self.assertIn('Tests (rouge)', self.git('log', '-1', '--format=%s', repo=paused['worktree']))
+        done = RUN.quick(self.repo, 't1', 'Login password reset', ['a.py', 'test_a.py'], ['A'],
+                         self.tests, worktree_root=self.root / 'wt', config_path=self.config(),
+                         green_only=True)
+        self.assertEqual(done['phase'], 'green')
+        self.assertTrue(RUN.succeeded(done['tasks'], False))
+
+    def test_explicit_review_flag_overrides_the_heuristic(self):
+        self.assertEqual(self.quick(review=True)['phase'], 'awaiting-review')
+        self.assertEqual(self.quick(review=False, rules=('RM1: login',), task_id='t2')['phase'], 'green')
+
+    def test_green_only_refuses_without_red_commit(self):
+        with self.assertRaises(RUN.Blocked):
+            RUN.quick(self.repo, 't9', 'x', ['a.py', 'test_a.py'], ['A'], self.tests,
+                      worktree_root=self.root / 'wt', config_path=self.config(), green_only=True)
+
+    def test_bad_tdd_settings_are_rejected(self):
+        with self.assertRaises(RUN.Blocked):
+            RUN.tdd_settings({'run': {'tdd': {'red_level': 'ULTRA'}}})
 
     def test_no_tdd_keeps_the_single_phase_flow(self):
         report = self.quick(tdd=False)
