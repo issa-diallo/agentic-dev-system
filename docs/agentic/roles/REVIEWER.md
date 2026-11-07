@@ -52,6 +52,9 @@ contradiction concrète ou un risque critique avec faits et périmètre affecté
 
 ### Lisibilité et taille de PR
 - [DEVELOPMENT](../DEVELOPMENT.md) : responsabilités, noms, types et fonctions ?
+- DRY/SOLID/YAGNI ([Principes](../DEVELOPMENT.md#principes)) : règle métier
+  dupliquée, abstraction, option ou dépendance sans usage actuel, responsabilités
+  mélangées ? Justifier chaque constat par un fichier et une ligne.
 - [PULL_REQUESTS](../PULL_REQUESTS.md) : objectif unique, 1 à 3 fichiers visés,
   commit final unique et exceptions justifiées ?
 - changements hors périmètre ou découpage plus sûr possible ?
