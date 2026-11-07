@@ -44,7 +44,7 @@ class ContextTests(unittest.TestCase):
     def test_root_invariants_and_size(self):
         text = (SOURCE / 'AGENTS.md').read_text()
         # Includes the native communication policy; remains below the 8,764-byte baseline.
-        self.assertLess(len(text.encode()), 5400)
+        self.assertLess(len(text.encode()), 4700)
         for rule in ['seule PASS autorise', 'PREPARE PASS', 'Verify obligatoire',
                      'review indépendante', 'Critical/Major', 'merge et cleanup', 'READY_FOR_HUMAN',
                      'BLOCKED, ADR et ARCHITECTURE', 'Fixes #<issue_number>',
