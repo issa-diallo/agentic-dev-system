@@ -74,6 +74,18 @@ class InstallTests(unittest.TestCase):
         self.assertTrue((other / '.agentic-local/scripts/agentic-claude.sh').is_file())
         self.assertTrue((other / '.agentic-local/docs/agentic/templates/agentic.config.json').is_file())
 
+    def test_install_poses_push_guard_and_keeps_a_foreign_hook(self):
+        self.install('--local')
+        self.assertIn('agentic-dev-system push guard', (self.repo / '.git/hooks/pre-push').read_text())
+        other = self.root / 'foreign'
+        other.mkdir()
+        subprocess.run(['git', '-C', str(other), 'init', '-q'], check=True)
+        hook = other / '.git/hooks/pre-push'
+        hook.write_text('#!/bin/sh\nexit 0\n')
+        result = self.install('--local', target=other)
+        self.assertEqual(hook.read_text(), '#!/bin/sh\nexit 0\n')
+        self.assertIn('guard NOT installed', result.stdout)
+
     def test_existing_codex_global_file_is_never_overwritten(self):
         global_file = self.home / '.codex/AGENTS.md'
         global_file.parent.mkdir(parents=True)

@@ -233,6 +233,13 @@ if [ "$MODE" != LOCAL ]; then
 fi
 
 python3 "$SCRIPT_DIR/update-agentic.py" --record "$DEST" || true
+# Push guard: best effort, never fails the install and never replaces a foreign hook.
+guard_script="$DEST/scripts/agentic-pr-check.py"
+if guard_output="$(python3 "$guard_script" install-guard --repo "$TARGET" 2>&1)"; then
+  echo "Pre-push guard installed (refuses pushes without a valid pr-split.json)."
+else
+  echo "Pre-push guard NOT installed: $guard_output"
+fi
 echo "Installed $MODE in: $DEST"
 if [ "$MODE" = LOCAL ]; then
   echo "Team files are unchanged. Nothing is automatically activated."
