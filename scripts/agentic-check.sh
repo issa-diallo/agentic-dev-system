@@ -100,7 +100,9 @@ for resource in \
   skills/frontend-patterns/SKILL.md \
   skills/verification-code-review-change-impact-tdd-e2e/SKILL.md \
   skills/parallel-execution-worktrees/SKILL.md \
-  skills/context-handoff-documentation/SKILL.md; do
+  skills/context-handoff-documentation/SKILL.md \
+  skills/spec-driven-development/SKILL.md \
+  skills/planning-and-task-breakdown/SKILL.md; do
   check_file "$resource"
 done
 if [ "$entry" = "EXISTING" ]; then

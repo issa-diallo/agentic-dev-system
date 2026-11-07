@@ -98,6 +98,22 @@ class SkillRoutingTests(unittest.TestCase):
         result = self.route("Update behavior", ["src/api/accounts.py", "src/models/accounts.py"])
         self.assertIn("change-impact", self.names(result))
 
+    def test_spec_and_planning_tasks_route_to_planning_skills(self):
+        self.skill("spec-driven-development", "Specification before code for new work")
+        self.skill("planning-and-task-breakdown", "Break a spec into ordered tasks")
+        both = {"spec-driven-development", "planning-and-task-breakdown"}
+        for task in ["Write a spec for the export feature", "Break the PRD into tasks",
+                     "Découper la spécification en tâches", "Create an implementation plan"]:
+            with self.subTest(task=task):
+                result = self.route(task)
+                self.assertEqual(self.names(result), both)
+                self.assertEqual(result["missing_capabilities"], [])
+        for task, files in [("Update the OpenAPI spec", ["api/openapi.yaml"]),
+                            ("Add SQL migration", ["migrations/003.sql"]),
+                            ("Update requirements.txt", [])]:
+            with self.subTest(task=task):
+                self.assertFalse(both & self.names(self.route(task, files)))
+
     def test_unit_testing_does_not_route_e2e_provider(self):
         result = self.route("Add unit tests", ["tests/test_accounts.py"])
         self.assertEqual(self.names(result), {"tdd"})

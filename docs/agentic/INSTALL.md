@@ -318,7 +318,7 @@ scripts sauvegardés, conserver les artefacts et PR sans modification.
 ## Distribution V2 et activation Codex
 
 Le socle distribue les scripts Planner, Workspace, Skills, Models, Scheduler et
-Quality, trois profils dans `codex/agents/` et six skills courts dans `skills/`.
+Quality, trois profils dans `codex/agents/` et huit skills courts dans `skills/`.
 Aucune configuration `.codex/`, `.agents/`, globale ou d’authentification n’est
 créée ou remplacée. Les préflights couvrent ces ressources avant toute écriture.
 En mode partagé, une collision avec un fichier V2 existant est refusée.
