@@ -102,11 +102,11 @@ Aucun filtre externe Git ni commande du
 manifeste exécuté ; aucune écriture Git. 0=PASS, 1=BLOCKED, usage CLI invalide=2.
 Le contrôle de présence n'est pas ce gate.
 
-## Garde avant publication (optionnelle)
+## Garde avant publication
 
 Une consigne n'empêche pas un `git push` direct. La garde est un hook Git
-`pre-push` **local**, installé seulement sur demande, qui refuse de pousser une
-branche sans plan valide :
+`pre-push` **local**, posé par l'installation, qui refuse de pousser une branche
+sans plan valide. Commandes manuelles, utiles pour la réinstaller ou la retirer :
 
 ```bash
 python3 scripts/agentic-pr-check.py install-guard     # depuis la racine du dépôt
