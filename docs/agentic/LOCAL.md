@@ -30,9 +30,9 @@ pas, avec le contenu de `codex/global-AGENTS.md` du service, et ne remplace jama
 un fichier existant (un fichier déjà présent doit contenir ces règles). Le lanceur
 `.agentic-local/scripts/agentic-codex.sh run "<mission>"` reste possible.
 
-Vérifier dans une session neuve : « Recopie mot pour mot, sans résumer, les règles globales agentic-dev-system que tu as reçues au démarrage. » doit faire apparaître le
-titre « Méthode agentic-dev-system (global) » (et la ligne `pr-split.json` si le
-fichier est à jour). Codex ne cite pas le chemin des fichiers : ne pas le lui demander.
+Vérifier dans une session neuve : écrire `agentic ?`. Codex lit `.agentic-local/`,
+contrôle le hook `pre-push` puis répond « Agentic Dev System prêt à commencer. » ou « Agentic Dev System NON prêt : »
+suivi de la raison. Toute autre réponse : le fichier global est absent ou ancien.
 
 Les règles de l’équipe priment sur les conventions personnelles, y compris les
 commits, branches, outils autorisés et validations. Les AGENTS.md et COMMITS.md

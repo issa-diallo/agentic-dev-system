@@ -11,4 +11,9 @@ Si le dépôt courant contient `.agentic-local/AGENTS.md`, lis-le intégralement
   (une PR par entrée, avec sa `branch` et ses `files`) : le hook pre-push refuse
   sinon de pousser la branche.
 - Aucun ticket, branche, commit, push ni PR avant approbation du découpage.
-- Commits via `agentic-commit.sh`. Sans `.agentic-local/`, ignore ce fichier.
+- Commits via `agentic-commit.sh`. Sans `.agentic-local/`, ignore ces règles, sauf `agentic ?`.
+- Si le message de l'utilisateur est exactement `agentic ?` : lis `.agentic-local/AGENTS.md`
+  et `.agentic-local/docs/agentic/LOCAL.md` si ce n'est pas déjà fait, et vérifie que le fichier
+  `git rev-parse --git-path hooks/pre-push` contient « agentic-dev-system push guard ».
+  Si tout est bon, réponds exactement « Agentic Dev System prêt à commencer. » sans rien ajouter. Sinon réponds
+  « Agentic Dev System NON prêt : » suivi de ce qui manque.

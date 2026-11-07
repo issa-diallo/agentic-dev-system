@@ -86,9 +86,12 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(hook.read_text(), '#!/bin/sh\nexit 0\n')
         self.assertIn('guard NOT installed', result.stdout)
 
-    def test_readme_shows_the_exact_global_file_as_expected_answer(self):
-        expected = (SOURCE / 'codex/global-AGENTS.md').read_text().rstrip('\n')
-        self.assertIn('```text\n' + expected + '\n```', (SOURCE / 'README.md').read_text())
+    def test_readme_and_global_file_share_the_agentic_ready_handshake(self):
+        ready = 'Agentic Dev System prêt à commencer.'
+        self.assertIn('`agentic ?`', (SOURCE / 'codex/global-AGENTS.md').read_text())
+        self.assertIn(ready, (SOURCE / 'codex/global-AGENTS.md').read_text())
+        self.assertIn(ready, (SOURCE / 'README.md').read_text())
+        self.assertIn('agentic ?', (SOURCE / 'README.md').read_text())
 
     def test_existing_codex_global_file_is_never_overwritten(self):
         global_file = self.home / '.codex/AGENTS.md'

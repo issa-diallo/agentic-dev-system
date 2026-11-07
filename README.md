@@ -35,38 +35,20 @@ cp ~/.codex/AGENTS.md ~/.codex/AGENTS.md.bak
 cp ~/agentic-dev-system/codex/global-AGENTS.md ~/.codex/AGENTS.md
 ```
 
-**Vérifier que ça marche** : ouvrir `codex` dans le projet (session neuve) et poser exactement :
+**Vérifier que ça marche** : ouvrir `codex` dans le projet (session neuve) et écrire :
 
 ```text
-Recopie mot pour mot, sans résumer, les règles globales agentic-dev-system que tu as reçues au démarrage.
+agentic ?
 ```
 
-Si tout est en place, la réponse est exactement ceci (le contenu de `codex/global-AGENTS.md`) :
+- « **Agentic Dev System prêt à commencer.** » : c'est bon, passer à la suite.
+- « Agentic Dev System NON prêt : … » : la raison indique ce qui manque
+  (`.agentic-local/` absent, hook `pre-push` non posé) ; voir « Installer » et « Mettre à jour ».
+- Toute autre réponse : le fichier global est absent ou ancien ; refaire les deux
+  `cp` ci-dessus, puis relancer `codex`.
 
-```text
-# Méthode agentic-dev-system (global)
-
-Si le dépôt courant contient `.agentic-local/AGENTS.md`, lis-le intégralement, ainsi que
-`.agentic-local/docs/agentic/LOCAL.md`, avant toute action.
-
-- Avant tout BUILD non trivial, exécute la gate PR_SPLIT
-  (`.agentic-local/docs/agentic/PULL_REQUESTS.md`).
-- Une capacité autonome = un sous-ticket = une PR ; des capacités séparables
-  regroupées rendent BUILD BLOCKED.
-- Consigne le plan validé dans `.agentic-local/docs/agentic/work/<ticket>/pr-split.json`
-  (une PR par entrée, avec sa `branch` et ses `files`) : le hook pre-push refuse
-  sinon de pousser la branche.
-- Aucun ticket, branche, commit, push ni PR avant approbation du découpage.
-- Commits via `agentic-commit.sh`. Sans `.agentic-local/`, ignore ce fichier.
-```
-
-- Réponse identique : c'est bon, passer à la suite.
-- Elle ne contient pas la ligne `pr-split.json` : le fichier global est ancien,
-  refaire les deux `cp` ci-dessus puis relancer `codex`.
-- Codex ne retrouve pas ces règles : `~/.codex/AGENTS.md` n'est pas chargé ;
-  vérifier qu'il existe, puis relancer `codex`.
-
-Ne pas demander « quels fichiers as-tu chargés ? » : Codex ne cite pas les chemins.
+Codex lit alors réellement `.agentic-local/` et le hook avant de répondre : ses
+lectures sont visibles dans la session.
 
 Installation partagée (versionnée avec l'équipe), collisions et migration :
 [INSTALL](docs/agentic/INSTALL.md). Usage personnel : [LOCAL](docs/agentic/LOCAL.md).
