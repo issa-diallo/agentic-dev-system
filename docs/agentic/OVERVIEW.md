@@ -1,0 +1,200 @@
+# Présentation détaillée
+
+Détails retirés du [README](../../README.md) pour le garder court : usage, relecture
+de PR, isolation, phases, installation détaillée et ce que chaque projet hérite.
+
+## À quoi ça sert pour un développeur ?
+
+Quand vous confiez une fonctionnalité à un agent, vous voulez savoir ce qu'il va
+modifier, éviter qu'il perturbe les autres travaux et vérifier son résultat avant
+la fusion. Le système définit les règles pour obtenir :
+
+- **Un travail cadré** : besoin, critères d'acceptation et plan avant l'implémentation.
+- **Des changements isolés** : branche et worktree dédiés par PR non triviale,
+  pour séparer les fichiers de travail des autres fonctionnalités.
+- **Un environnement reproductible** : commandes de préparation, démarrage,
+  test et arrêt définies pour le projet.
+- **Une validation indépendante** : un reviewer distinct de l'auteur confronte
+  le diff aux critères et aux preuves de test.
+- **Une livraison traçable** : ticket, décisions, tests, commits et PR reliés.
+
+Par exemple, pour ajouter un export CSV : vous décrivez le besoin ; l'agent
+précise les critères et le plan ; l'implémentation se fait dans un worktree dédié ;
+les tests vérifient le résultat ; un autre agent effectue la review ; un agent
+Lead Tech examine la PR et vous remet un avis technique avant votre décision de fusion. Les étapes et preuves personnelles restent dans le dossier local exclu de Git.
+
+## Qui examine la PR avant la fusion ?
+
+Le [Lead Tech](roles/REVIEWER.md) réalise une synthèse indépendante :
+architecture, risques, preuves de test, CI et préparation à la livraison. Son rapport
+indique le verdict, les problèmes concrets, les corrections et les incertitudes.
+
+Sur une PR LIGHT/STANDARD, un reviewer indépendant avec profil Lead Tech peut
+assurer Review et examen final. En LARGE ou pour un risque critique, une seconde
+lecture est confiée à un agent distinct de l'implementer et du premier reviewer.
+Le modèle/effort dépend des capacités réellement disponibles et du risque.
+
+L'orchestrateur lui transmet le diff et les preuves pour un commit précis, puis
+fait corriger les problèmes et demande une revalidation. Un problème bloquant ou
+une CI non validée empêche la livraison. Un nouveau commit impose un avis actualisé.
+Vous recevez une recommandation technique argumentée ; l'agent ne fusionne pas
+sans autorisation. Le contrat et le prompt sont fournis dans le rôle Reviewer,
+sans bot GitHub installé automatiquement.
+
+## Comment l'isolation fonctionne-t-elle ?
+
+| Ce qui doit être séparé | Mécanisme prévu par la méthode |
+|---|---|
+| Code de deux fonctionnalités | Une branche et un worktree Git par PR non triviale ; un seul agent écrit dans chaque worktree |
+| Services et données d'exécution | Ports, bases ou schémas, queues et ressources propres au worktree lorsque le projet en a besoin |
+| Implémentation et contrôle | Un reviewer indépendant, avec accès au diff et aux résultats de validation |
+
+Un worktree isole les fichiers de travail ; il n'isole pas à lui seul une base de
+données ou un service partagé. Dev, test et review sont les activités du cycle :
+elles ne nécessitent pas systématiquement trois environnements distincts.
+Leur organisation dépend du projet et des risques.
+
+**L'installation ajoute la méthode au dépôt.** Elle ne crée pas automatiquement
+les worktrees, conteneurs, bases de données ou environnements de preview.
+L'agent prépare les worktrees pendant l'exécution des stories ; les scripts
+`worktree-setup.sh`, `worktree-dev.sh`, `worktree-test.sh` et `worktree-down.sh`
+sont à fournir dans `scripts/` lorsque le projet en a besoin, selon le
+[contrat d'environnement](templates/WORKTREE_ENVIRONMENT.md).
+Les scripts créés pour la seule mission restent locaux, hors PR ; réutiliser les
+commandes existantes sans ajouter de lanceurs de vérification au code livré.
+Les agents et leur orchestration s'appuient sur les capacités de votre outil.
+
+## Du besoin à la livraison
+
+```text
+PREPARE → BUILD → SHIP
+```
+
+PREPARE réunit six rubriques : **PRD**, **TRD**, **APP_FLOW**, **UX_UI_BRIEF**,
+**BACKEND_SCHEMA**, **IMPLEMENTATION_PLAN**. Elles peuvent tenir dans un seul
+[fichier](templates/PREPARE.md), avec références et N/A motivés :
+LIGHT minimal, STANDARD concis, LARGE structuré. Sur un
+[projet existant](EXISTING_PROJECT.md), réutiliser les décisions,
+conventions et artefacts validés ; compléter le delta du ticket sans ajouter
+Research/Design/Plan à chaque tâche. Les templates V1 restent facultatifs pour
+reprise/legacy ; aucune donnée ni décision existante n'est supprimée.
+
+PR_SPLIT PASS avant BUILD non trivial, worktree et owner unique, puis implémentation,
+Verify obligatoire et review indépendante. L'orchestrateur route skills/modèles
+réellement disponibles et lance les agents natifs avec les outils exposés ; il
+conserve reçus, identités et handoffs vérifiés. Les scripts préparent et contrôlent,
+ils ne lancent pas les outils natifs à la place de l'hôte. Sans capacité disponible,
+repli séquentiel explicite, review dans une session indépendante, aucun lancement
+ni modèle principal fictif. La présence des scripts est vérifiée avant usage.
+
+SHIP exige PR_SCOPE, preuves fraîches, examen final Lead Tech, CI et autorisation
+avant fusion. Une PR prête reste READY_FOR_HUMAN ; DONE exige merge et cleanup.
+Goal mesurable pour tâches longues/complexes, environnement reproductible selon
+risque. Sécurité, auth/autorisation/tenant/secrets, observabilité et rollback sont
+traités selon le périmètre. Aucun PASS inventé ni coût/token non observé : null.
+
+Architecture reste courte : choix utilisateur conservés, ADR ciblés, validations
+différées avec responsable/échéance et preuves en BUILD/Verify. Aucun benchmark,
+prototype ni coût chiffré requis au gate. Un retour exige un fait nouveau invalidant
+une contrainte ; seules les unités affectées sont bloquées.
+
+## Installer dans un projet (détail)
+
+Prérequis : Bash, un dossier cible existant et Git pour l’installation.
+Python 3 (stdlib uniquement) est requis pour les gates PR_SPLIT/PR_SCOPE.
+
+```bash
+git clone git@github.com:issa-diallo/agentic-dev-system.git
+```
+
+| Installation | Commande depuis le dossier contenant le clone | Effet |
+|---|---|---|
+| Usage local par défaut | `./agentic-dev-system/install-agentic.sh /chemin/du/projet` | Socle dans `.agentic-local/`, exclu de Git |
+| Usage local explicite | `./agentic-dev-system/install-agentic.sh --local --existing /chemin/du/projet` | Même protection ; aucun template produit créé |
+| Méthode partagée, nouveau produit | `./agentic-dev-system/install-agentic.sh --shared /chemin/du/projet` | Socle versionnable et cinq templates produit legacy facultatifs |
+| Méthode partagée, projet existant | `./agentic-dev-system/install-agentic.sh --shared --existing /chemin/du/projet` | Socle versionnable sans documents produit |
+
+LOCAL exige la racine d’un dépôt Git (exécuter `git init` explicitement pour un
+nouveau dossier), préserve les fichiers de l’équipe et nécessite une
+[activation explicite](LOCAL.md). `--existing` seul reste local.
+Les règles de l’équipe restent prioritaires. Les collisions sont refusées ;
+aucune mise à jour ne force l’écrasement des personnalisations. Voir
+[INSTALL](INSTALL.md) pour les protections, mises à jour et la
+migration des anciens fichiers déjà suivis.
+
+Les commits du workflow passent obligatoirement par `agentic-commit.sh` après
+staging explicite : sa garde refuse les fichiers personnels, même ajoutés avec
+`git add -f`. L'installation pose seulement un hook Git `pre-push` local (jamais global, jamais en remplacement d'un hook existant) ;
+voir [PR_SPLIT](templates/PR_SPLIT.md#garde-avant-publication). Toute préparation,
+réflexion, plan et rapport de mission reste hors des commits et PR, même approuvé
+ou collectif. La garde contrôle des chemins ; la review vérifie aussi le contenu.
+Les PR applicatives livrent le code et les tests, migrations, contrats et
+configurations indispensables au comportement livré. Chaque chemin réel doit
+avoir une preuve indépendante de son utilité en production ou pour les tests
+associés ; les scripts de travail restent locaux. Un Markdown doit être utilisé
+par le produit, y compris lorsqu'une méthode documentaire est le produit demandé.
+Voir [COMMITS](../../COMMITS.md).
+
+Après installation partagée, demander à l’agent :
+
+> Lis AGENTS.md et docs/agentic/README.md. Choisis le mode selon le risque,
+> identifie le point d’entrée et la première phase non validée, puis applique
+> ses gates. Ne change pas silencieusement la stack.
+
+## Ce que chaque projet hérite
+
+- **Instructions ciblées** : invariants dans `AGENTS.md`, navigation conditionnelle
+  vers les documents nécessaires à la tâche.
+- **Choix des modèles** : niveau adapté au travail, du plus léger capable aux
+  niveaux exigeants justifiés ; aucun nom de modèle imposé.
+- **Délégation cadrée** : objectif, fichiers, contraintes, critères, validations
+  et livrable explicites ; pas de multiplication d’agents pour une tâche simple.
+- **Contexte maîtrisé** : recherche ciblée et checkpoints conservant décisions,
+  erreurs ouvertes, preuves et prochaines actions.
+- **Communication concise native** : résultat en tête, changements avec chemins,
+  statut des tests et risques explicites. Aucun outil Caveman ou I Have ADHD installé.
+- **Code lisible et PR courtes** : [DEVELOPMENT](DEVELOPMENT.md)
+  fixe les conventions SOLID, noms et modules ;
+  [PULL_REQUESTS](PULL_REQUESTS.md) vise un objectif,
+  une raison métier principale, PR_SPLIT avant BUILD non trivial et PR_SCOPE avant Ship.
+  Les cibles 1 à 3 fichiers/100 lignes ne retirent jamais tests ni migrations.
+- **Qualité préservée** : DoR/DoD, Verify, revue indépendante, sécurité et commits
+  Gitmoji liés à un ticket. Les rapports métier et techniques restent complets ;
+  les formats propres aux phases priment sur le format conversationnel.
+
+L’installateur copie ce socle automatiquement et crée `~/.codex/AGENTS.md` s'il
+n'existe pas, sans dépendance tierce ni écrasement d'un fichier existant. STATUS part d’un template neutre ; les preuves des
+stories du dépôt source ne sont pas distribuées. Les installations existantes
+se mettent à jour par comparaison et sauvegarde, pas par synchronisation automatique.
+Personnaliser les documents projet et les `AGENTS.md` des sous-applications en
+conservant les invariants communs.
+
+## Vérifier
+
+Dans un projet installé en PRODUCT :
+
+```bash
+bash scripts/agentic-check.sh
+```
+
+Pour EXISTING, ajouter `--existing`. En LOCAL :
+
+```bash
+(cd .agentic-local && bash scripts/agentic-check.sh --existing)
+```
+
+Ce contrôle vérifie la présence des ressources, pas le passage des gates.
+
+Pour contribuer à ce dépôt, Python 3 permet d’exécuter les tests sans package externe :
+
+```bash
+for script in install-agentic.sh scripts/agentic*.sh; do
+  bash -n "$script" || exit
+done
+python3 -m unittest discover -s tests -v
+git diff --check
+```
+
+La CI vérifie syntaxe et tests : installations PRODUCT/EXISTING/LOCAL, héritage,
+liens locaux, règles critiques, personnalisation et protections Git. Ces tests
+ne garantissent pas le comportement de chaque modèle.
