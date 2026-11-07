@@ -35,8 +35,10 @@ cp ~/.codex/AGENTS.md ~/.codex/AGENTS.md.bak
 cp ~/agentic-dev-system/codex/global-AGENTS.md ~/.codex/AGENTS.md
 ```
 
-**Vérifier** : dans une session `codex` neuve, demander « Quels fichiers d'instructions
-as-tu chargés au démarrage ? » ; la réponse doit citer `~/.codex/AGENTS.md`.
+**Vérifier** : dans une session `codex` neuve, demander « Recopie mot pour mot, sans résumer, les règles globales agentic-dev-system que tu as reçues au démarrage. ».
+Le titre « Méthode agentic-dev-system (global) » doit apparaître, avec la ligne sur
+`pr-split.json` si le fichier est à jour. Demander quels fichiers sont chargés ne
+prouve rien : Codex ne cite pas leur chemin.
 
 Installation partagée (versionnée avec l'équipe), collisions et migration :
 [INSTALL](docs/agentic/INSTALL.md). Usage personnel : [LOCAL](docs/agentic/LOCAL.md).
