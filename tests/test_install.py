@@ -49,6 +49,27 @@ class InstallTests(unittest.TestCase):
         self.assertFalse((self.repo / 'docs/adr').exists())
         subprocess.run(['bash', 'scripts/agentic-check.sh', '--existing'], cwd=self.repo, check=True, capture_output=True)
 
+    def test_shared_install_adds_claude_adapter_without_replacing_team_files(self):
+        (self.repo / 'CLAUDE.md').write_text('team claude rules\n')
+        self.install('--shared', '--existing')
+        self.assertEqual((self.repo / 'CLAUDE.md').read_text(), 'team claude rules\n')
+        for name in ('explorer', 'implementer', 'reviewer'):
+            self.assertTrue((self.repo / f'claude/agents/{name}.md').is_file())
+        out = subprocess.run([sys.executable, 'scripts/agentic-run.py', 'claude-agents'], cwd=self.repo,
+                             check=True, capture_output=True, text=True).stdout
+        self.assertIn('agentic-implementer', json.loads(out))
+
+    def test_fresh_shared_install_imports_agents_md_and_local_install_adds_no_root_file(self):
+        self.install('--shared', '--existing')
+        self.assertEqual((self.repo / 'CLAUDE.md').read_text(), '@AGENTS.md\n')
+        other = self.root / 'local project'
+        other.mkdir()
+        subprocess.run(['git', '-C', str(other), 'init', '-q'], check=True)
+        self.install('--local', target=other)
+        self.assertFalse((other / 'CLAUDE.md').exists())
+        self.assertTrue((other / '.agentic-local/scripts/agentic-claude.sh').is_file())
+        self.assertTrue((other / '.agentic-local/docs/agentic/templates/agentic.config.json').is_file())
+
     def test_local_preserves_team_and_status(self):
         for name in ['AGENTS.md', 'COMMITS.md', '.gitignore']:
             (self.repo / name).write_text('team rules\n')

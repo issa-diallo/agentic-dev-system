@@ -5,7 +5,12 @@ IA : cadrer une fonctionnalité, isoler son implémentation, la tester, la faire
 relire indépendamment et préparer une Pull Request vérifiable.
 
 Il fournit les instructions et les modèles de documents qui organisent ce cycle
-avec Codex, sans imposer la stack de votre application.
+avec Codex, Claude Code ou tout harnais CLI, sans imposer la stack de votre application.
+
+**Démarrage rapide, déléguer à un modèle économique** : copier
+`docs/agentic/templates/agentic.config.json`, puis
+`python3 scripts/agentic-run.py quick --id <slug> --objective … --file … --ac … --test …`.
+Routage, brief fermé et gates mécaniques : [DELEGATION](docs/agentic/DELEGATION.md).
 
 ## À quoi ça sert pour un développeur ?
 

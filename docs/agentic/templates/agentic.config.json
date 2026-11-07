@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "models": [
+    {"id": "cheap", "harness": "claude", "model": "haiku", "max_level": "MEDIUM",
+     "efforts": ["low", "medium"], "cost_rank": 1},
+    {"id": "mid", "harness": "claude", "model": "sonnet", "max_level": "HIGH",
+     "efforts": ["medium", "high"], "cost_rank": 3},
+    {"id": "strong", "harness": "claude", "model": "opus", "max_level": "EXTRA_HIGH",
+     "efforts": ["high", "xhigh"], "cost_rank": 5},
+    {"id": "deepseek", "harness": "opencode", "model": "deepseek/deepseek-chat",
+     "max_level": "MEDIUM", "efforts": ["medium"], "cost_rank": 0, "enabled": false}
+  ],
+  "gates": {
+    "commands": [["python3", "-m", "unittest", "discover", "-s", "tests"]],
+    "timeout": 600,
+    "require_tests": true,
+    "size": {"max_files": 3, "max_lines": 100, "mode": "warn"}
+  },
+  "run": {"timeout_seconds": 1800, "max_turns": 40}
+}

@@ -82,6 +82,8 @@ V2_RESOURCES=(
   docs/agentic/MODEL_ROUTING.md
   docs/agentic/SKILL_ROUTING.md
   docs/agentic/RUNTIME.md
+  docs/agentic/DELEGATION.md
+  docs/agentic/templates/agentic.config.json
   scripts/agentic-build.py
   scripts/agentic-workspace.py
   scripts/agentic-skills.py
@@ -89,9 +91,16 @@ V2_RESOURCES=(
   scripts/agentic-scheduler.py
   scripts/agentic-quality.py
   scripts/agentic-codex.sh
+  scripts/agentic-run.py
+  scripts/agentic-brief.py
+  scripts/agentic-gates.py
+  scripts/agentic-claude.sh
   codex/agents/explorer.toml
   codex/agents/implementer.toml
   codex/agents/reviewer.toml
+  claude/agents/explorer.md
+  claude/agents/implementer.md
+  claude/agents/reviewer.md
   skills/api-design-backend-security/SKILL.md
   skills/database-migrations/SKILL.md
   skills/frontend-patterns/SKILL.md
@@ -102,6 +111,7 @@ V2_RESOURCES=(
 for source in "${V2_RESOURCES[@]}"; do
   [ -f "$SCRIPT_DIR/$source" ] || fail "Missing source: $source"
 done
+[ -f "$SCRIPT_DIR/claude/CLAUDE.md" ] || fail "Missing source: claude/CLAUDE.md"
 
 DEST="$TARGET"
 if [ "$MODE" = LOCAL ]; then
@@ -114,7 +124,7 @@ if [ "$MODE" = LOCAL ]; then
   [ ! -L "$EXCLUDE" ] && [ ! -L "$(dirname "$EXCLUDE")" ] || fail "Refusing a symlinked Git exclude path."
 else
   # Preflight all destinations before creating directories or copying files.
-  for dir in docs scripts hooks .github .github/ISSUE_TEMPLATE docs/product docs/adr codex codex/agents skills; do
+  for dir in docs scripts hooks .github .github/ISSUE_TEMPLATE docs/product docs/adr codex codex/agents claude claude/agents skills; do
     [ ! -L "$TARGET/$dir" ] || fail "Refusing symlink: $dir"
     [ ! -e "$TARGET/$dir" ] || [ -d "$TARGET/$dir" ] || fail "Not a directory: $dir"
   done
@@ -211,6 +221,8 @@ if [ "$MODE" = PRODUCT ]; then
   mkdir -p "$DEST/docs/adr"
 fi
 if [ "$MODE" != LOCAL ]; then
+  # Claude Code reads CLAUDE.md, not AGENTS.md: import it, never overwrite a team file.
+  copy_if_missing "$SCRIPT_DIR/claude/CLAUDE.md" "$DEST/CLAUDE.md"
   for file in hooks/README.md .github/ISSUE_TEMPLATE/story.yml .github/pull_request_template.md; do
     [ ! -f "$SCRIPT_DIR/$file" ] || copy_if_missing "$SCRIPT_DIR/$file" "$DEST/$file"
   done

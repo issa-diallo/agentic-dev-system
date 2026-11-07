@@ -47,13 +47,14 @@ def snapshot(repo):
 
 
 class Scheduler:
-    def __init__(self, manifest, repo='.', state_path=None, *, skill_roots=(), models=None):
+    def __init__(self, manifest, repo='.', state_path=None, *, skill_roots=(), models=None,
+                 attempts=None):
         self.manifest = Path(manifest).resolve()
         self.repo = WORKSPACE.root(repo)
         common = BUILD.common_dir(self.repo)
         namespace = hashlib.sha256(str(self.manifest).encode()).hexdigest()
         self.path = Path(state_path) if state_path else common / 'agentic-scheduler' / namespace / 'state.json'
-        self.skill_roots, self.models = skill_roots, models
+        self.skill_roots, self.models, self.attempts = skill_roots, models, attempts
 
     def _save(self, state):
         fd, temporary = tempfile.mkstemp(dir=self.path.parent)
@@ -192,7 +193,8 @@ class Scheduler:
                 classification.update(type='migration', risk='critical')
             elif re.search(r'\b(refactor|refactoring|architecture|cross.module)\b', description):
                 classification.setdefault('complexity', 'high')
-            routing = models.route({'id': delegation['pr'], **classification}, self.models)
+            routing = models.route({'id': delegation['pr'], **classification}, self.models,
+                                   self.attempts)
             require(routing['verdict'] == 'PASS', routing['reason'])
             context.update(model_routing=routing, model_requested=routing['recommendation'])
         return context
@@ -243,7 +245,7 @@ class Scheduler:
                 'orchestrator must verify observed runtime identity')
         identity, runtime = observation.get('agent_id'), observation.get('runtime')
         require(isinstance(identity, str) and identity.strip(), 'observed agent_id required')
-        require(runtime in ('native', 'simulated', 'mono-agent'), 'unsupported runtime')
+        require(runtime in ('native', 'simulated', 'mono-agent', 'process'), 'unsupported runtime')
         require(not any(t.get('agent_id') == identity and t.get('active')
                         for t in state['tasks'].values()), 'runtime identity already active')
         task.update(agent_id=identity, runtime=runtime, active=True, launch_status='OBSERVED',

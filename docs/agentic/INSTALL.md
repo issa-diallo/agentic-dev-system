@@ -342,6 +342,8 @@ leurs arguments tels quels : `app-server` reçoit les overrides de configuration
 des profils uniquement, et demande
 un prompt LOCAL explicite pour activer la méthode dans le contexte principal. Les sous-agents reçoivent
 uniquement leur contrat, le socle utile et les skills sélectionnés.
+Claude Code : `bash scripts/agentic-claude.sh run "Mission" [options Claude]` (`.agentic-local/scripts/…` en LOCAL) transmet seulement `--agents` (rôles de `claude/agents/`, même contrat que les profils Codex) et un prompt d'activation via `--append-system-prompt`. En mode partagé, un `CLAUDE.md` contenant `@AGENTS.md` est créé s'il manque, jamais remplacé. Aucun `.claude/` ni réglage global n'est écrit. Les profils sont des définitions, pas une preuve de lancement.
+
 Les arguments utilisateur, le compte, les permissions et les règles équipe sont
 conservés. Aucun `danger-full-access`, modèle, effort ou feature n’est imposé.
 Les profils portent `name`, `description`, `developer_instructions` ; aucun

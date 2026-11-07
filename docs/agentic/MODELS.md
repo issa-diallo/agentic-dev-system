@@ -40,3 +40,5 @@ explicite et session indépendante pour Review. Aucun skill absent inventé.
 Tokens, coût API, quota et durée restent null/non observables tant que le runtime
 ne les expose pas ; un cost_rank relatif n'est ni prix ni économie démontrée.
 Un cache ou une réduction d'octets ne prouve pas un gain de quota.
+
+Lancement réel vers un modèle économique, brief et gates : [DELEGATION](DELEGATION.md).

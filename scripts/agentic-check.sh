@@ -74,6 +74,8 @@ for resource in \
   docs/agentic/MODEL_ROUTING.md \
   docs/agentic/SKILL_ROUTING.md \
   docs/agentic/RUNTIME.md \
+  docs/agentic/DELEGATION.md \
+  docs/agentic/templates/agentic.config.json \
   scripts/agentic-build.py \
   scripts/agentic-workspace.py \
   scripts/agentic-skills.py \
@@ -81,9 +83,16 @@ for resource in \
   scripts/agentic-scheduler.py \
   scripts/agentic-quality.py \
   scripts/agentic-codex.sh \
+  scripts/agentic-run.py \
+  scripts/agentic-brief.py \
+  scripts/agentic-gates.py \
+  scripts/agentic-claude.sh \
   codex/agents/explorer.toml \
   codex/agents/implementer.toml \
   codex/agents/reviewer.toml \
+  claude/agents/explorer.md \
+  claude/agents/implementer.md \
+  claude/agents/reviewer.md \
   skills/api-design-backend-security/SKILL.md \
   skills/database-migrations/SKILL.md \
   skills/frontend-patterns/SKILL.md \

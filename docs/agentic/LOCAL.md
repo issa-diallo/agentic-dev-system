@@ -74,6 +74,8 @@ l’écrasement et ne pas supprimer les artefacts d’une story en cours.
 
 ## Capacités V2 locales
 
+Pour Claude Code : `bash .agentic-local/scripts/agentic-claude.sh run "Mission"`. Pour déléguer l'implémentation à un modèle économique : [DELEGATION](DELEGATION.md) (config personnelle sous `.agentic-local/`, hors Git).
+
 Les scripts V2, profils `codex/agents/` et six skills `skills/` restent sous le
 socle exclu. Depuis la racine métier, `bash .agentic-local/scripts/agentic-codex.sh run "Mission"`
 transmet les overrides de configuration des profils et demande la lecture du

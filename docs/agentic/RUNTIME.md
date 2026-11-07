@@ -70,10 +70,11 @@ Les outils natifs `collaboration` sont appelés par l'orchestrateur hôte ; Pyth
 ne peut pas les appeler. L'adaptateur conserve leur véritable identifiant et
 transmet leurs retours. Les tests utilisent `runtime: simulated`, explicitement
 sans preuve de sous-agent natif. Le repli `runtime: mono-agent` est explicite :
-il ne prétend jamais apporter une review indépendante. Aucun adaptateur
-`codex exec` n'est fourni ici. Un processus Codex est une capacité distincte ;
-son futur adaptateur devra être opt-in, vérifier la disponibilité et observer
-`thread.started` avant d'enregistrer son lancement.
+il ne prétend jamais apporter une review indépendante. Un adaptateur
+processus opt-in, `scripts/agentic-run.py`, lance des harnais CLI (Claude Code, Codex,
+OpenCode, autre) : voir [DELEGATION](DELEGATION.md). Il vérifie la disponibilité du binaire
+et n'enregistre le lancement qu'avec un vrai PID enfant (`runtime: process`), non un
+événement natif du harnais ; l'agent démarre seulement après validation du reçu.
 
 ## CLI pour l'orchestrateur hôte
 
