@@ -69,6 +69,24 @@ ne remplace pas l'analyse de risque : fournir une tâche précise et les fichier
 prévus. Une description trop générale peut produire une sélection excessive ;
 l'orchestrateur garde la responsabilité du périmètre utile.
 
+## Skill externe optionnel : security-audit
+
+Le [skill Cloudflare security-audit](OPTIONAL_TOOLS.md#cloudflare-security-audit)
+est un provider de sécurité découvert par ses métadonnées lorsqu'il est installé
+dans une racine explicitement fournie. Il reste ON_DEMAND par défaut ; la méthode
+ne l'installe pas et ne le rend pas CORE. Exemple avec une racine choisie :
+
+```bash
+python3 scripts/agentic-skills.py select \
+  --root /chemin/skills/security-audit --task 'Audit de sécurité du code'
+```
+
+Le routeur sélectionne un provider, pas son mode d'exécution. L'orchestrateur lit
+le skill avant usage : conseil ciblé par défaut ; audit complet seulement sur
+demande explicite correspondante. Une sélection pour une tâche d'authentification
+ne lance donc pas les six phases d'audit, des sous-agents ou des rapports.
+Les prérequis de sandbox et les limites de validation restent ceux du skill.
+
 ## Preuves et intégration
 
 L'interface importable expose `discover(roots)`,
