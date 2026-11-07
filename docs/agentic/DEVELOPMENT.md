@@ -7,15 +7,31 @@ les conventions cohérentes du dépôt. En cas de conflit substantiel, signaler
 la décision à prendre ; ne pas changer les conventions de tout le projet.
 
 ## Principes
-- SOLID quand applicable : responsabilité unique, extension sans régression,
-  substituabilité, interfaces ciblées, dépendance aux abstractions utiles.
-- KISS et YAGNI : choisir la solution simple répondant au besoin actuel.
-- DRY : factoriser une logique réellement répétée, pas des ressemblances
-  accidentelles. Éviter l'abstraction prématurée.
+- SOLID quand applicable, sans cérémonie :
+  - S : une raison principale de changer par module. Ne jamais morceler un
+    module cohérent uniquement pour atteindre un nombre de fichiers arbitraire.
+  - O : étendre par un point de variation déjà réel (au moins deux cas
+    existants), pas par une hiérarchie ou un plugin spéculatif.
+  - L : une implémentation substituable respecte le contrat de l'abstraction
+    (entrées, sorties, erreurs) sans cas particulier chez l'appelant.
+  - I : interfaces petites, définies par le besoin du consommateur ; aucune
+    méthode inutilisée à implémenter.
+  - D : dépendre d'une abstraction à une frontière réelle (réseau, base,
+    horloge, service externe), pas pour chaque classe.
+- KISS et YAGNI : choisir le code le plus simple qui exprime clairement
+  l'intention et répond aux critères d'acceptation du ticket ; éviter l'astuce
+  qui oblige à relire. Ne pas ajouter de code, paramètre, option, configuration,
+  dépendance, interface ou point d'extension « au cas où » ; une abstraction à une
+  seule implémentation, sans frontière réelle, est du YAGNI. Retirer le code mort
+  que le changement introduit.
+- DRY : une règle métier, une constante, un type ou une validation a une seule
+  source de vérité. Factoriser à la troisième répétition réelle, ou dès que la
+  même règle doit évoluer ensemble ; tolérer des ressemblances accidentelles et
+  des modules qui changent pour des raisons différentes. Éviter l'abstraction
+  prématurée.
+- En cas de tension, YAGNI et la lisibilité priment sur DRY et SOLID.
 - Préserver les frontières : présentation, métier, données, validation,
   infrastructure et effets de bord ne sont pas une seule responsabilité.
-- Une raison principale de changer par module. Ne jamais morceler un module
-  cohérent uniquement pour atteindre un nombre de fichiers arbitraire.
 
 ## Taille et lisibilité
 Seuils de revue indicatifs, sauf standard du framework plus approprié :
@@ -51,8 +67,12 @@ un seul petit changement cohérent.
 
 ## Nommage et structure
 Observer les noms existants, le framework et ses conventions officielles.
-Choisir des noms explicites et stables ; une même notion garde le même nom.
-Ne pas imposer une casse unique à tous les langages.
+Choisir des noms clairs, simples et cohérents, issus du vocabulaire métier du
+ticket, qui révèlent le rôle et l'intention (ce que c'est ou ce que cela fait,
+pas comment) ; une même notion garde le même nom. Éviter les abréviations
+obscures et les noms génériques (`data`, `info`, `manager`, `tmp`, `util`)
+sauf convention du framework. Cela vaut pour les fonctions, variables, classes
+et constantes. Ne pas imposer une casse unique à tous les langages.
 - TypeScript/JavaScript : PascalCase pour classes, types et composants React ;
   camelCase pour variables/fonctions ; UPPER_SNAKE_CASE pour constantes
   globales immuables. Les noms de fichiers suivent le framework et le dépôt.
