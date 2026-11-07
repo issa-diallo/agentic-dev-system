@@ -1,6 +1,6 @@
 # Présentation détaillée
 
-Détails retirés du [README](../../README.md) pour le garder court : usage, relecture
+Détails retirés du README du service pour le garder court : usage, relecture
 de PR, isolation, phases, installation détaillée et ce que chaque projet hérite.
 
 ## À quoi ça sert pour un développeur ?
