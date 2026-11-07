@@ -381,3 +381,14 @@ Pour arrêter l’activation, lancer Codex normalement : aucun lien ou config à
 retirer. Les artefacts personnels restent sous `.agentic-local/`, protégés par la
 garde staged même après `git add -f`. Le rollback de l’installation et la migration
 des anciennes données suivent les procédures ci-dessus.
+
+## Mise à jour d'un projet déjà installé
+
+Depuis ce dépôt source : `python3 update-agentic.py <projet> --dry-run`, puis sans
+`--dry-run`. Installation `--local` ou partagée détectée seule. Un manifeste
+(`.agentic-manifest.json`) retient l'empreinte des fichiers installés : fichier inchangé
+remplacé (sauvegarde dans `docs/agentic/work/.update-<date>/backup`), fichier modifié par
+l'équipe conservé (nouvelle version dans `.../incoming`), fichier absent ajouté.
+Installation antérieure sans manifeste : tout fichier différent est tenu pour modifié.
+`--force-customized` écrase avec sauvegarde. Données projet (`work`, STATUS, `docs/product`,
+ADR) jamais touchées. Ensuite : `bash scripts/agentic-check.sh --existing`.

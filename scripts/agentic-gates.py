@@ -134,7 +134,11 @@ def run(repo, base, files, commands, settings=None, plan_sha256=None):
     failed = any(g['status'] == 'FAIL' for g in gates)
     report = {'gates': gates, 'stats': {'files': len(changes), 'lines': lines},
               'changed': sorted(changes), 'commands': None}
-    if not commands:
+    docs_only = bool(changes) and all(Path(p).suffix in DOC_SUFFIXES for p in changes)
+    if not commands and docs_only and not failed:
+        gates.append(verdict('commands', 'PASS', 'documentation only, no command required'))
+        report['commands'] = {'verdict': 'PASS', 'checks': []}
+    elif not commands:
         gates.append(verdict('commands', 'FAIL', 'no verification command configured'))
         failed = True
     elif failed:

@@ -94,6 +94,8 @@ V2_RESOURCES=(
   scripts/agentic-run.py
   scripts/agentic-brief.py
   scripts/agentic-gates.py
+  scripts/agentic-detect.py
+  scripts/agentic-prepare.py
   scripts/agentic-claude.sh
   codex/agents/explorer.toml
   codex/agents/implementer.toml
@@ -228,6 +230,7 @@ if [ "$MODE" != LOCAL ]; then
   done
 fi
 
+python3 "$SCRIPT_DIR/update-agentic.py" --record "$DEST" || true
 echo "Installed $MODE in: $DEST"
 if [ "$MODE" = LOCAL ]; then
   echo "Team files are unchanged. Nothing is automatically activated."

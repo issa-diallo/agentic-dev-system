@@ -159,7 +159,7 @@ class ProcessAdapter:
 
     def __init__(self, config, index, run_dir, commands=(), dry_run=False, popen=subprocess.Popen):
         self.config, self.index, self.run_dir = config, index, Path(run_dir)
-        self.commands, self.dry_run, self.popen = list(commands), dry_run, popen
+        self.commands, self.dry_run, self.popen = commands, dry_run, popen
         self.jobs, self.finished = {}, []
         self.brief = module('brief')
 
@@ -171,12 +171,13 @@ class ProcessAdapter:
         harness, run = entry['harness_config'], self.config.get('run', {})
         directory = self.run_dir / pr / time.strftime('%Y%m%dT%H%M%S')
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-        prompt = self.brief.render(task['delegation'], self.commands, task.get('skill_instructions'))
+        commands = self.commands(task) if callable(self.commands) else list(self.commands)
+        prompt = self.brief.render(task['delegation'], commands, task.get('skill_instructions'))
         (directory / 'brief.md').write_text(prompt)
         argv = build_argv(harness, {
             'prompt': prompt, 'model': entry['model'], 'effort': request['effort'],
             'worktree': task['delegation']['worktree'], 'max_turns': run.get('max_turns', 40),
-            'tools': tool_rules(self.config, self.commands)})
+            'tools': tool_rules(self.config, commands)})
         job = {'pr': pr, 'dir': directory, 'harness': harness, 'entry': entry, 'request': request,
                'argv': [a if a != prompt else '<brief.md>' for a in argv],
                'timeout': run.get('timeout_seconds', 1800), 'started': time.time()}
@@ -316,14 +317,22 @@ def delegate(manifest, repo, config_path=None, state=None, accept=False, dry_run
     require(index, 'no available model: check config models, "enabled" flags and installed harnesses')
     repo = module('workspace').root(repo)
     gates_config = config.get('gates', {})
-    commands = commands or gates_config.get('commands', [])
+    configured = commands or gates_config.get('commands', 'auto')
+    detect = module('detect')
+
+    def commands_for(task):
+        if configured != 'auto':
+            return configured
+        found = detect.detect(task['delegation']['worktree'], task['unit']['files'])
+        return [c['argv'] for c in found['commands']]
+
     run_dir = attempts_file(repo).parent
     if dry_run and not state:
         state = str(Path(tempfile.mkdtemp(prefix='agentic-dry-')) / 'state.json')
     scheduler = module('scheduler').Scheduler(
         manifest, repo, state, skill_roots=[str(METHOD_ROOT / 'skills')], models=inventory,
         attempts=load_attempts(repo))
-    adapter = ProcessAdapter(config, index, run_dir, commands, dry_run, popen)
+    adapter = ProcessAdapter(config, index, run_dir, commands_for, dry_run, popen)
     try:
         final = scheduler.dispatch(adapter)
     finally:
@@ -336,7 +345,7 @@ def delegate(manifest, repo, config_path=None, state=None, accept=False, dry_run
             entry['result'] = task.get('result')
             if task['state'] == 'COMPLETED' and not dry_run:
                 gate = gates.run(task['delegation']['worktree'], task['starting_head'],
-                                 task['unit']['files'], commands, gates_config, task['plan_sha256'])
+                                 task['unit']['files'], commands_for(task), gates_config, task['plan_sha256'])
                 entry['gates'] = {k: gate[k] for k in ('verdict', 'gates', 'stats')}
                 if accept and gate['verdict'] == 'PASS':
                     scheduler.accept(pr, gate['acceptance_evidence'])

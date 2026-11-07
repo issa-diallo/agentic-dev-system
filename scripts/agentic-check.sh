@@ -86,6 +86,8 @@ for resource in \
   scripts/agentic-run.py \
   scripts/agentic-brief.py \
   scripts/agentic-gates.py \
+  scripts/agentic-detect.py \
+  scripts/agentic-prepare.py \
   scripts/agentic-claude.sh \
   codex/agents/explorer.toml \
   codex/agents/implementer.toml \

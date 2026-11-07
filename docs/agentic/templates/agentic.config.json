@@ -11,7 +11,7 @@
      "max_level": "MEDIUM", "efforts": ["medium"], "cost_rank": 0, "enabled": false}
   ],
   "gates": {
-    "commands": [["python3", "-m", "unittest", "discover", "-s", "tests"]],
+    "commands": "auto",
     "timeout": 600,
     "require_tests": true,
     "size": {"max_files": 3, "max_lines": 100, "mode": "warn"}

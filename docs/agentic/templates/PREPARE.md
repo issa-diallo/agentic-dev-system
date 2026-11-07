@@ -12,10 +12,25 @@ Git, même approuvés ou collectifs. Stockage :
 y compris en installation partagée. Les templates distribués ne sont pas les
 livrables remplis d'une mission. Appliquer `docs/agentic/PULL_REQUESTS.md` du socle.
 
+Démarrage rapide : `python3 scripts/agentic-prepare.py init <ticket> --file <chemin>...`
+génère ce squelette : rubriques front/back/données non concernées en N/A, commandes de
+vérification détectées par profil (front, back, données, contrat). `check <fichier>`
+contrôle la structure. Ticket trivial (≤2 fichiers, ≤30 lignes, un profil, ni contrat ni
+données) : Repères, AC -> vérification et Gate suffisent. Full-stack : contrat/données
+d'abord, puis back, puis front (`units`).
+
+**Repères** : fichiers, décisions et tests déjà connus (chemin : rôle) ; lire avant de chercher.
+
 ## PRD
 Problème, utilisateurs, objectif, priorités, exigences fonctionnelles et contraintes.
 Scope/non-scope et critères d'acceptation mesurables.
 Ticket et décisions utilisateur réutilisés ; inconnues réellement bloquantes.
+
+| AC | Vérification (commande ou preuve) |
+|---|---|
+
+Questions ouvertes : tableau Question / Bloquante / Statut / Réponse ; une question
+bloquante non résolue bloque PREPARE.
 
 ## TRD
 Stack observée ou choix retenus : frameworks, services, API, infrastructure,

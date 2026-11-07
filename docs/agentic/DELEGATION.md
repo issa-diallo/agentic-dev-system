@@ -90,3 +90,11 @@ diagnostic bloque, comme dans [MODEL_ROUTING](MODEL_ROUTING.md).
   Chaque run ajoute une ligne à `runs.jsonl`, avec `brief.md` et les logs, dans
   `<git-common-dir>/agentic-runs/` (hors Git).
 - Aucun worktree n'est supprimé automatiquement.
+
+## Vérification automatique
+
+`gates.commands: "auto"` (défaut) : `scripts/agentic-detect.py` lit les scripts déclarés
+(package.json, pyproject, go.mod, Makefile…) et choisit par unité les commandes de son
+profil (front, back, données, contrat) ; ticket doc seule : aucune commande requise. Rien
+n'est inventé : commande absente = signalée, à fournir dans la config ou le plan.
+`scripts/agentic-prepare.py init|check|units` prépare PREPARE à partir des fichiers visés.
