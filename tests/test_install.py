@@ -65,7 +65,8 @@ class InstallTests(unittest.TestCase):
         other = self.root / 'local project'
         other.mkdir()
         subprocess.run(['git', '-C', str(other), 'init', '-q'], check=True)
-        self.install('--local', target=other)
+        result = self.install('--local', target=other)
+        self.assertIn('Plain codex ignores .agentic-local', result.stdout)
         self.assertFalse((other / 'CLAUDE.md').exists())
         self.assertTrue((other / '.agentic-local/scripts/agentic-claude.sh').is_file())
         self.assertTrue((other / '.agentic-local/docs/agentic/templates/agentic.config.json').is_file())
