@@ -44,7 +44,9 @@ un seul petit changement cohérent.
   par capacité ou domaine. Préférer des fonctions pures lorsqu'approprié.
 - Classes, services et composants : séparer orchestration, accès aux données
   et logique métier ; injecter les dépendances aux frontières nécessaires.
-- Tests : à proximité du comportement testé ou selon la convention du dépôt.
+- Tests : à proximité du comportement testé ou selon la convention du dépôt. Les tests
+  unitaires des règles métier du ticket (RM1…) sont écrits d'abord, vus en échec, puis
+  commités avant le code ; les verrouiller pendant l'implémentation.
   Un nouveau fichier sans raison architecturale n'est pas une amélioration.
 
 ## Nommage et structure

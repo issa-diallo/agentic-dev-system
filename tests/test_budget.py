@@ -4,7 +4,7 @@ import unittest
 
 SOURCE = Path(__file__).resolve().parents[1]
 # AGENTS.md has its own budget in test_context.
-BUDGETS = {'docs/agentic/README.md': 4000, 'docs/agentic/DELEGATION.md': 6500, 'claude/CLAUDE.md': 100}
+BUDGETS = {'docs/agentic/README.md': 4000, 'docs/agentic/DELEGATION.md': 7000, 'claude/CLAUDE.md': 100}
 
 
 class BudgetTests(unittest.TestCase):

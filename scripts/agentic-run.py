@@ -311,12 +311,12 @@ def record_attempt(repo, entry):
 
 
 def delegate(manifest, repo, config_path=None, state=None, accept=False, dry_run=False,
-             commands=None, which=shutil.which, popen=subprocess.Popen):
+             commands=None, which=shutil.which, popen=subprocess.Popen, gates_extra=None):
     config = load_config(config_path or default_config())
     inventory, index = build_inventory(config, which)
     require(index, 'no available model: check config models, "enabled" flags and installed harnesses')
     repo = module('workspace').root(repo)
-    gates_config = config.get('gates', {})
+    gates_config = {**config.get('gates', {}), **(gates_extra or {})}
     configured = commands or gates_config.get('commands', 'auto')
     detect = module('detect')
 
@@ -354,25 +354,76 @@ def delegate(manifest, repo, config_path=None, state=None, accept=False, dry_run
     return report
 
 
+def _plan(root, plan_id, branch, path, objective, files, criteria, tests, implementer):
+    plan = {'version': 1, 'story': plan_id, 'capabilities': [plan_id], 'prs': [{
+        'id': plan_id, 'reason': objective, 'branch': branch, 'worktree': str(path),
+        'implementer': implementer, 'capabilities': [plan_id], 'acceptance': list(criteria),
+        'tests': list(tests) or ['verification commands from agentic.config.json'],
+        'depends_on': [], 'files': list(files), 'contracts': []}]}
+    manifest = attempts_file(root).parent / plan_id / 'plan.json'
+    manifest.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    manifest.write_text(json.dumps(plan))
+    return manifest
+
+
 def quick(repo, task_id, objective, files, criteria, tests=(), implementer='delegated-agent',
-          worktree_root=None, **kwargs):
-    """One command for a single-capability ticket: worktree, plan, delegate, gates."""
+          worktree_root=None, rules=(), tdd=None, **kwargs):
+    """One command for a single-capability ticket: worktree, plan, delegate, gates.
+
+    TDD (default from config run.tdd): phase red writes only the tests of the business
+    rules and must fail; the orchestrator commits them; phase green implements with the
+    test files out of scope, so any edit to them is a scope FAIL.
+    """
     require(re.fullmatch(r'[a-z0-9][a-z0-9._-]{0,40}', task_id), 'id must be a short slug')
     workspace = module('workspace')
     root = workspace.root(repo)
+    if tdd is None:
+        tdd = bool(load_config(kwargs.get('config_path') or default_config()).get('run', {}).get('tdd'))
+    verify = [shlex.split(t) for t in tests] or None
     path = Path(worktree_root or root.parent / (root.name + '.worktrees')).resolve() / task_id
+    gates_module = module('gates')
+    test_files = [f for f in files if gates_module.TEST_PATH.search(f)]
+    source_files = [f for f in files if f not in test_files]
+    if tdd:
+        require(rules, 'TDD needs the ticket business rules (--rule "RM1: ..."); --no-tdd only for '
+                'docs, config, covered refactor or spike')
+        require(test_files, 'TDD needs test files in scope (paths such as tests/test_x.py)')
+        require(source_files, 'TDD needs source files to implement after the tests')
+        ids = [re.match(r'\s*([A-Za-z][\w-]*)', r).group(1) for r in rules if re.match(r'\s*[A-Za-z][\w-]*', r)]
+        require(len(ids) == len(rules), 'each rule starts with its identifier, e.g. "RM1: ..."')
     workspace.create(root, 'agentic/' + task_id, str(path))
-    plan = {'version': 1, 'story': task_id, 'capabilities': [task_id], 'prs': [{
-        'id': task_id, 'reason': objective, 'branch': 'agentic/' + task_id, 'worktree': str(path),
-        'implementer': implementer, 'capabilities': [task_id], 'acceptance': list(criteria),
-        'tests': list(tests) or ['verification commands from agentic.config.json'],
-        'depends_on': [], 'files': list(files), 'contracts': []}]}
-    manifest = attempts_file(root).parent / task_id / 'plan.json'
-    manifest.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    manifest.write_text(json.dumps(plan))
-    report = delegate(manifest, root, commands=[shlex.split(t) for t in tests] or None, **kwargs)
-    return {'worktree': str(path), 'branch': 'agentic/' + task_id, 'plan': str(manifest),
-            'tasks': report}
+    if not tdd:
+        manifest = _plan(root, task_id, 'agentic/' + task_id, path, objective, files, criteria, tests,
+                         implementer)
+        report = delegate(manifest, root, commands=verify, **kwargs)
+        return {'worktree': str(path), 'branch': 'agentic/' + task_id, 'plan': str(manifest),
+                'tasks': report}
+    red_id = task_id + '-red'
+    red_manifest = _plan(
+        root, red_id, 'agentic/' + task_id, path,
+        'Écris UNIQUEMENT les tests unitaires des règles métier de : ' + objective + '. Aucun code de '
+        'production. Chaque test nomme sa règle (RM1…) dans son nom ou un commentaire. Les tests '
+        'doivent échouer maintenant, sur une assertion.',
+        test_files, ['Règle ' + r for r in rules], tests, implementer)
+    red_kwargs = {**kwargs, 'accept': True}
+    red = delegate(red_manifest, root, commands=verify, gates_extra={'expect_red': True, 'rule_ids': ids},
+                   **red_kwargs)
+    result = {'worktree': str(path), 'branch': 'agentic/' + task_id, 'plan': str(red_manifest),
+              'phase': 'red', 'tasks': red}
+    if kwargs.get('dry_run') or not succeeded(red, False):
+        return result
+    git = workspace.git
+    git(path, 'add', '--', *test_files)
+    git(path, 'commit', '-q', '-m', '✅ Tests (rouge) : ' + task_id)
+    green_manifest = _plan(
+        root, task_id, 'agentic/' + task_id, path,
+        objective + ' Les tests existent déjà et sont verrouillés (ne les modifie pas) : '
+        + ', '.join(test_files) + '. Fais-les passer.',
+        source_files, list(criteria) + ['Les tests des règles métier passent sans être modifiés'], tests,
+        implementer)
+    green = delegate(green_manifest, root, commands=verify,
+                     gates_extra={'require_tests': False}, **kwargs)
+    return {**result, 'phase': 'green', 'plan': str(green_manifest), 'red': red, 'tasks': green}
 
 
 def succeeded(tasks, dry_run):
@@ -402,6 +453,8 @@ def main():
     fast.add_argument('--ac', action='append', required=True, help='acceptance criterion')
     fast.add_argument('--test', action='append', default=[], help='verification command')
     fast.add_argument('--implementer', default='delegated-agent')
+    fast.add_argument('--rule', action='append', default=[], help='business rule "RM1: ..." (TDD)')
+    fast.add_argument('--no-tdd', action='store_true', help='docs, config, covered refactor, spike')
     fast.add_argument('--worktree-root')
     note = sub.add_parser('attempt', parents=[common])
     note.add_argument('--task-id', required=True)
@@ -428,7 +481,8 @@ def main():
                 result = {'tasks': tasks}
             else:
                 result = quick(args.repo, args.id, args.objective, args.file, args.ac, args.test,
-                               args.implementer, args.worktree_root, **options)
+                               args.implementer, args.worktree_root, rules=args.rule,
+                               tdd=False if args.no_tdd else None, **options)
                 tasks = result['tasks']
             result['verdict'] = 'PASS' if succeeded(tasks, args.dry_run) else 'BLOCKED'
     except (Blocked, ValueError, OSError, KeyError, TypeError) as error:

@@ -41,6 +41,14 @@ class PrepareTests(unittest.TestCase):
         text = text.replace('|---|---|---|---|\n', '|---|---|---|---|\n| Q ? | oui | ouverte | |\n')
         self.assertEqual(prepare.check(text)['verdict'], 'BLOCKED')
 
+    def test_business_rule_needs_a_unit_test_unless_motivated_exception(self):
+        text = prepare.init('T5', ['README.md'], project()).replace('TODO', 'ok')
+        text = text.replace('| ok | ok |', '| AC1 | pytest x |', 1).replace('| RM1 | ok | ok |', '| RM1 | règle | |')
+        self.assertIn('business rule without unit test: RM1', prepare.check(text)['problems'])
+        text = text.replace('| RM1 | règle | |\n', '').replace(
+            '## TRD', 'Exception TDD : documentation\n\n## TRD', 1)
+        self.assertNotIn('no business rules', ' '.join(prepare.check(text)['problems']))
+
     def test_units_contract_first_and_trivial(self):
         root = project()
         got = prepare.units(['api/openapi.yaml', 'api/app/main.py', 'web/src/components/A.tsx'], root)

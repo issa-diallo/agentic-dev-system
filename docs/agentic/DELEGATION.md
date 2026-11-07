@@ -98,3 +98,15 @@ diagnostic bloque, comme dans [MODEL_ROUTING](MODEL_ROUTING.md).
 profil (front, back, données, contrat) ; ticket doc seule : aucune commande requise. Rien
 n'est inventé : commande absente = signalée, à fournir dans la config ou le plan.
 `scripts/agentic-prepare.py init|check|units` prépare PREPARE à partir des fichiers visés.
+
+## Tests d'abord (TDD)
+
+Le ticket liste ses règles métier (RM1…) et les tests unitaires qui les valident ;
+`agentic-prepare.py check` bloque une règle sans test. Avec `run.tdd: true` (défaut),
+`agentic-run.py quick --rule "RM1: …" --file tests/test_x.py --file src/x.py` suit deux phases :
+1. **Rouge** : l'agent n'écrit que les tests, chacun nomme sa règle. Gates : `traceability`
+   (chaque RM nommée par un test), `red` (les tests échouent ; la cause, assertion ou erreur
+   d'import, reste à confirmer en review). L'orchestrateur commite alors les tests.
+2. **Vert** : l'agent implémente ; les tests sont hors périmètre, donc toute modification est
+   rejetée par le gate de périmètre. Les commandes de vérification doivent passer.
+`--no-tdd` pour docs, config, refactor couvert ou spike (à motiver dans PREPARE : `Exception TDD : …`).

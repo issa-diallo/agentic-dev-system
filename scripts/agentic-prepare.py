@@ -75,6 +75,9 @@ def init(ticket, files, root, mode=None, lines=0):
            '## PRD', 'Problème, objectif, scope/non-scope. TODO', '',
            "Critères d'acceptation -> vérification :", '',
            '| AC | Vérification (commande ou preuve) |', '|---|---|', '| TODO | TODO |', '',
+           "Règles métier -> tests (unitaires d'abord, écrits avant le code ; exception motivée :",
+           'documentation, configuration, refactor couvert, spike) :', '',
+           '| RM | Règle métier | Test(s) unitaire(s) |', '|---|---|---|', '| RM1 | TODO | TODO |', '',
            '## TRD', 'Stack observée, contrats, dépendances. TODO', '',
            '## APP_FLOW', 'Parcours et états. TODO' if has_ui else na('aucun fichier front dans le périmètre'), '',
            '## UX_UI_BRIEF', 'Design system, responsive, accessibilité. TODO' if has_ui
@@ -119,11 +122,21 @@ def check(text):
             problems.append('TODO left in ' + name)
         elif body.startswith('N/A') and len(body) < 8:
             problems.append('N/A without reason in ' + name)
-    table = [r for r in rows(section(text, 'PRD')) if len(r) >= 2]
+    prd = section(text, 'PRD') or ''
+    split = prd.find('| RM |')
+    ac_part, rm_part = (prd[:split], prd[split:]) if split >= 0 else (prd, '')
+    table = [r for r in rows(ac_part) if len(r) >= 2]
     if not table:
         problems.append('no acceptance criteria -> verification table')
     problems += ['criterion without verification: ' + r[0][:40] for r in table
                  if not r[1] or r[1].upper() == 'TODO']
+    rules = [r for r in rows(rm_part) if len(r) >= 3]
+    exception = re.search(r'^Exception TDD\s*:\s*(documentation|configuration|refactor|spike)\b', prd,
+                          re.I | re.M)
+    if not rules and not exception:
+        problems.append('no business rules -> unit tests table (or a motivated exception)')
+    problems += ['business rule without unit test: ' + r[0] for r in rules
+                 if not r[2] or r[2].upper() == 'TODO']
     questions = rows(section(text, 'Questions ouvertes'))
     problems += ['blocking question open: ' + q[0][:40] for q in questions
                  if len(q) >= 3 and q[1].lower() in ('oui', 'yes') and q[2].lower() != 'résolue'

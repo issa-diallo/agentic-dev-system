@@ -16,5 +16,5 @@
     "require_tests": true,
     "size": {"max_files": 3, "max_lines": 100, "mode": "warn"}
   },
-  "run": {"timeout_seconds": 1800, "max_turns": 40}
+  "run": {"timeout_seconds": 1800, "max_turns": 40, "tdd": true}
 }

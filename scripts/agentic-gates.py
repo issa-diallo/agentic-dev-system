@@ -123,6 +123,13 @@ def static_gates(changes, files, settings):
     gates.append(verdict('secrets', 'FAIL' if hard else ('WARN' if found else 'PASS'),
                          '; '.join('%s in %s' % (k[0], listed(v)) for k, v in sorted(found.items()))
                          or 'no credential pattern in added lines'))
+    ids = settings.get('rule_ids') or []
+    if ids:
+        text = '\n'.join(line for p in tests for line in changes[p]['added'])
+        lost = [i for i in ids if not re.search(r'(?<![A-Za-z0-9])%s(?![A-Za-z0-9])' % re.escape(i), text, re.I)]
+        gates.append(verdict('traceability', 'FAIL' if lost else 'PASS',
+                             'rule(s) without a test naming them: ' + ', '.join(lost) if lost
+                             else 'every business rule is named by a test'))
     return gates, lines
 
 
@@ -135,7 +142,10 @@ def run(repo, base, files, commands, settings=None, plan_sha256=None):
     report = {'gates': gates, 'stats': {'files': len(changes), 'lines': lines},
               'changed': sorted(changes), 'commands': None}
     docs_only = bool(changes) and all(Path(p).suffix in DOC_SUFFIXES for p in changes)
-    if not commands and docs_only and not failed:
+    if settings.get('expect_red') and not commands:
+        gates.append(verdict('red', 'FAIL', 'no verification command configured'))
+        failed = True
+    elif not commands and docs_only and not failed:
         gates.append(verdict('commands', 'PASS', 'documentation only, no command required'))
         report['commands'] = {'verdict': 'PASS', 'checks': []}
     elif not commands:
@@ -146,11 +156,19 @@ def run(repo, base, files, commands, settings=None, plan_sha256=None):
     else:
         checks = quality().run_checks(repo, commands, settings.get('timeout', 600))
         report['commands'] = checks
-        gates.append(verdict('commands', 'PASS' if checks['verdict'] == 'PASS' else 'FAIL',
-                             '; '.join('%s rc=%s%s' % (shlex.join(c)[:60], k['returncode'],
-                                                       ' timeout' if k['timed_out'] else '')
-                                       for c, k in zip(commands, checks['checks']))))
-        failed = checks['verdict'] != 'PASS'
+        detail = '; '.join('%s rc=%s%s' % (shlex.join(c)[:60], k['returncode'],
+                                           ' timeout' if k['timed_out'] else '')
+                           for c, k in zip(commands, checks['checks']))
+        if settings.get('expect_red'):
+            # Red phase: the new tests must fail now. Cause (assertion vs. import error)
+            # is not verifiable from hashed output: the green phase and review confirm it.
+            red = checks['verdict'] != 'PASS' and not any(k['timed_out'] for k in checks['checks'])
+            gates.append(verdict('red', 'PASS' if red else 'FAIL',
+                                 detail + ('' if red else ' (tests must fail before implementation)')))
+            failed = not red
+        else:
+            gates.append(verdict('commands', 'PASS' if checks['verdict'] == 'PASS' else 'FAIL', detail))
+            failed = checks['verdict'] != 'PASS'
     report['verdict'] = 'BLOCKED' if failed else 'PASS'
     if not failed:
         snapshot = quality().snapshot(repo)
@@ -161,7 +179,9 @@ def run(repo, base, files, commands, settings=None, plan_sha256=None):
                 'source': 'agentic-gates.py deterministic gates; semantic review remains independent',
                 'criteria': ['gate %s: %s' % (g['name'], g['detail']) for g in gates
                              if g['status'] in ('PASS', 'WARN')],
-                'tests': ['%s -> rc 0, output sha256 %s' % (shlex.join(c), k['output_sha256'][:16])
+                'tests': ['%s -> rc %s%s, output sha256 %s' % (
+                    shlex.join(c), k['returncode'], ' (red, expected)' if settings.get('expect_red') else '',
+                    k['output_sha256'][:16])
                           for c, k in zip(commands, report['commands']['checks'])],
                 'head': snapshot['head'], 'snapshot': snapshot, 'plan_sha256': plan_sha256}
     return report

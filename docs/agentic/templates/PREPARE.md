@@ -29,6 +29,13 @@ Ticket et décisions utilisateur réutilisés ; inconnues réellement bloquantes
 | AC | Vérification (commande ou preuve) |
 |---|---|
 
+Règles métier -> tests (tests unitaires d'abord, écrits avant le code) :
+
+| RM | Règle métier | Test(s) unitaire(s) |
+|---|---|---|
+
+Exception motivée : documentation, configuration, refactor couvert, spike.
+
 Questions ouvertes : tableau Question / Bloquante / Statut / Réponse ; une question
 bloquante non résolue bloque PREPARE.
 

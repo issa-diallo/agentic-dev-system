@@ -14,6 +14,15 @@ En tant que <acteur>, je veux <capacité>, afin de <valeur>.
 - [ ] AC2 —
 - [ ] AC3 —
 
+## Règles métier et tests
+
+Tests unitaires d'abord : chaque règle a au moins un test qui la nomme (RM1…).
+Exceptions motivées : documentation, configuration, refactor déjà couvert, spike.
+
+| RM | Règle métier | Test(s) unitaire(s) |
+|---|---|---|
+| RM1 | | |
+
 ## Hors périmètre
 
 - …
