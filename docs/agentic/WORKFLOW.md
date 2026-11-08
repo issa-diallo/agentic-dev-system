@@ -66,6 +66,11 @@ Appliquer [COMMITS](../../COMMITS.md), garde staged et
 [PULL_REQUESTS](PULL_REQUESTS.md) : PR_SCOPE PASS sur les SHA réels, Review
 PASS/PASS_WITH_MINOR et examen final Lead Tech à jour, Verify PASS, Goal SATISFIED
 si applicable, CI PASS, validation humaine si requise et autorisation de merge.
+À la création de la PR et avant READY_FOR_HUMAN, synchroniser et relire les
+critères d’acceptation du ticket selon [TICKETS](TICKETS.md#suivre-les-critères-pendant-la-livraison) :
+cocher les AC prouvés, laisser ouverts ceux qui attendent une validation, et
+répercuter les preuves invalidées après correction. L’orchestrateur vérifie cette
+concordance ; une mise à jour requise non confirmée bloque la livraison prête.
 Après fusion autorisée : cleanup sûr, ownership libéré après arrêt confirmé.
 DoD : Execute et Verify PASS, gates précédents satisfaits, merge et cleanup effectués.
 

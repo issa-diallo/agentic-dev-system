@@ -21,6 +21,9 @@ Le reviewer n'est pas là pour confirmer l'implementer.
 
 ### Fonctionnel
 - chaque critère d'acceptation est-il satisfait ?
+- à la livraison, checklist du ticket synchronisée et relue selon
+  [TICKETS](../TICKETS.md#suivre-les-critères-pendant-la-livraison) ? Chaque AC coché
+  a-t-il une preuve sur la révision actuelle, et chaque AC encore ouvert une raison ?
 - y a-t-il un comportement non demandé ?
 - erreurs et cas limites sont-ils traités ?
 
