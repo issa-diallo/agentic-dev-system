@@ -87,6 +87,9 @@ V2_RESOURCES=(
   scripts/agentic-build.py
   scripts/agentic-workspace.py
   scripts/agentic-agents.py
+  scripts/agentic-observe.py
+  scripts/agentic-panel.py
+  scripts/agentic-websocket.py
   scripts/agentic-skills.py
   scripts/agentic-models.py
   scripts/agentic-scheduler.py

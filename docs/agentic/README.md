@@ -25,7 +25,7 @@ inconnue, lire METHOD, repérer le dernier PASS prouvé et reprendre la suite.
 | Écriture / correction / refactoring | [DEVELOPMENT](DEVELOPMENT.md) | conventions, scope et tests |
 | Commit | [COMMITS](../../COMMITS.md) | Gitmoji, ticket, garde staged |
 | SHIP | [Profil Lead Tech](roles/REVIEWER.md), [Ship](templates/SHIP.md) | examen indépendant et preuves fraîches |
-| Suivi | [STATUS](templates/STATUS.md) | état réel, aucun PASS fictif |
+| Suivi | [STATUS](templates/STATUS.md), [panneau des agents](AGENT_PANEL.md) | état réel, aucun PASS fictif |
 
 BUILD réutilise [Execute](templates/EXECUTE.md), [Verify](templates/VERIFY.md),
 [Review](templates/REVIEW.md) pour les activités et preuves, à profondeur adaptée.

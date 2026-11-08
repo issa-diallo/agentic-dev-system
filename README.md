@@ -112,6 +112,11 @@ Dans un projet installé, demander de lire
 installé dans les skills personnels Codex, l’invoquer avec `$start-ticket <URL>`.
 Sa copie sous le socle local seule ne garantit pas sa découverte native par le client.
 
+Pour suivre les sous-agents Codex dans un terminal voisin, lancer
+`python3 .agentic-local/scripts/agentic-panel.py` (ou `python3 scripts/agentic-panel.py`
+dans ce dépôt). Le [panneau compagnon](docs/agentic/AGENT_PANEL.md) affiche les rôles
+en couleur et les états observés, sans piloter les agents ni valider leurs travaux.
+
 ## S'orienter
 
 | Besoin | Référence |

@@ -47,6 +47,16 @@ préservés. Les lanceurs ne remplacent plus la découverte native par des overr
 Aucun service permanent ni changement de permissions/modèles n’est ajouté.
 Les tests de découverte ne constituent pas une preuve de délégation réelle.
 
+## Observation facultative — 2026-11-08
+
+L’utilisateur valide un panneau compagnon intégré à Agentic pour distinguer les
+agents par couleur. Un client Python stdlib se connecte au serveur Codex existant
+par son proxy local, avec le transport WebSocket requis par le socket Unix.
+Le protocole est limité à l’initialisation et la liste de métadonnées du dépôt et
+de ses worktrees. Le premier essai JSONL sur ce socket expirait ; le handshake HTTP
+Upgrade101 a confirmé le transport nécessaire. La V1 ne pilote pas les agents,
+ne modifie pas Codex et ne déduit aucun gate de l’état d’exécution.
+
 ## Related
 
 
