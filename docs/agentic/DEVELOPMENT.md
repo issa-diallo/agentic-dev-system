@@ -60,9 +60,11 @@ un seul petit changement cohérent.
   par capacité ou domaine. Préférer des fonctions pures lorsqu'approprié.
 - Classes, services et composants : séparer orchestration, accès aux données
   et logique métier ; injecter les dépendances aux frontières nécessaires.
-- Tests : à proximité du comportement testé ou selon la convention du dépôt. Les tests
-  unitaires des règles métier du ticket (RM1…) sont écrits d'abord, vus en échec, puis
-  commités avant le code ; les verrouiller pendant l'implémentation.
+- Tests : à proximité du comportement testé ou selon la convention du dépôt. Écrire avant
+  le code les tests unitaires issus des règles métier (RM1…) et critères d'acceptation
+  explicitement établis dans le ticket ; ils guident l'implémentation. Ne pas inventer de
+  règles ni exiger un cycle rouge/vert ou un commit rouge. Conserver ces tests pendant
+  l'implémentation et exécuter les contrôles pertinents en Verify.
   Un nouveau fichier sans raison architecturale n'est pas une amélioration.
 
 ## Nommage et structure

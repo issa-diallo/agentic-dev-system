@@ -95,6 +95,19 @@ PREPARE → BUILD → SHIP
 
 Aucun PASS n'est inventé ; les préparations, plans et rapports restent locaux, hors des commits.
 
+Le skill [start-ticket](skills/start-ticket/SKILL.md) prend l’URL d’un ticket et
+orchestre ce parcours : reprise du cadrage existant, validation PR_SPLIT par
+l’orchestrateur sans approbation humaine systématique, branche/worktree, BUILD
+délégué au modèle adapté, review indépendante et livraison de la PR. Il n’écrit
+directement ni tests ni code applicatif. Les phases s’enchaînent jusqu’à
+`READY_FOR_HUMAN`, sauf décision indispensable ou autorisation manquante ; aucune
+fusion automatique. Les skills des phases suivantes ne sont pas requis pour démarrer.
+
+Dans un projet installé, demander de lire
+`.agentic-local/skills/start-ticket/SKILL.md` et de traiter l’URL. Si le skill est
+installé dans les skills personnels Codex, l’invoquer avec `$start-ticket <URL>`.
+Sa copie sous le socle local seule ne garantit pas sa découverte native par le client.
+
 ## S'orienter
 
 | Besoin | Référence |
