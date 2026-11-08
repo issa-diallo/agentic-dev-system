@@ -33,6 +33,16 @@ la décision à prendre ; ne pas changer les conventions de tout le projet.
 - Préserver les frontières : présentation, métier, données, validation,
   infrastructure et effets de bord ne sont pas une seule responsabilité.
 
+## Correspondances déclaratives — CORE-DESIGN-001
+
+Appliquer obligatoirement [Prefer Declarative Mapping Over Conditional Logic](../../rules/core/prefer-declarative-mapping.md)
+en planification, implémentation, refactoring et revue, dans tous les langages.
+Dès deux branches simples valeur/résultat, évaluer une correspondance native
+nommée si elle améliore la clarté. Préserver fallbacks, priorité, types et effets
+de bord ; garder les conditions pour prédicats complexes ou sémantique inadaptée.
+Vérifier les clés connues/inconnues, défauts, précédence et cas limites par les
+tests appropriés. Cette préférence ciblée ne remplace pas le seuil DRY général.
+
 ## Taille et lisibilité
 Seuils de revue indicatifs, sauf standard du framework plus approprié :
 - lignes : cible de 100 caractères, formatteur officiel prioritaire ;

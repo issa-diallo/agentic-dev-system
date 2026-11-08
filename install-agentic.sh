@@ -33,6 +33,7 @@ TARGET="$(cd "$TARGET" && pwd -P)"
 for source in \
   AGENTS.md \
   COMMITS.md \
+  rules/core/prefer-declarative-mapping.md \
   docs/agentic/DEVELOPMENT.md \
   docs/agentic/PULL_REQUESTS.md \
   scripts/agentic-check.sh \
@@ -79,6 +80,7 @@ done
 
 # V2 executable capabilities and native templates; preflight before target writes.
 V2_RESOURCES=(
+  rules/core/prefer-declarative-mapping.md
   docs/agentic/MODEL_ROUTING.md
   docs/agentic/SKILL_ROUTING.md
   docs/agentic/RUNTIME.md
@@ -133,7 +135,7 @@ if [ "$MODE" = LOCAL ]; then
   [ ! -L "$EXCLUDE" ] && [ ! -L "$(dirname "$EXCLUDE")" ] || fail "Refusing a symlinked Git exclude path."
 else
   # Preflight all destinations before creating directories or copying files.
-  for dir in docs scripts hooks .github .github/ISSUE_TEMPLATE docs/product docs/adr codex codex/agents claude claude/agents skills; do
+  for dir in docs scripts hooks .github .github/ISSUE_TEMPLATE docs/product docs/adr rules rules/core codex codex/agents claude claude/agents skills; do
     [ ! -L "$TARGET/$dir" ] || fail "Refusing symlink: $dir"
     [ ! -e "$TARGET/$dir" ] || [ -d "$TARGET/$dir" ] || fail "Not a directory: $dir"
   done

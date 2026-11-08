@@ -22,7 +22,7 @@ inconnue, lire METHOD, repérer le dernier PASS prouvé et reprendre la suite.
 | BUILD non trivial / PR | [PULL_REQUESTS](PULL_REQUESTS.md), [PR_SPLIT](templates/PR_SPLIT.md) | split PASS avant BUILD, scope PASS avant SHIP |
 | Environnement significatif / risqué | [WORKTREE_ENVIRONMENT](templates/WORKTREE_ENVIRONMENT.md) | ownership, ressources, reproductibilité |
 | Tâche longue / complexe | [GOAL](templates/GOAL.md) | critères mesurables |
-| Écriture / correction / refactoring | [DEVELOPMENT](DEVELOPMENT.md) | conventions, scope et tests |
+| Planification / écriture / correction / refactoring / revue de code | [DEVELOPMENT](DEVELOPMENT.md), [CORE-DESIGN-001](../../rules/core/prefer-declarative-mapping.md) | conventions, mappings déclaratifs adaptés, scope et tests |
 | Commit | [COMMITS](../../COMMITS.md) | Gitmoji, ticket, garde staged |
 | SHIP | [Profil Lead Tech](roles/REVIEWER.md), [Ship](templates/SHIP.md) | examen indépendant et preuves fraîches |
 | Suivi | [STATUS](templates/STATUS.md), [panneau des agents](AGENT_PANEL.md) | état réel, aucun PASS fictif |
