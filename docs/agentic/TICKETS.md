@@ -55,6 +55,36 @@ le code et les contrats existants. Il distingue leur source des règles du ticke
 Le rédacteur n’a pas à choisir les fichiers, le framework de test ou tous les détails
 d’implémentation ; ces éléments se déterminent en PREPARE puis en BUILD.
 
+## Suivre les critères pendant la livraison
+
+L’orchestrateur maintient la checklist du ticket source, pas seulement celle de la
+PR ou d’un rapport local. Lors de la création de la PR, puis après chaque correction
+ou changement de révision invalidant une preuve, synchroniser les critères :
+
+- Cocher `- [x]` uniquement les AC couverts par des vérifications exécutées et une
+  review indépendante favorable sur la révision concernée. Relier chaque AC à sa
+  preuve et à la PR/révision dans la description de PR ; un test vert global ou
+  la seule création de la PR ne prouve pas tous les critères.
+- Laisser `- [ ]` les AC non vérifiés, partiels, échoués ou dépendant d’une action
+  future ; préciser la raison et la validation restante. Une validation humaine,
+  un déploiement ou une fusion attendus ne sont pas acquis à l’ouverture de la PR.
+- Si les preuves d’un AC déjà coché deviennent invalides, le décocher et expliquer
+  ce qui reste à vérifier. Ne pas modifier le sens des critères pour les valider.
+- Préserver le reste du ticket et les autres checklists. Si les AC sont une liste
+  sans cases, ajouter les cases à ces seuls critères sans en changer le texte.
+  Pour un ticket parent, ne cocher un AC que si toutes ses unités nécessaires
+  sont vérifiées ; la livraison d’un sous-ticket ne valide pas tout le parent.
+- Relire le ticket distant avant l’édition et après sauvegarde. Réconcilier toute
+  modification concurrente constatée ; ne pas écraser les éditions d’autrui.
+
+Cette mise à jour fait partie de SHIP dans le périmètre du ticket autorisé. Avant
+`READY_FOR_HUMAN`, vérifier la concordance ticket/AC/preuves/PR. Si l’édition est
+interdite, échoue ou ne peut être confirmée, signaler le blocage et le delta exact
+à appliquer ; ne pas annoncer le ticket synchronisé ni la livraison prête.
+Un AC légitimement prévu après livraison peut rester ouvert avec sa raison, sans
+remplacer les gates applicables. Cocher les AC ne ferme pas le ticket : sa clôture
+suit les règles de fusion et de cleanup de [WORKFLOW](WORKFLOW.md).
+
 ## Modèle à remplir dans le ticket
 
 Adapter les rubriques à la capacité et au risque. Remplacer les indications entre

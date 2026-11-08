@@ -110,7 +110,15 @@ Nouveau contenu/base/head/plan : revalider les preuves concernées.
 
 Appliquer SHIP : commit final unique via `agentic-commit.sh`, PR_SCOPE et attestation
 indépendante sur les SHA définitifs, publication de branche/PR liées au ticket,
-CI et examen final frais. L’invocation jusqu’à la PR couvre cette publication dans
+CI et examen final frais. À la création de la PR et après correction, synchroniser
+les cases des AC du ticket selon [TICKETS](../../docs/agentic/TICKETS.md#suivre-les-critères-pendant-la-livraison) :
+cocher seulement les critères prouvés, relier les preuves à la PR/révision,
+laisser les autres ouverts avec raison et décocher ceux dont la preuve est invalidée.
+Préserver le texte et les éditions concurrentes ; relire le ticket distant pour
+confirmer la mise à jour avant READY_FOR_HUMAN. Une édition requise impossible ou
+non confirmée bloque cette livraison. L’invocation couvre aussi cette mise à jour
+du ticket, sans clôture ni validation humaine anticipée.
+L’invocation jusqu’à la PR couvre cette publication dans
 le périmètre du ticket ; respecter les autorisations plus restrictives du projet
 et de l’environnement. Aucune préparation ni preuve locale dans le diff.
 Une PR ouverte ou une CI en attente ne suffit pas à READY_FOR_HUMAN. Pour une stack,

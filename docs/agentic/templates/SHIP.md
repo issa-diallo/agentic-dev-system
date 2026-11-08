@@ -29,6 +29,11 @@
   attestation à jour sur les SHA définitifs, selon [PULL_REQUESTS](../PULL_REQUESTS.md)
 
 - URL :
+- [ ] Checklist des AC du ticket synchronisée à la création de la PR puis après
+  correction ; preuve et PR/révision par AC selon [TICKETS](../TICKETS.md#suivre-les-critères-pendant-la-livraison)
+- [ ] Ticket distant relu : AC prouvés cochés, autres ouverts avec raison ;
+  texte, autres checklists et modifications concurrentes préservés
+
 - issue liée :
 - description complète :
 - evidence liée :
