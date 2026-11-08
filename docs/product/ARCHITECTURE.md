@@ -33,6 +33,13 @@ installation externe. Les nouveaux projets gardent leur propre phase Architectur
 
 ## Contrats, sécurité et opérations
 
+Le panneau compagnon facultatif lit les métadonnées du serveur Codex existant via
+le proxy local et WebSocket sur socket Unix. Python stdlib, aucun nouveau service
+ni dépendance externe. Il filtre le dépôt/worktrees et n’émet que des lectures de
+liste de threads après initialisation ; pas de prompt, reprise, contrôle d’agent
+ou validation de gate. Transport borné et neutralisation des caractères terminal.
+Les indisponibilités restent explicites ; les états runtime ne deviennent pas des PASS.
+
 Une seule copie canonique des règles détaillées ; obligations conservées dans
 AGENTS et renvois conditionnels obligatoires. Aucun secret dans les artefacts.
 Réseau seulement pour recherches et publication explicitement demandée.

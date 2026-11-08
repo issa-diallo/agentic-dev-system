@@ -70,6 +70,21 @@ class InstallTests(unittest.TestCase):
         self.assertFalse((self.repo / '.agentic-local').exists())
         self.assertEqual(target.read_text(), 'custom reviewer')
 
+    def test_companion_panel_is_distributed_and_help_needs_no_server(self):
+        self.install('--local')
+        method = self.repo / '.agentic-local'
+        for script in ('observe', 'panel'):
+            rel = f'scripts/agentic-{script}.py'
+            self.assertTrue((method / rel).is_file())
+            self.assertEqual((method / rel).read_bytes(), (SOURCE / rel).read_bytes())
+        self.assertTrue((method / 'docs/agentic/AGENT_PANEL.md').is_file())
+        result = subprocess.run([sys.executable, str(method / 'scripts/agentic-panel.py'),
+                                 '--help'], cwd=self.repo, capture_output=True, text=True,
+                                env={**os.environ, 'CODEX_HOME': str(self.home / '.codex')},
+                                timeout=5)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('--once', result.stdout)
+
     def test_shared_install_adds_claude_adapter_without_replacing_team_files(self):
         (self.repo / 'CLAUDE.md').write_text('team claude rules\n')
         self.install('--shared', '--existing')
@@ -239,7 +254,9 @@ class InstallTests(unittest.TestCase):
 
     def test_v2_missing_source_preflight_leaves_target_unchanged(self):
         for missing in ['scripts/agentic-scheduler.py', 'codex/agents/reviewer.toml',
-                        'skills/frontend-patterns/SKILL.md', 'skills/start-ticket/SKILL.md']:
+                        'skills/frontend-patterns/SKILL.md', 'skills/start-ticket/SKILL.md',
+                        'scripts/agentic-observe.py', 'scripts/agentic-panel.py',
+                        'scripts/agentic-websocket.py']:
             with self.subTest(missing=missing), tempfile.TemporaryDirectory() as directory:
                 source = Path(directory) / 'source'
                 shutil.copytree(SOURCE, source, ignore=shutil.ignore_patterns('.git', '__pycache__'))
