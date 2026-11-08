@@ -10,6 +10,7 @@ inconnue, lire METHOD, repérer le dernier PASS prouvé et reprendre la suite.
 |---|---|---|
 | Début de mission | [SCALING](SCALING.md), [WORKFLOW](WORKFLOW.md), [SAFETY](SAFETY.md) | entrée, risque, phase, limites |
 | Première utilisation / architecture | [METHOD](METHOD.md) | gates et décisions |
+| Rédiger ou compléter un ticket | [TICKETS](TICKETS.md) | règles explicites, AC et scénarios traçables |
 | Nouveau produit / gros périmètre | [BOOTSTRAP](BOOTSTRAP.md), docs/product disponibles, ADR | six rubriques adaptées |
 | Ticket sur existant | [EXISTING_PROJECT](EXISTING_PROJECT.md) | décisions réutilisées, delta utile |
 | PREPARE | [PREPARE](templates/PREPARE.md) | PRD, TRD, APP_FLOW, UX_UI_BRIEF, BACKEND_SCHEMA, IMPLEMENTATION_PLAN |
