@@ -26,6 +26,26 @@ Le provider conserve `equivalent_paths` et les copies en bibliothèque indiquent
 `root_index` trace la priorité de chaque source. Une racine manquante ou une métadonnée
 invalide produit un diagnostic, sans exposer le contenu du fichier.
 
+## Convention de nommage des skills et des agents
+
+Pour toute création ou tout renommage, utiliser un nom anglais en minuscules,
+avec des mots séparés par des tirets (`kebab-case`).
+
+- **Skill : une action.** Commencer par un verbe d’action décrivant ce que l’on
+  fait : `start-ticket`, `write-tests`, `write-code`, `review-code`, `ship-ticket`.
+- **Agent : un exécutant.** Choisir un nom se terminant par `er`, décrivant ce
+  qu’il fait : `test-planner`, `unit-test-writer`, `code-reviewer`, `implementer`.
+
+Le nom du skill décrit l’opération ; celui de l’agent décrit le rôle qui l’exécute.
+Par exemple, le skill `write-tests` peut confier son travail à `unit-test-writer`.
+Ces exemples ne déclarent pas des skills ou agents disponibles : vérifier
+l’inventaire réel avant de les appeler.
+
+Cette convention ne renomme pas automatiquement les ressources existantes ou
+externes. Un renommage existant doit mettre à jour ses références et intégrations.
+Si le runtime impose un identifiant différent, conserver la correspondance explicite
+entre le nom fonctionnel et cet identifiant ; ne pas inventer de profil natif.
+
 ## CORE, ON_DEMAND et LIBRARY
 
 Les noms et descriptions sont lus dans le front matter borné de `SKILL.md`, sans
