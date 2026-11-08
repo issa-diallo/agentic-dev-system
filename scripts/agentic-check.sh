@@ -78,6 +78,7 @@ for resource in \
   docs/agentic/templates/agentic.config.json \
   scripts/agentic-build.py \
   scripts/agentic-workspace.py \
+  scripts/agentic-agents.py \
   scripts/agentic-skills.py \
   scripts/agentic-models.py \
   scripts/agentic-scheduler.py \

@@ -318,69 +318,89 @@ scripts sauvegardés, conserver les artefacts et PR sans modification.
 ## Distribution V2 et activation Codex
 
 Le socle distribue les scripts Planner, Workspace, Skills, Models, Scheduler et
-Quality, trois profils dans `codex/agents/` et huit skills courts dans `skills/`.
-Aucune configuration `.codex/`, `.agents/`, globale ou d’authentification n’est
-créée ou remplacée. Les préflights couvrent ces ressources avant toute écriture.
-En mode partagé, une collision avec un fichier V2 existant est refusée.
-PRODUCT initialise `docs/product/PREPARE.md` et conserve les templates V1 ;
-les installations existantes sont comparées/manuellement mises à jour, jamais
-écrasées. Aucun document validé ni historique n’est supprimé.
+Quality, les profils canoniques dans `codex/agents/` et `claude/agents/`, et les
+skills, dont `start-ticket`. L’installation copie aussi les trois profils dans
+les dossiers natifs **du projet applicatif**, hors du socle local :
 
-Depuis la vraie racine du projet, activation opt-in pour une invocation :
+| Client | Dossier natif | Format / identité |
+|---|---|---|
+| Codex | `.codex/agents/agentic-<rôle>.toml` | TOML ; champ `name`, actuellement `agentic_<rôle>` |
+| Claude Code | `.claude/agents/agentic-<rôle>.md` | Markdown avec frontmatter ; `name: agentic-<rôle>` |
+
+Rôles : `explorer`, `implementer`, `reviewer`. Ces emplacements suivent les
+[documents officiels Codex](https://learn.chatgpt.com/docs/agent-configuration/subagents)
+et [Claude Code](https://code.claude.com/docs/en/sub-agents).
+Dans Claude Code, les profils définissent `color` : bleu pour explorer, vert pour
+implementer, violet pour reviewer, dans la liste des tâches et la transcription.
+Codex CLI 0.167.0 rejette ce champ comme inconnu ; aucune couleur par rôle n’est
+ajoutée aux profils TOML.
+Les emplacements personnels `~/.codex/agents/` et `~/.claude/agents/` restent des
+alternatives natives ; l’installateur utilise la portée projet et ne les modifie pas.
+
+`agentic-agents.py` préflight toutes les cibles avant de copier : sources complètes,
+parents sûrs, pas de symlink ni collision avec une définition différente. Il ne
+remplace ni configuration, ni authentification, ni permissions, ni modèle choisi.
+Les autres agents sont conservés. Les préflights de l’installateur précèdent les
+écritures de la méthode. PRODUCT et EXISTING partagés livrent les profils natifs
+avec le projet ; une collision existante exige une comparaison explicite.
+
+En LOCAL, seuls les six chemins natifs exacts et `.agentic-local/` sont exclus via
+`info/exclude`. Aucun masquage global de `.codex/` ou `.claude/`. Un profil déjà suivi
+par Git ou une règle d’équipe exposant les profils fait refuser l’installation
+avant copie. Git status et index existants sont préservés. Le mode partagé
+continue d’ajouter `CLAUDE.md` avec `@AGENTS.md` seulement si ce fichier manque.
+
+Depuis la vraie racine du projet, ouvrir une nouvelle session du client pour
+charger les définitions, en respectant ses exigences de confiance. L’installation
+ne marque pas le projet comme trusted et n’active aucune permission. La découverte
+des profils ne signifie pas qu’un sous-agent a été lancé. L’orchestrateur doit
+encore sélectionner le rôle accessible et conserver les reçus du lancement réel.
+
+Les lanceurs restent des aides facultatives pour transmettre la mission et les
+lectures de méthode ; ils n’injectent plus de profils ou d’overrides de rôles :
 
 ```bash
 bash .agentic-local/scripts/agentic-codex.sh run "Ajouter une API authentifiée"
-# Mode partagé : bash scripts/agentic-codex.sh run "Mission"
+bash .agentic-local/scripts/agentic-claude.sh run "Mission"
+# Mode partagé : scripts/agentic-codex.sh ou scripts/agentic-claude.sh
 ```
 
-Le launcher ajoute seulement `-c agents.agentic_<role>.config_file=<chemin>`.
-Le mode `run <mission> [options Codex]` préfixe une unique chaîne prompt par
-la lecture des règles équipe, LOCAL/index/PREPARE et le routage de la racine
-canonique skills du socle, plus celles déjà connues/autorisées par l’hôte. La mission
-reste une donnée argv, sans évaluation shell. Les autres invocations passent
-leurs arguments tels quels : `app-server` reçoit les overrides de configuration
-des profils uniquement, et demande
-un prompt LOCAL explicite pour activer la méthode dans le contexte principal. Les sous-agents reçoivent
-uniquement leur contrat, le socle utile et les skills sélectionnés.
-Claude Code : `bash scripts/agentic-claude.sh run "Mission" [options Claude]` (`.agentic-local/scripts/…` en LOCAL) transmet seulement `--agents` (rôles de `claude/agents/`, même contrat que les profils Codex) et un prompt d'activation via `--append-system-prompt`. En mode partagé, un `CLAUDE.md` contenant `@AGENTS.md` est créé s'il manque, jamais remplacé. Aucun `.claude/` ni réglage global n'est écrit. Les profils sont des définitions, pas une preuve de lancement.
+Sans `run`, leurs arguments sont transmis tels quels. Avec `run`, les règles
+équipe, l’index et les sources locales sont indiqués dans le prompt ; la mission
+reste une donnée argv sans évaluation shell. Compte, permissions et arguments
+utilisateur sont conservés. Le helper peut être lancé séparément pour enregistrer
+les profils d’une méthode existante :
 
-Les arguments utilisateur, le compte, les permissions et les règles équipe sont
-conservés. Aucun `danger-full-access`, modèle, effort ou feature n’est imposé.
-Les profils portent `name`, `description`, `developer_instructions` ; aucun
-réglage de permissions hôte n’est remplacé par le launcher. Explorer/reviewer sans écriture est une instruction
-coopérative, pas une sandbox OS. Les fichiers TOML modernes sont décrits dans la
-[documentation officielle Codex](https://developers.openai.com/codex/subagents).
-Le mode `config_file` est une compatibilité CLI à vérifier sur la version utilisée.
-Une validation parsing/initialize n’est pas une preuve de sous-agents lancés.
+```bash
+python3 .agentic-local/scripts/agentic-agents.py --method-root .agentic-local --project . --local --check
+python3 .agentic-local/scripts/agentic-agents.py --method-root .agentic-local --project . --local
+# Mode partagé : --method-root . ; omettre --local pour des profils partagés.
+```
 
-Limites observées sur Codex CLI **0.162.1** : le parsing des profils et
-`app-server --strict-config`/initialize passent, mais le test réel de rôles n’a
-lancé ni démontré l’application d’aucun profil. Dans ce runtime, l’outil exposé
-`collaboration.spawn_agent` ne possède aucun sélecteur de rôle configuré ;
-`task_name` nomme une mission, il ne sélectionne pas `agentic_explorer` ou
-`agentic_reviewer`. Cette observation concerne l’hôte testé, pas une garantie
-sur tous les runtimes Codex. Un essai sous sandbox read-only a aussi échoué avec
-`bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted` lors du routage
-skills. Ce résultat ne prouve ni lancement natif ni application de skills.
-Ne pas contourner cet échec en augmentant automatiquement les permissions.
+`--check` et `--dry-run` ne modifient pas le projet. Le helper seul refuse une
+cible différente ; il ne force aucun remplacement. Une mise à jour via
+`update-agentic.py` compare les profils natifs à l’ancienne source connue : copies
+intactes mises à jour, copies personnalisées conservées et signalées. Le dry-run
+tient compte des personnalisations préservées dans la méthode.
 
-Utiliser les outils de délégation réellement exposés par l’hôte avec contrats
-explicites, périmètres, skills utiles et reçus vérifiables. Le rôle est alors un
-contrat de mission, sans prétendre qu’un profil TOML a été injecté. Sans délégation
-disponible, déclarer le repli mono-agent et conserver la review dans une session
-indépendante. Aucun PASS de profil natif appliqué sans preuve runtime correspondante.
+Vérifications observées sur Codex CLI **0.167.0** : initialisation app-server depuis
+un projet temporaire de confiance avec `.codex/agents/`, sans `config_file`, et
+contrôle négatif avec champ invalide. Le projet de confiance est uniquement une
+fixture isolée ; aucune configuration de confiance utilisateur n’est modifiée.
+Sur Claude Code **2.1.319**, l’initialisation stream-json retourne les trois rôles
+natifs depuis `.claude/agents/`, sans prompt utilisateur ni requête modèle.
+Ces contrôles prouvent la découverte, pas une délégation ou l’application effective
+d’un modèle. Sans sélecteur de rôle dans le runtime exposé, transmettre un contrat
+explicite et signaler la limite ; `task_name` seul n’applique pas un profil.
 
+Les skills restent ON_DEMAND, routés depuis les racines explicitement connues et
+autorisées. Les profils natifs ne rendent pas tous les skills automatiquement
+chargeables. Lire/charger un skill ne prouve pas son application.
 
-Les skills restent ON_DEMAND. L’orchestrateur fournit explicitement le chemin
-canonique `skills/` du socle au routeur `agentic-skills.py`, puis charge uniquement
-les instructions sélectionnées ; pas d’auto-discovery native promise hors des
-racines supportées. Lire/charger un skill ne prouve pas son application. Les liens
-relatifs de chaque skill résolvent le socle dans les deux modes. CORE reste AGENTS.
-
-Pour arrêter l’activation, lancer Codex normalement : aucun lien ou config à
-retirer. Les artefacts personnels restent sous `.agentic-local/`, protégés par la
-garde staged même après `git add -f`. Le rollback de l’installation et la migration
-des anciennes données suivent les procédures ci-dessus.
+Lancer le client sans wrapper ne retire plus les profils installés. Pour un rollback,
+comparer les copies natives et ne retirer que celles appartenant à la méthode,
+jamais les agents personnalisés ou actifs. Conserver les preuves et notes locales.
+Les procédures de migration des données et de la méthode restent applicables.
 
 ## Mise à jour d'un projet déjà installé
 

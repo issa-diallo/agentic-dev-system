@@ -15,16 +15,24 @@ OPTIONAL_TOOLS.md. Enrichir CONTEXT, rôles et templates existants. Ne pas crée
 cinq nouveaux index ni un agent par spécialité. Le contrat Bash copie les fichiers
 portables ; les preuves et statuts propres au dépôt source ne sont pas hérités.
 
-Alternative rejetée : configuration Codex globale et agents TOML imposés,
+Alternative rejetée : remplacement de configuration Codex globale,
 proxy ou framework de routage automatique. Plus de dépendances et risque de
 remplacer les choix du projet, sans gain démontré. Les modèles et niveaux sont
 recommandés, leur disponibilité vérifiée dans l'interface réellement utilisée.
+
+À la demande utilisateur du 2026-11-08, les profils canoniques sont copiés dans
+les dossiers natifs du projet `.codex/agents/` et `.claude/agents/` pour découverte
+au lancement normal. En LOCAL, seuls les six chemins sont exclus de Git ; aucune
+configuration de compte, confiance, modèle ou permissions n’est remplacée.
+Les anciens overrides de rôles sont retirés des lanceurs. Voir INSTALL pour le
+contrat de préservation et les preuves de découverte, distinctes d’un lancement.
 
 ADR : docs/adr/001-context-routing.md. Pas de remplacement de stack approuvée.
 Cette décision applique la mission autorisée ; elle ne nécessite aucune
 installation externe. Les nouveaux projets gardent leur propre phase Architecture.
 
 ## Contrats, sécurité et opérations
+
 Une seule copie canonique des règles détaillées ; obligations conservées dans
 AGENTS et renvois conditionnels obligatoires. Aucun secret dans les artefacts.
 Réseau seulement pour recherches et publication explicitement demandée.

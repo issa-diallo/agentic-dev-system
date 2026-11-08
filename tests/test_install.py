@@ -50,6 +50,26 @@ class InstallTests(unittest.TestCase):
         self.assertFalse((self.repo / 'docs/adr').exists())
         subprocess.run(['bash', 'scripts/agentic-check.sh', '--existing'], cwd=self.repo, check=True, capture_output=True)
 
+    def test_native_profiles_are_discoverable_and_local_files_stay_private(self):
+        self.install('--local')
+        for client, suffix in [('codex', 'toml'), ('claude', 'md')]:
+            for role in ('explorer', 'implementer', 'reviewer'):
+                relative = f'.{client}/agents/agentic-{role}.{suffix}'
+                target = self.repo / relative
+                self.assertEqual(target.read_bytes(),
+                                 (SOURCE / f'{client}/agents/{role}.{suffix}').read_bytes())
+                self.assertEqual(subprocess.run(['git', '-C', str(self.repo), 'check-ignore',
+                                                 '-q', '--', relative]).returncode, 0)
+        self.assertEqual(self.git('status', '--porcelain'), '')
+
+    def test_native_collision_refused_before_installation(self):
+        target = self.repo / '.codex/agents/agentic-reviewer.toml'
+        target.parent.mkdir(parents=True)
+        target.write_text('custom reviewer')
+        self.install('--local', ok=False)
+        self.assertFalse((self.repo / '.agentic-local').exists())
+        self.assertEqual(target.read_text(), 'custom reviewer')
+
     def test_shared_install_adds_claude_adapter_without_replacing_team_files(self):
         (self.repo / 'CLAUDE.md').write_text('team claude rules\n')
         self.install('--shared', '--existing')
@@ -264,14 +284,10 @@ class InstallTests(unittest.TestCase):
                                 text=True, capture_output=True, env=env, cwd=self.repo)
         self.assertEqual(result.returncode, 0, result.stderr)
         value = json.loads(result.stdout)
-        self.assertEqual(value['argv'][6:], args)
+        self.assertEqual(value['argv'], args)
         self.assertEqual(value['home'], 'unchanged-sentinel')
         self.assertNotIn('danger-full-access', json.dumps(value))
-        for offset, role in enumerate(['explorer', 'implementer', 'reviewer']):
-            self.assertEqual(value['argv'][2 * offset], '-c')
-            key, path = value['argv'][2 * offset + 1].split('=', 1)
-            self.assertEqual(key, f'agents.agentic_{role}.config_file')
-            self.assertEqual(json.loads(path), str(self.repo / f'.agentic-local/codex/agents/{role}.toml'))
+        self.assertNotIn('config_file', json.dumps(value))
 
     def test_launcher_run_activates_method_with_literal_mission(self):
         self.install()
@@ -290,8 +306,8 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         value = json.loads(result.stdout)
         self.assertEqual(value['home'], 'unchanged-sentinel')
-        self.assertEqual(value['argv'][6:8], ['--sandbox', 'read-only'])
-        self.assertEqual(len(value['argv']), 9)
+        self.assertEqual(value['argv'][:2], ['--sandbox', 'read-only'])
+        self.assertEqual(len(value['argv']), 3)
         prompt = value['argv'][-1]
         self.assertTrue(prompt.endswith(mission))
         self.assertIn(str(self.repo / '.agentic-local/docs/agentic/LOCAL.md'), prompt)
@@ -306,14 +322,17 @@ class InstallTests(unittest.TestCase):
         for invalid in [False, True]:
             with self.subTest(invalid=invalid), tempfile.TemporaryDirectory() as directory:
                 home = Path(directory)
-                profile = home / 'agent.toml'
+                project = home / 'project'
+                profile = project / '.codex/agents/agentic-explorer.toml'
+                profile.parent.mkdir(parents=True)
+                (home / 'config.toml').write_text(
+                    '[projects.' + json.dumps(str(project)) + ']\ntrust_level = "trusted"\n')
                 profile.write_text((SOURCE / 'codex/agents/explorer.toml').read_text() +
                                    ('\nunrecognized_agentic_field = true\n' if invalid else ''))
-                command = ['codex', '-c', 'agents.agentic_test.config_file=' + json.dumps(str(profile)),
-                           'app-server', '--strict-config']
+                command = ['codex', 'app-server', '--strict-config']
                 process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                            stderr=subprocess.PIPE, text=True,
-                                           env={**os.environ, 'CODEX_HOME': str(home)})
+                                           env={**os.environ, 'CODEX_HOME': str(home)}, cwd=project)
                 try:
                     request = {'id': 1, 'method': 'initialize', 'params': {
                         'clientInfo': {'name': 'agentic-install-test', 'version': '1'},

@@ -1,8 +1,9 @@
 # Utilisation personnelle locale
 
 Par défaut (ou avec `--local`), cette méthode est installée sous `.agentic-local/`, exclu de Git par
-`info/exclude`. Aucun fichier racine de l’équipe n’est remplacé et aucun hook
-n’est activé. L’installation ne lance pas un service : l’agent lit ces instructions
+`info/exclude`. Aucun fichier racine de l’équipe n’est remplacé. Les profils
+natifs sont ajoutés sous `.codex/agents/` et `.claude/agents/`, avec exclusions
+ciblées ; le hook `pre-push` est installé si aucun hook existant ne le bloque. L’installation ne lance pas un service : l’agent lit ces instructions
 sur demande explicite.
 
 ## Activation
@@ -98,21 +99,21 @@ l’écrasement et ne pas supprimer les artefacts d’une story en cours.
 
 Pour Claude Code : `bash .agentic-local/scripts/agentic-claude.sh run "Mission"`. Pour déléguer l'implémentation à un modèle économique : [DELEGATION](DELEGATION.md) (config personnelle sous `.agentic-local/`, hors Git).
 
-Les scripts V2, profils `codex/agents/` et huit skills `skills/` restent sous le
-socle exclu. Depuis la racine métier, `bash .agentic-local/scripts/agentic-codex.sh run "Mission"`
-transmet les overrides de configuration des profils et demande la lecture du
-socle avec la mission comme prompt.
-Sans `run`, seuls ces overrides sont transmis pour cette invocation. Les règles équipe sont
-prioritaires ; les permissions, compte et arguments restent ceux de Codex.
-Aucun service permanent ni agent actif n’est déduit des fichiers. Les skills sont
-routés depuis la racine explicite `.agentic-local/skills` et chargés à la demande.
-Voir [INSTALL](INSTALL.md#distribution-v2-et-activation-codex) pour compatibilité et
-limites. Revenir à Codex normal désactive les overrides sans modifier de fichiers.
+Les scripts et sources canoniques des profils restent dans le socle exclu. Les
+copies chargées nativement sont placées dans `.codex/agents/` et `.claude/agents/`
+à la racine du projet. En LOCAL, leurs six chemins exacts sont exclus de Git.
+Les profils tiers et configurations existantes ne sont pas remplacés.
 
-Le parsing Codex CLI 0.162.1 a été vérifié ; aucun profil natif lancé/appliqué
-n’a été démontré par le test réel. Le runtime testé n’expose pas de sélecteur de
-rôle dans `collaboration.spawn_agent` : `task_name` reste un nom de mission.
-Le probe read-only a rencontré une erreur bwrap/loopback ; aucun contournement
-automatique de permissions. Utiliser les contrats/reçus du runtime hôte ou déclarer
-le repli mono-agent, avec review indépendante. La configuration d’un profil ne
-constitue jamais une preuve de son application.
+Ouvrir une nouvelle session du client après installation, en respectant sa
+politique de confiance. Les lanceurs `agentic-codex.sh` et `agentic-claude.sh`
+transmettent seulement les arguments et, avec `run`, les lectures de méthode et
+la mission. Ils n’injectent plus de profils par `config_file` ou `--agents`.
+Codex/Claude lancés normalement conservent la découverte des copies natives.
+
+La mise à jour du socle synchronise les copies natives intactes ; les copies
+personnalisées restent préservées et signalées. Voir
+[INSTALL](INSTALL.md#distribution-v2-et-activation-codex) pour les commandes,
+les sources officielles et les preuves de découverte observées sur les CLI.
+La présence et la découverte d’un profil ne prouvent pas le lancement d’un agent :
+conserver les reçus du runtime et une review indépendante. Les permissions et
+modèles ne sont jamais modifiés automatiquement par l’installation.

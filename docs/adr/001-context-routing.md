@@ -37,5 +37,17 @@ Aucun changement de CLI ni FORCE. Nouvelle installation hérite automatiquement 
 installation existante : comparaison et sauvegarde manuelles. Revert des commits
 pour le socle, restauration sélective après comparaison pour les projets générés.
 
+## Précision approuvée — 2026-11-08
+
+L’utilisateur demande explicitement la découverte native des agents. Les sources
+portables restent dans le socle ; l’installation les copie dans `.codex/agents/`
+et `.claude/agents/` du projet. Les profils personnels sont exclus fichier par
+fichier en LOCAL ; les configurations tierces et profils personnalisés sont
+préservés. Les lanceurs ne remplacent plus la découverte native par des overrides.
+Aucun service permanent ni changement de permissions/modèles n’est ajouté.
+Les tests de découverte ne constituent pas une preuve de délégation réelle.
+
 ## Related
+
+
 [Architecture](../product/ARCHITECTURE.md), [ticket #6](https://github.com/issa-diallo/agentic-dev-system/issues/6).
