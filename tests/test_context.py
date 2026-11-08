@@ -14,7 +14,8 @@ os.environ['CODEX_HOME'] = tempfile.mkdtemp(prefix='codex-home-')  # installs mu
 
 def required_resources():
     docs = 'README METHOD WORKFLOW SCALING SAFETY EXISTING_PROJECT INSTALL LOCAL BOOTSTRAP CONTEXT MODELS OPTIONAL_TOOLS DEVELOPMENT PULL_REQUESTS'.split()
-    return (['AGENTS.md', 'COMMITS.md', 'scripts/agentic-check.sh',
+    return (['AGENTS.md', 'COMMITS.md', 'rules/core/prefer-declarative-mapping.md',
+             'scripts/agentic-check.sh',
              'scripts/agentic-staged-check.sh', 'scripts/agentic-commit.sh',
              'scripts/agentic-pr-check.py']
             + [f'docs/agentic/{name}.md' for name in docs]

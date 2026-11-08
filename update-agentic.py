@@ -27,7 +27,7 @@ MANIFEST = '.agentic-manifest.json'
 SKIP_DIRS = {'work', '__pycache__'}
 SKIP_FILES = {'STATUS.md'}
 ROOT_FILES = ['AGENTS.md', 'COMMITS.md']
-TREES = ['docs/agentic', 'scripts', 'skills', 'codex', 'claude/agents']
+TREES = ['rules', 'docs/agentic', 'scripts', 'skills', 'codex', 'claude/agents']
 SCRIPT_PREFIX = 'agentic-'
 
 

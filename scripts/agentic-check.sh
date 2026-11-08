@@ -26,6 +26,7 @@ check_file() {
 for resource in \
   AGENTS.md \
   COMMITS.md \
+  rules/core/prefer-declarative-mapping.md \
   scripts/agentic-staged-check.sh \
   scripts/agentic-commit.sh \
   scripts/agentic-pr-check.py \

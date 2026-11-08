@@ -181,3 +181,11 @@ permettent une configuration dédiée selon le client. Une
 [review GitHub Codex](https://learn.chatgpt.com/docs/third-party/github) est une
 intégration optionnelle distincte : ne pas supposer son modèle ou son effort,
 ni l'activer implicitement. Le protocole fonctionne sans ce connecteur.
+
+## CORE-DESIGN-001 — correspondances déclaratives
+
+Lire et appliquer [la règle universelle](../../../rules/core/prefer-declarative-mapping.md)
+sur le périmètre touché : évaluer les chaînes de conditions répétitives dès deux
+branches simples, préférer un mapping natif quand plus clair, préserver défauts,
+priorité et sémantique, vérifier les tests d'équivalence. Conserver les conditions
+adaptées aux prédicats complexes et éviter les abstractions inutiles.

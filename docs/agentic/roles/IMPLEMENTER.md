@@ -75,3 +75,11 @@ créer un rôle permanent ni charger tous les outils pour chaque spécialité.
 
 Lire les chemins ciblés du contrat, sans relire tout le dépôt par défaut.
 Si une règle métier manque, remonter un blocker ; ne pas l’inventer.
+
+## CORE-DESIGN-001 — correspondances déclaratives
+
+Lire et appliquer [la règle universelle](../../../rules/core/prefer-declarative-mapping.md)
+sur le périmètre touché : évaluer les chaînes de conditions répétitives dès deux
+branches simples, préférer un mapping natif quand plus clair, préserver défauts,
+priorité et sémantique, vérifier les tests d'équivalence. Conserver les conditions
+adaptées aux prédicats complexes et éviter les abstractions inutiles.

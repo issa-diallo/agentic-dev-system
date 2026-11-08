@@ -62,6 +62,29 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual(subprocess.run(['git', '-C', str(project), 'check-ignore', '-q',
                                         '.codex/agents/agentic-explorer.toml']).returncode, 0)
 
+    def test_mapping_rule_is_distributed_updated_and_customization_preserved(self):
+        relative = 'rules/core/prefer-declarative-mapping.md'
+        src = fake_source()
+        rule = src / relative
+        rule.parent.mkdir(parents=True)
+        rule.write_text('CORE-DESIGN-001 v1')
+        for local in (False, True):
+            with self.subTest(local=local):
+                prefix = '.agentic-local/' if local else ''
+                project = install({prefix + 'docs/agentic/README.md': 'r2'})
+                method = project / '.agentic-local' if local else project
+                update.update(project, source=src, stamp='rule-add')
+                installed = method / relative
+                self.assertEqual(installed.read_bytes(), rule.read_bytes())
+                rule.write_text('CORE-DESIGN-001 v2')
+                update.update(project, source=src, stamp='rule-update')
+                self.assertEqual(installed.read_bytes(), rule.read_bytes())
+                installed.write_text('team rule')
+                report = update.update(project, source=src, stamp='rule-custom')
+                self.assertIn(relative, report['customized'])
+                self.assertEqual(installed.read_text(), 'team rule')
+                rule.write_text('CORE-DESIGN-001 v1')
+
     def test_managed_skips_project_data_and_foreign_scripts(self):
         files = update.managed(fake_source())
         self.assertEqual(sorted(files), ['AGENTS.md', 'COMMITS.md', 'docs/agentic/README.md',
