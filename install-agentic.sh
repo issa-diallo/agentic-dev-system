@@ -111,6 +111,7 @@ V2_RESOURCES=(
   skills/context-handoff-documentation/SKILL.md
   skills/spec-driven-development/SKILL.md
   skills/planning-and-task-breakdown/SKILL.md
+  skills/start-ticket/SKILL.md
 )
 for source in "${V2_RESOURCES[@]}"; do
   [ -f "$SCRIPT_DIR/$source" ] || fail "Missing source: $source"

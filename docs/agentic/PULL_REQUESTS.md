@@ -64,6 +64,12 @@ fichier selon le même contrôle ; aucune dérogation pour les notes de mission.
 
 L'orchestrateur applique ce gate sans instructions supplémentaires :
 
+L’orchestrateur valide le découpage et consigne son verdict PR_SPLIT sans
+approbation humaine systématique. Cette validation précède la création des
+sous-tickets, branches, commits, pushes et PR. Les reviews indépendantes requises
+restent obligatoires, notamment pour une exception d’indivisibilité ; les autres
+gates et autorisations applicables restent inchangés.
+
 1. Identifier toutes les capacités et leurs critères à partir de la story et du
    code réel ; distinguer support indispensable et comportement autonome.
 2. Affecter chaque capacité à un ticket d'implémentation et une PR autonomes,

@@ -167,6 +167,10 @@ class TddTests(unittest.TestCase):
         self.assertNotIn('phase', report)
         self.assertIn('t1', report['tasks'])
 
+    def test_shipped_config_uses_business_tests_without_tdd_by_default(self):
+        config = RUN.load_config(SOURCE / 'docs/agentic/templates/agentic.config.json')
+        self.assertFalse(RUN.tdd_settings(config)['enabled'])
+
 
 if __name__ == '__main__':
     unittest.main()

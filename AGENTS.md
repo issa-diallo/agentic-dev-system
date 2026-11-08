@@ -18,7 +18,8 @@ Phase applicable : artefact et PASS/BLOCKED ; seule PASS autorise la suite.
 
 DoR BUILD : AC clairs, dépendances connues, PREPARE PASS, PR_SPLIT PASS pour BUILD non
 trivial, architecture/ADR compatibles, fichiers identifiés, tests définis, risques critiques
-traités, aucun blocker. Tests unitaires des règles métier écrits avant le code, vus en échec. Verify obligatoire après Execute : tests exécutés et preuves adaptées.
+traités, aucun blocker. Tests RM/AC explicites avant code, sans échec initial requis.
+Verify obligatoire après Execute : tests et preuves adaptées.
 Puis review indépendante PASS/PASS_WITH_MINOR, jamais Critical/Major ouvert. Profil Lead
 Tech : review finale LIGHT/STANDARD ; seconde lecture distincte LARGE/risque critique.
 DoD : PR_SPLIT/PR_SCOPE PASS, Verify PASS, Review PASS/PASS_WITH_MINOR, Goal SATISFIED si

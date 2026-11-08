@@ -181,7 +181,9 @@ class InstallTests(unittest.TestCase):
         for script in ['build', 'workspace', 'skills', 'models', 'scheduler', 'quality']:
             self.assertTrue((method / f'scripts/agentic-{script}.py').is_file())
         skills = list((method / 'skills').glob('*/SKILL.md'))
-        self.assertEqual(len(skills), 8)
+        self.assertEqual(len(skills), 9)
+        self.assertEqual((method / 'skills/start-ticket/SKILL.md').read_bytes(),
+                         (SOURCE / 'skills/start-ticket/SKILL.md').read_bytes())
         for path in ['.codex/config.toml', '.agents/skills/team/SKILL.md']:
             self.assertEqual((self.repo / path).read_text(), 'team content')
         self.assertEqual(self.git('status', '--porcelain'), before)
@@ -217,7 +219,7 @@ class InstallTests(unittest.TestCase):
 
     def test_v2_missing_source_preflight_leaves_target_unchanged(self):
         for missing in ['scripts/agentic-scheduler.py', 'codex/agents/reviewer.toml',
-                        'skills/frontend-patterns/SKILL.md']:
+                        'skills/frontend-patterns/SKILL.md', 'skills/start-ticket/SKILL.md']:
             with self.subTest(missing=missing), tempfile.TemporaryDirectory() as directory:
                 source = Path(directory) / 'source'
                 shutil.copytree(SOURCE, source, ignore=shutil.ignore_patterns('.git', '__pycache__'))

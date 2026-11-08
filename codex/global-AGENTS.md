@@ -10,7 +10,10 @@ Si le dépôt courant contient `.agentic-local/AGENTS.md`, lis-le intégralement
 - Consigne le plan validé dans `.agentic-local/docs/agentic/work/<ticket>/pr-split.json`
   (une PR par entrée, avec sa `branch` et ses `files`) : le hook pre-push refuse
   sinon de pousser la branche.
-- Aucun ticket, branche, commit, push ni PR avant approbation du découpage.
+- L’orchestrateur valide le découpage selon PR_SPLIT, avec review indépendante
+  lorsque requise, sans approbation humaine systématique. Aucun sous-ticket,
+  branche, commit, push ni PR avant cette validation. Les gates et autorisations
+  applicables aux actions suivantes restent obligatoires.
 - Commits via `agentic-commit.sh`. Sans `.agentic-local/`, ignore ces règles, sauf `agentic ?`.
 - Si le message de l'utilisateur est exactement `agentic ?` : lis `.agentic-local/AGENTS.md`
   et `.agentic-local/docs/agentic/LOCAL.md` si ce n'est pas déjà fait, et vérifie que le fichier

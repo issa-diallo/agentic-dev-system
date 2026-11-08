@@ -102,7 +102,8 @@ for resource in \
   skills/parallel-execution-worktrees/SKILL.md \
   skills/context-handoff-documentation/SKILL.md \
   skills/spec-driven-development/SKILL.md \
-  skills/planning-and-task-breakdown/SKILL.md; do
+  skills/planning-and-task-breakdown/SKILL.md \
+  skills/start-ticket/SKILL.md; do
   check_file "$resource"
 done
 if [ "$entry" = "EXISTING" ]; then

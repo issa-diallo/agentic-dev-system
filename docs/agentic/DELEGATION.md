@@ -99,18 +99,18 @@ profil (front, back, données, contrat) ; ticket doc seule : aucune commande req
 n'est inventé : commande absente = signalée, à fournir dans la config ou le plan.
 `agentic-prepare.py init|check|units` prépare PREPARE depuis les fichiers visés.
 
-## Tests d'abord (TDD)
+## Tests métier avant l'implémentation
 
-Le ticket liste ses règles métier (RM1…) et les tests unitaires qui les valident ;
-`agentic-prepare.py check` bloque une règle sans test. Avec `run.tdd: true` (défaut),
-`agentic-run.py quick --rule "RM1: …" --file tests/test_x.py --file src/x.py` suit deux phases :
-1. **Rouge** : l'agent n'écrit que les tests, chacun nomme sa règle. Gates : `traceability`
-   (chaque RM nommée par un test), `red` (les tests échouent ; la cause, assertion ou erreur
-   d'import, reste à confirmer en review). L'orchestrateur commite alors les tests.
-2. **Vert** : l'agent implémente ; les tests sont hors périmètre, donc toute modification est
-   rejetée par le gate de périmètre. Les commandes de vérification doivent passer.
-`run.tdd` : `red_level` (MEDIUM, HIGH pour des tests plus sûrs), `green_level` (LOW ; auth et
-migration remontent seuls), `review_before_green` (`auto` : pause après le commit rouge si le
-ticket touche auth, secrets, migration, paiement ou permissions ; `--review-red`/`--no-review-red`).
-En pause : relire les tests, puis relancer la même commande avec `--green-only`.
-`--no-tdd` pour docs, config, refactor couvert ou spike (à motiver dans PREPARE : `Exception TDD : …`).
+Le ticket établit RM et AC depuis les attentes explicites du demandeur ou les sources
+métier. Définir les scénarios/tests de chaque règle ; `agentic-prepare.py check` vérifie
+leur traçabilité. Ne pas inventer d'attente métier.
+
+Avant le code, l'agent affecté écrit les tests métier du périmètre, sans code produit.
+Pas d'échec initial, cycle rouge/vert, commit rouge ou review du rouge obligatoires.
+Consigner l'état initial si les tests sont exécutables sur le code existant. Transmettre
+tests, règles, AC et échecs préexistants à l'implementer pour guider son code. Protéger
+les tests ; revoir avec l'orchestrateur tout changement d'attente métier. Verify exécute
+les tests et contrôles pertinents.
+
+Le défaut installé est `run.tdd.enabled: false`. Le cycle TDD en deux phases (`true`,
+`--review-red`, `--green-only`) reste disponible sur demande explicite du ticket/projet.
