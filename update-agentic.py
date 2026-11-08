@@ -14,10 +14,12 @@ once edited) is never touched.
 """
 import argparse
 import hashlib
+import importlib.util
 import json
 import shutil
 import sys
 import time
+import tempfile
 from pathlib import Path
 
 SOURCE = Path(__file__).resolve().parent
@@ -27,6 +29,45 @@ SKIP_FILES = {'STATUS.md'}
 ROOT_FILES = ['AGENTS.md', 'COMMITS.md']
 TREES = ['docs/agentic', 'scripts', 'skills', 'codex', 'claude/agents']
 SCRIPT_PREFIX = 'agentic-'
+
+
+def native_context(root, source, recorded, force):
+    """Plan native copies from the effective post-update canonical profiles."""
+    if not any((Path(source) / family / 'agents').exists() for family in ('codex', 'claude')):
+        return None
+    script = SOURCE / 'scripts/agentic-agents.py'
+    spec = importlib.util.spec_from_file_location('agentic_native_agents', script)
+    native = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(native)
+    wanted = native.profiles(source)  # Complete source preflight before any writes.
+    previous, effective = {}, {}
+    for path, payload in wanted.items():
+        family = path.split('/')[0][1:]
+        filename = Path(path).name[len('agentic-'):]
+        rel = f'{family}/agents/{filename}'
+        installed = native._safe(root / rel)
+        if installed.exists():
+            current = installed.read_bytes()
+            previous[path] = current
+            if current != payload and recorded.get(rel) != digest(installed) and not force:
+                payload = current
+        effective[rel] = payload
+    return native, previous, effective
+
+
+def sync_native(context, project, local, dry_run=False, check=False):
+    if context is None:
+        return None
+    native, previous, effective = context
+    # Temporary desired tree makes dry-run reflect preserved canonical customizations.
+    with tempfile.TemporaryDirectory(prefix='agentic-native-update-') as directory:
+        method = Path(directory)
+        for rel, payload in effective.items():
+            dest = method / rel
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(payload)
+        return native.sync(method, project, local=local, dry_run=dry_run,
+                           previous=previous, check=check)
 
 
 def digest(path):
@@ -73,6 +114,10 @@ def update(project, dry_run=False, force=False, source=SOURCE, stamp=None):
         recorded = {}
     report = {'added': [], 'updated': [], 'unchanged': [], 'customized': [], 'forced': []}
     new_manifest = dict(recorded)
+    context = native_context(root, source, recorded, force)
+    project = Path(project).resolve()
+    local = root != project
+    native_report = sync_native(context, project, local, check=True)
     for rel in managed(source):
         src, dest = Path(source) / rel, root / rel
         wanted = digest(src)
@@ -108,6 +153,9 @@ def update(project, dry_run=False, force=False, source=SOURCE, stamp=None):
             new_manifest[rel] = wanted
     if not dry_run:
         manifest_path.write_text(json.dumps({'version': 1, 'files': new_manifest}, indent=1, sort_keys=True))
+        native_report = sync_native(context, project, local)
+    if native_report is not None:
+        report['native_agents'] = native_report
     report['root'] = str(root)
     report['review'] = str(work) if report['customized'] or report['updated'] or report['forced'] else None
     return report
@@ -140,6 +188,8 @@ def main():
     print('unchanged: %d' % len(report['unchanged']))
     if report['customized']:
         print('Customized files kept; compare with the incoming copies in %s/incoming' % report['review'])
+    if report.get('native_agents') is not None:
+        print('Native agents: ' + json.dumps(report['native_agents'], sort_keys=True))
     return 0
 
 

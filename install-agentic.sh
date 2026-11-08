@@ -86,6 +86,7 @@ V2_RESOURCES=(
   docs/agentic/templates/agentic.config.json
   scripts/agentic-build.py
   scripts/agentic-workspace.py
+  scripts/agentic-agents.py
   scripts/agentic-skills.py
   scripts/agentic-models.py
   scripts/agentic-scheduler.py
@@ -144,6 +145,11 @@ else
     [ ! -e "$TARGET/$protected" ] && [ ! -L "$TARGET/$protected" ] || fail "$protected already exists. Use --local to preserve team files."
   done
 fi
+
+native_options=()
+[ "$MODE" != LOCAL ] || native_options+=(--local)
+python3 "$SCRIPT_DIR/scripts/agentic-agents.py" --method-root "$SCRIPT_DIR" \
+  --project "$TARGET" "${native_options[@]}" --check
 
 copy_if_missing() {
   local src="$1" dest="$2"
@@ -233,6 +239,8 @@ if [ "$MODE" != LOCAL ]; then
   done
 fi
 
+python3 "$SCRIPT_DIR/scripts/agentic-agents.py" --method-root "$DEST" \
+  --project "$TARGET" "${native_options[@]}"
 python3 "$SCRIPT_DIR/update-agentic.py" --record "$DEST" || true
 # Push guard: best effort, never fails the install and never replaces a foreign hook.
 guard_script="$DEST/scripts/agentic-pr-check.py"
@@ -243,7 +251,7 @@ else
 fi
 echo "Installed $MODE in: $DEST"
 if [ "$MODE" = LOCAL ]; then
-  echo "Team files are unchanged. Nothing is automatically activated."
+  echo "Team files are unchanged. Native agents are installed for discovery in a new client session."
   echo "Prompt: Read the repository rules first, then .agentic-local/docs/agentic/LOCAL.md then its method index: scoped ticket reuses existing decisions; new product prepares six reference sections."
   # Plain codex only reads .agentic-local through the personal global file; never overwrite it.
   codex_global="${CODEX_HOME:-$HOME/.codex}/AGENTS.md"

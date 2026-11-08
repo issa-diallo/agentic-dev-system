@@ -1,4 +1,5 @@
 import importlib.util
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -28,6 +29,39 @@ def install(files):
 
 
 class UpdateTests(unittest.TestCase):
+    def test_native_profiles_migrate_update_and_preserve_customizations(self):
+        src = fake_source()
+        project = install({'.agentic-local/docs/agentic/README.md': 'r2'})
+        subprocess.run(['git', 'init', '-q', str(project)], check=True)
+        method = project / '.agentic-local'
+        for client, suffix in [('codex', 'toml'), ('claude', 'md')]:
+            for role in ('explorer', 'implementer', 'reviewer'):
+                relative = f'{client}/agents/{role}.{suffix}'
+                for base in (method, src):
+                    target = base / relative
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes((ROOT / relative).read_bytes())
+        update.record(method, source=src)
+        report = update.update(project, source=src, stamp='native-first')
+        native = project / '.codex/agents/agentic-explorer.toml'
+        custom = project / '.claude/agents/agentic-reviewer.md'
+        self.assertEqual(native.read_bytes(), (src / 'codex/agents/explorer.toml').read_bytes())
+        original = native.read_bytes()
+        custom.write_text('my reviewer\n')
+        wanted = original + b'\n# updated source\n'
+        (src / 'codex/agents/explorer.toml').write_bytes(wanted)
+        before_exclude = (project / '.git/info/exclude').read_bytes()
+        preview = update.update(project, source=src, dry_run=True, stamp='preview')
+        self.assertEqual(native.read_bytes(), original)
+        self.assertEqual((project / '.git/info/exclude').read_bytes(), before_exclude)
+        self.assertIn('.codex/agents/agentic-explorer.toml', preview['native_agents']['updated'])
+        report = update.update(project, source=src, stamp='native-next')
+        self.assertEqual(native.read_bytes(), wanted)
+        self.assertEqual(custom.read_text(), 'my reviewer\n')
+        self.assertIn('.claude/agents/agentic-reviewer.md', report['native_agents']['customized'])
+        self.assertEqual(subprocess.run(['git', '-C', str(project), 'check-ignore', '-q',
+                                        '.codex/agents/agentic-explorer.toml']).returncode, 0)
+
     def test_managed_skips_project_data_and_foreign_scripts(self):
         files = update.managed(fake_source())
         self.assertEqual(sorted(files), ['AGENTS.md', 'COMMITS.md', 'docs/agentic/README.md',

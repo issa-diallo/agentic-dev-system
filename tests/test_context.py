@@ -234,7 +234,10 @@ class ContextTests(unittest.TestCase):
                     for name in required_resources():
                         self.assertEqual((dest/name).read_bytes(), (SOURCE/name).read_bytes(), name)
                     self.assertEqual(list((dest/'docs/agentic/work').iterdir()), [])
-                    self.assertFalse((dest/'.codex').exists())
+                    if mode == 'LOCAL':
+                        self.assertFalse((dest/'.codex').exists())
+                    for client, suffix in [('codex', 'toml'), ('claude', 'md')]:
+                        self.assertTrue((repo / f'.{client}/agents/agentic-reviewer.{suffix}').is_file())
                     self.assertFalse((dest/'node_modules').exists())
                     for forbidden in ['.headroom', '.mcp.json', 'package.json', 'requirements.txt']:
                         self.assertFalse((dest/forbidden).exists())

@@ -286,7 +286,7 @@ class TemplateAndAdapterTests(unittest.TestCase):
             with self.assertRaises(RUN.Blocked):
                 RUN.claude_agents(directory)
 
-    def test_launcher_passes_agents_activation_and_mission_to_claude(self):
+    def test_launcher_preserves_native_agents_activation_and_mission_to_claude(self):
         with tempfile.TemporaryDirectory() as directory:
             fake = Path(directory) / 'claude'
             fake.write_text('#!/usr/bin/env python3\nimport json, sys\nprint(json.dumps(sys.argv[1:]))\n')
@@ -299,14 +299,11 @@ class TemplateAndAdapterTests(unittest.TestCase):
                                      text=True, check=True).stdout
                 return json.loads(out)
             plain = launch('--model', 'haiku')
-            self.assertEqual(plain[0], '--agents')
-            self.assertIn('agentic-implementer', json.loads(plain[1]))
-            self.assertEqual(plain[2:], ['--model', 'haiku'])
+            self.assertEqual(plain, ['--model', 'haiku'])
             run = launch('run', 'Fix the bug', '-p')
-            self.assertEqual(run[0], '--agents')
-            self.assertEqual(run[2], '--append-system-prompt')
-            self.assertIn('DELEGATION.md', run[3])
-            self.assertEqual(run[4:], ['-p', 'Fix the bug'])
+            self.assertEqual(run[0], '--append-system-prompt')
+            self.assertIn('DELEGATION.md', run[1])
+            self.assertEqual(run[2:], ['-p', 'Fix the bug'])
             self.assertNotEqual(subprocess.run(['bash', script, 'run'], env=env,
                                                capture_output=True).returncode, 0)
 

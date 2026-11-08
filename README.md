@@ -17,6 +17,10 @@ git clone git@github.com:issa-diallo/agentic-dev-system.git ~/agentic-dev-system
 
 L'installation pose la méthode dans `.agentic-local/` (exclu de Git), crée
 `~/.codex/AGENTS.md` s'il n'existe pas et pose un hook Git `pre-push` local.
+Les profils sont aussi installés dans les dossiers natifs du projet :
+`.codex/agents/` et `.claude/agents/`. En LOCAL, leurs six chemins exacts sont
+exclus de Git. Ouvrir une nouvelle session du client pour leur découverte ;
+aucune configuration ni permission existante n’est remplacée.
 Relancer ensuite `codex` dans le projet.
 
 **Mettre à jour un projet déjà installé**
