@@ -32,6 +32,14 @@ def render(delegation, commands=None, skills=None, max_skill_chars=6000):
     test_instruction = ('Ne modifie aucun fichier : mission en lecture seule.' if read_only else
                         'Ajoute ou adapte les tests du comportement. Ne supprime, ne désactive '
                         'et n\'assouplis aucun test existant.')
+    if role == 'test-author':
+        test_instruction = ('Écris UNIQUEMENT les tests issus des règles métier et AC fournis. '
+                            'Aucun code produit. Les tests peuvent déjà passer ou échouer ; '
+                            'aucun cycle ou commit rouge obligatoire.')
+    elif delegation.get('locked_tests'):
+        test_instruction = ('Les tests transmis sont verrouillés : ' +
+                            ', '.join(delegation['locked_tests']) +
+                            '. Implémente sans modifier ces tests ; attente manquante : BLOCKED.')
     parts = ['# Mission ' + delegation['pr'],
              'Rôle : %s ; phase : %s' % (role, delegation.get('phase', 'BUILD')),
              'Objectif : ' + delegation['objective'],
@@ -42,8 +50,19 @@ def render(delegation, commands=None, skills=None, max_skill_chars=6000):
              'Tout autre fichier modifié, créé ou supprimé invalide la mission. '
              'Ne lis que le nécessaire.', '## Vérification']
     if commands:
-        parts += ['Exécute exactement ces commandes, sans les modifier, jusqu\'au succès :',
+        instruction = ('Consigne le résultat initial de ces commandes sans changer le produit :'
+                       if role == 'test-author' else
+                       'Exécute exactement ces commandes, sans les modifier, jusqu\'au succès :')
+        parts += [instruction,
                   bullets('`%s`' % shlex.join(command) for command in commands)]
+    if delegation.get('verification'):
+        parts += ['## Preuves Verify à confronter au diff courant',
+                  json.dumps(delegation['verification'], ensure_ascii=False)]
+    if role in ('reviewer', 'lead-tech'):
+        parts += ['Examine le diff, les AC et les preuves. Ajoute au handoff un objet '
+                  'review={"verdict":"PASS|PASS_WITH_MINOR|CHANGES_REQUIRED|BLOCKED",'
+                  '"findings":[{"severity":"Critical|Major|Minor|Nit","message":"..."}]}. '
+                  'Une fin de processus ne constitue pas une revue favorable.']
     parts += ['Tests attendus par le plan :', bullets(delegation['tests']),
               test_instruction, '## Interdits',
               bullets(delegation['prohibitions'] + [
@@ -81,8 +100,20 @@ def parse_handoff(text):
         if not isinstance(tests, list) or not all(isinstance(t, dict) for t in tests):
             continue
         return {'status': data['status'], 'summary': str(data.get('summary', ''))[:2000],
-                'tests': tests[:20], **{k: v[:50] for k, v in lists.items()}}
+                'tests': tests[:20], **{k: v[:50] for k, v in lists.items()},
+                **({'review': data['review']} if 'review' in data else {})}
     return None
+
+
+def review_passes(review):
+    """Assess the report's contents, never its author's runtime independence."""
+    return (isinstance(review, dict)
+            and review.get('verdict') in ('PASS', 'PASS_WITH_MINOR')
+            and isinstance(review.get('findings'), list)
+            and all(isinstance(finding, dict)
+                    and finding.get('severity') in ('Minor', 'Nit')
+                    and isinstance(finding.get('message'), str) and finding['message'].strip()
+                    for finding in review['findings']))
 
 
 def main():

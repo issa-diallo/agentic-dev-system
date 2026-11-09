@@ -536,14 +536,70 @@ def record_attempt(repo, entry):
     return attempts
 
 
+def missions_enabled(config):
+    raw = config.get('run', {}).get('missions', {})
+    require(isinstance(raw, dict) and set(raw) <= {'enabled'},
+            'run.missions must contain only enabled')
+    enabled = raw.get('enabled', False)
+    require(type(enabled) is bool, 'run.missions.enabled must be a boolean')
+    return enabled
+
+
+def mission_pipeline(scheduler, adapter, commands_for, settings, accept, dry_run):
+    """Use the existing task/ownership lifecycle, retaining every stopped mission."""
+    gates = module('gates')
+    while True:
+        final = scheduler.dispatch(adapter)
+        advanced = False
+        for pr, task in final['tasks'].items():
+            if dry_run or task['state'] != 'COMPLETED' or not task.get('mission_roles'):
+                continue
+            if task.get('mission_complete'):
+                if accept and not task.get('accepted'):
+                    scheduler.accept(pr, task['mission_gate']['acceptance_evidence'])
+                    advanced = True
+                continue
+            if task['role'] == 'reviewer':
+                gate = task['verify_evidence']
+            else:
+                options = {**settings, 'baseline_only': task['role'] == 'test-author'}
+                gate = gates.run(task['delegation']['worktree'], task['starting_head'],
+                                 task['unit']['files'], commands_for(task), options, task['plan_sha256'])
+            checked = scheduler.finish_mission(pr, gate)
+            if checked['state'] == 'PLANNED':
+                advanced = True
+            elif checked.get('mission_complete') and accept:
+                scheduler.accept(pr, checked['mission_gate']['acceptance_evidence'])
+                advanced = True  # Dependants may now be ready.
+        if not advanced:
+            break
+    final = scheduler.resume()
+    report = {}
+    for pr, task in final['tasks'].items():
+        entry = {k: task.get(k) for k in ('state', 'blockers', 'model_requested',
+                                         'model_execution', 'result')}
+        entry['missions'] = [{'role': h['task']['role'], 'agent_id': h['task']['agent_id'],
+                              'gate': h['gate']['verdict'],
+                              'model_execution': h['task'].get('model_execution')}
+                             for h in task.get('mission_history', [])]
+        if task.get('mission_complete') and task['state'] == 'COMPLETED':
+            entry.update(gates=task['mission_gate'], next='SHIP', accepted=task.get('accepted', False))
+        elif dry_run:
+            entry['dry_run'] = True
+        report[pr] = entry
+    return report
+
+
 def delegate(manifest, repo, config_path=None, state=None, accept=False, dry_run=False,
-             commands=None, which=shutil.which, popen=subprocess.Popen, gates_extra=None):
+             commands=None, which=shutil.which, popen=subprocess.Popen, gates_extra=None,
+             missions=None):
     config = load_config(config_path or default_config())
     inventory, index = build_inventory(config, which)
     require(index, 'no available model: check config models, "enabled" flags and installed harnesses')
     repo = module('workspace').root(repo)
     gates_config = {**config.get('gates', {}), **(gates_extra or {})}
     configured = commands or gates_config.get('commands', 'auto')
+    mission_mode = missions_enabled(config) if missions is None else missions
     detect = module('detect')
 
     def commands_for(task):
@@ -557,9 +613,13 @@ def delegate(manifest, repo, config_path=None, state=None, accept=False, dry_run
         state = str(Path(tempfile.mkdtemp(prefix='agentic-dry-')) / 'state.json')
     scheduler = module('scheduler').Scheduler(
         manifest, repo, state, skill_roots=[str(METHOD_ROOT / 'skills')], models=inventory,
-        attempts=load_attempts(repo), routing_policy=config.get('routing_policy'))
+        attempts=load_attempts(repo), routing_policy=config.get('routing_policy'),
+        missions=mission_mode,
+        execution_context={'config': config, 'commands': configured} if mission_mode else None)
     adapter = ProcessAdapter(config, index, run_dir, commands_for, dry_run, popen)
     try:
+        if mission_mode:
+            return mission_pipeline(scheduler, adapter, commands_for, gates_config, accept, dry_run)
         final = scheduler.dispatch(adapter)
     finally:
         adapter.close()
@@ -645,6 +705,7 @@ def quick(repo, task_id, objective, files, criteria, tests=(), implementer='dele
     test_files = [f for f in files if gates_module.TEST_PATH.search(f)]
     source_files = [f for f in files if f not in test_files]
     if tdd:
+        kwargs = {**kwargs, 'missions': False}  # Explicit TDD keeps its existing two-phase contract.
         require(rules or green_only, 'TDD needs the ticket business rules (--rule "RM1: ..."); --no-tdd '
                 'only for docs, config, covered refactor or spike')
         require(test_files, 'TDD needs test files in scope (paths such as tests/test_x.py)')

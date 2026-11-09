@@ -32,6 +32,27 @@ class BriefTests(unittest.TestCase):
         self.assertNotIn('Ajoute ou adapte les tests', text)
         self.assertIn('Ne modifie aucun fichier', text)
 
+    def test_test_author_brief_limits_writing_to_tests_without_mandatory_failure(self):
+        text = BRIEF.render({**DELEGATION, 'role': 'test-author', 'phase': 'BUILD'})
+        self.assertIn('test-author', text)
+        self.assertIn('UNIQUEMENT les tests', text)
+        self.assertNotIn('Les tests doivent échouer', text)
+        self.assertNotIn('Ajoute ou adapte les tests du comportement', text)
+
+    def test_implementer_brief_preserves_transmitted_tests(self):
+        text = BRIEF.render({**DELEGATION, 'role': 'implementer',
+                             'locked_tests': ['tests/test_export.py']})
+        self.assertIn('verrouillés', text)
+        self.assertIn('tests/test_export.py', text)
+        self.assertNotIn('Ajoute ou adapte les tests du comportement', text)
+
+    def test_review_handoff_preserves_findings_instead_of_treating_completion_as_pass(self):
+        parsed = BRIEF.parse_handoff(reply(
+            '{"status":"COMPLETED","review":{"verdict":"PASS",'
+            '"findings":[{"severity":"Major","message":"Missing AC"}]}}'))
+        self.assertEqual(parsed['review']['verdict'], 'PASS')
+        self.assertEqual(parsed['review']['findings'][0]['severity'], 'Major')
+
     def test_skill_instructions_are_capped(self):
         skill = {'path': '/x/skills/tdd/SKILL.md', 'instructions': 'a' * 500}
         text = BRIEF.render(DELEGATION, None, [skill], max_skill_chars=100)
