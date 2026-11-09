@@ -46,9 +46,26 @@ def snapshot(repo):
     return quality.snapshot(repo)
 
 
+def file_hashes(repo):
+    """Content and mode of tracked/untracked files; ignored runtime files stay local."""
+    entries = BUILD.git(repo, 'ls-files', '--stage', '-z').split(b'\0')
+    require(not any(entry.startswith(b'160000 ') for entry in entries),
+            'mission pipelines do not support gitlinks; reconcile before launch')
+    names = BUILD.git(repo, 'ls-files', '-z', '--cached', '--others', '--exclude-standard')
+    result = {}
+    for raw in set(names.split(b'\0')) - {b''}:
+        name = raw.decode('utf-8', 'surrogateescape')
+        path = Path(repo) / name
+        if not path.exists() and not path.is_symlink():
+            continue
+        data = os.fsencode(os.readlink(path)) if path.is_symlink() else path.read_bytes()
+        result[name] = [path.lstat().st_mode, hashlib.sha256(data).hexdigest()]
+    return result
+
+
 class Scheduler:
     def __init__(self, manifest, repo='.', state_path=None, *, skill_roots=(), models=None,
-                 attempts=None, routing_policy=None):
+                 attempts=None, routing_policy=None, missions=False, execution_context=None):
         self.manifest = Path(manifest).resolve()
         self.repo = WORKSPACE.root(repo)
         common = BUILD.common_dir(self.repo)
@@ -56,8 +73,11 @@ class Scheduler:
         self.path = Path(state_path) if state_path else common / 'agentic-scheduler' / namespace / 'state.json'
         self.skill_roots, self.models, self.attempts = skill_roots, models, attempts
         self.routing_policy = routing_policy
+        self.missions = missions
+        fingerprint = ({'policy': routing_policy, 'missions': True, 'runtime': execution_context}
+                       if missions else routing_policy)
         self.routing_fingerprint = hashlib.sha256(
-            json.dumps(routing_policy, sort_keys=True).encode()).hexdigest()
+            json.dumps(fingerprint, sort_keys=True).encode()).hexdigest()
 
     def _save(self, state):
         fd, temporary = tempfile.mkstemp(dir=self.path.parent)
@@ -124,6 +144,11 @@ class Scheduler:
             if key not in state['tasks']:
                 state['tasks'][key] = {'unit': unit, 'state': 'PLANNED', 'blockers': [],
                                        'plan_sha256': digest, 'agent_id': None, 'active': False}
+                if self.missions:
+                    tests = any(module('gates').TEST_PATH.search(path) for path in unit['files'])
+                    state['tasks'][key].update(
+                        mission_roles=(['test-author'] if tests else []) + ['implementer', 'reviewer'],
+                        mission_index=0, mission_history=[], mission_complete=False)
             elif key not in changed and not state['tasks'][key].get('owner'):
                 state['tasks'][key]['plan_sha256'] = digest
         changed.update(key for key, task in state['tasks'].items()
@@ -233,10 +258,42 @@ class Scheduler:
         task = state['tasks'][pr]
         require(task['state'] == 'PLANNED', 'task is not PLANNED; no redispatch')
         require(not task.get('owner'), 'interrupted assignment; reconcile owner before dispatch')
+        require(not self.missions or task.get('mission_roles'),
+                'legacy task requires reviewed reconciliation before mission pipeline')
         delegation = BUILD.prepare(self.manifest, self.repo, pr, self._done(state))
         require(delegation['plan_sha256'] == state['plan_sha256'], 'plan changed during prepare')
         delegation['runtime_handshake'] = 'Remain read-only until orchestrator confirms launch receipt'
-        context = self._context(delegation, task['unit'])
+        unit = copy.deepcopy(task['unit'])
+        if task.get('mission_roles'):
+            require(self.missions, 'mission pipeline disabled; reconciliation required')
+            require(unit.get('routing', {}).get('role', 'implementer') == 'implementer'
+                    and unit.get('routing', {}).get('phase', 'BUILD') == 'BUILD',
+                    'mission pipeline requires an implementer BUILD PR entry')
+            require(not task.get('mission_snapshot') or
+                    task['mission_snapshot'] == snapshot(delegation['worktree']),
+                    'mission input changed; revalidation required')
+            role = task['mission_roles'][task['mission_index']]
+            classification = unit.setdefault('routing', {})
+            classification.update(role=role, phase='BUILD', session_id='mission:' + uuid.uuid4().hex)
+            if role == 'reviewer':
+                classification['complexity'] = 'high'  # Review floor also applies without a policy.
+                writer = next(h['task'] for h in task['mission_history']
+                              if h['task']['role'] == 'implementer')
+                classification['implementer_session_id'] = writer['agent_id']
+            hashes = file_hashes(delegation['worktree'])
+            is_test = module('gates').TEST_PATH.search
+            protected = {p: value for p, value in hashes.items()
+                         if (not is_test(p) if role == 'test-author' else bool(is_test(p)))}
+            task['mission_protected'] = protected
+            if role == 'implementer':
+                delegation['locked_tests'] = [p for p in hashes if is_test(p)]
+            delegation['writable_files'] = [p for p in unit['files']
+                                            if (bool(is_test(p)) if role == 'test-author'
+                                                else not is_test(p))]
+            if role == 'reviewer':
+                delegation['writable_files'] = []
+                delegation['verification'] = task['verify_evidence']
+        context = self._context(delegation, unit)
         owner = {'id': 'scheduler-' + uuid.uuid4().hex, 'task': pr,
                  'plan_sha256': delegation['plan_sha256']}
         resources = [{'type': 'file', 'name': file} for file in delegation['files']]
@@ -288,6 +345,12 @@ class Scheduler:
                                      == task['model_requested'])
         try:
             self._launch_guard(task)
+            if task.get('mission_roles') and task['role'] == 'reviewer':
+                writers = [h['task']['agent_id'] for h in task['mission_history']
+                           if h['task']['role'] in ('test-author', 'implementer')]
+                require(identity not in writers and runtime != 'simulated',
+                        'review requires an independently observed runtime session')
+                task['independent_review'] = True
         except (ValueError, OSError) as error:
             self._block(state, task, str(error))
             self._event(state, task, 'launch_observed_scope_invalid')
@@ -335,6 +398,14 @@ class Scheduler:
             if task.get('read_only'):
                 if snapshot(task['delegation']['worktree']) != task['assigned_snapshot']:
                     self._block(state, task, 'read-only mission modified worktree')
+            if task.get('mission_roles'):
+                task['result_snapshot'] = snapshot(task['delegation']['worktree'])
+                if task['role'] == 'reviewer':
+                    observed_session = task.get('model_execution', {}).get('cli_session_id')
+                    writer_sessions = [h['task'].get('model_execution', {}).get('cli_session_id')
+                                       for h in task['mission_history']]
+                    if observed_session and observed_session in writer_sessions:
+                        self._block(state, task, 'review reused a writer CLI session')
             task.update(active=False, result=observation['result'], stop_evidence=observation,
                         duration_seconds=max(0, time.time() - task['launched_at'])
                         if task.get('launched_at') else None)
@@ -364,6 +435,15 @@ class Scheduler:
         changed = {path.decode('utf-8', 'surrogateescape') for path in committed if path}
         require(not (changed | BUILD.dirty_paths(tree)) - set(unit['files']),
                 'committed/dirty paths outside scope')
+        if task.get('mission_roles'):
+            require(WORKSPACE.git(tree, 'rev-parse', 'HEAD') == task['starting_head'],
+                    'mission must not commit or change HEAD')
+            current = file_hashes(tree)
+            is_test = module('gates').TEST_PATH.search
+            protected = {p: value for p, value in current.items()
+                         if (not is_test(p) if task['role'] == 'test-author' else bool(is_test(p)))}
+            require(protected == task['mission_protected'],
+                    'mission changed protected product/tests content')
 
     def _launch_guard(self, task):
         self._scope(task)
@@ -397,6 +477,49 @@ class Scheduler:
             self._event(state, task, 'contract_accepted')
             return copy.deepcopy(task)
 
+    def finish_mission(self, pr, gate):
+        """Advance one PR after fresh deterministic evidence and confirmed runtime stop."""
+        with self._state() as state:
+            self._sync(state)
+            self._validate_owners(state)
+            task = state['tasks'][pr]
+            try:
+                require(task['state'] == 'COMPLETED' and task.get('active') is False
+                        and 'owner' not in task, 'mission requires stopped completed execution')
+                require(task.get('stop_evidence', {}).get('stopped_confirmed') is True,
+                        'mission stop evidence required')
+                stop = task['stop_evidence']
+                require(stop.get('identity_verified') is True
+                        and stop.get('agent_id') == task.get('agent_id'),
+                        'mission stop identity mismatch')
+                self._scope(task)
+                current = snapshot(task['delegation']['worktree'])
+                require(task.get('result_snapshot') == current, 'mission output changed')
+                require(gate.get('verdict') == 'PASS' and gate.get('snapshot') == current
+                        and gate.get('plan_sha256') == state['plan_sha256']
+                        and gate.get('base') == task['starting_head'], 'mission gate failed or stale')
+                handoff = task.get('result', {}).get('handoff')
+                require(handoff and handoff['status'] == 'COMPLETED', 'mission handoff required')
+                if task['role'] == 'reviewer':
+                    require(task.get('independent_review') is True
+                            and module('brief').review_passes(handoff.get('review')),
+                            'independent review missing or blocking findings')
+                task['mission_gate'] = copy.deepcopy(gate)
+                previous = {k: copy.deepcopy(v) for k, v in task.items() if k != 'mission_history'}
+                task['mission_history'].append({'task': previous, 'gate': copy.deepcopy(gate)})
+                task['mission_snapshot'] = current
+                if task['role'] == 'implementer':
+                    task['verify_evidence'] = copy.deepcopy(gate)
+                if task['role'] == 'reviewer':
+                    task['mission_complete'] = True
+                else:
+                    task.update(state='PLANNED', mission_index=task['mission_index'] + 1,
+                                agent_id=None, active=False, result=None, accepted=False)
+                self._event(state, task, 'mission_verified')
+            except (ValueError, OSError, KeyError, TypeError) as error:
+                self._block(state, task, str(error))
+            return copy.deepcopy(task)
+
     def requeue(self, pr, evidence):
         """Reconcile a stopped attempt and plan a new one without launch or release."""
         with self._state() as state:
@@ -424,10 +547,15 @@ class Scheduler:
             previous = {key: value for key, value in task.items() if key != 'history'}
             history = task.get('history', []) + [{'task': copy.deepcopy(previous),
                                                  'requeue': copy.deepcopy(evidence), 'time': time.time()}]
+            mission = {key: copy.deepcopy(task[key]) for key in (
+                'mission_roles', 'mission_index', 'mission_history', 'mission_complete',
+                'verify_evidence', 'starting_head', 'role', 'mission_protected') if key in task}
+            if mission:
+                mission['mission_snapshot'] = evidence['snapshot']
             task.clear()
             task.update(unit=units[pr], state='PLANNED', blockers=[], active=False,
                         agent_id=None, accepted=False, plan_sha256=state['plan_sha256'],
-                        history=history, result=None)
+                        history=history, result=None, **mission)
             self._event(state, task, 'requeued')
             return copy.deepcopy(task)
 
@@ -502,6 +630,11 @@ class Scheduler:
                     require(not BUILD.dirty_paths(tree) - set(unit['files']), 'dirty paths outside scope')
                     if task.get('starting_head'):
                         self._scope(task)
+                    if task.get('mission_roles') and not task.get('owner'):
+                        expected = (task.get('result_snapshot') if task['state'] == 'COMPLETED'
+                                    else task.get('mission_snapshot'))
+                        require(not expected or snapshot(tree) == expected,
+                                'mission evidence stale; revalidation required')
                 except (ValueError, OSError) as error:
                     self._block(state, task, str(error))
             return copy.deepcopy(state)

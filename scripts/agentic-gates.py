@@ -140,9 +140,20 @@ def run(repo, base, files, commands, settings=None, plan_sha256=None):
     gates, lines = static_gates(changes, files, settings)
     failed = any(g['status'] == 'FAIL' for g in gates)
     report = {'gates': gates, 'stats': {'files': len(changes), 'lines': lines},
-              'changed': sorted(changes), 'commands': None}
+              'changed': sorted(changes), 'commands': None,
+              'base': git(repo, 'rev-parse', base).decode().strip(), 'plan_sha256': plan_sha256}
     docs_only = bool(changes) and all(Path(p).suffix in DOC_SUFFIXES for p in changes)
-    if settings.get('expect_red') and not commands:
+    if settings.get('baseline_only') and not failed:
+        # Tests-before-code is not TDD: either initial result is informative.
+        checks = (quality().run_checks(repo, commands, settings.get('timeout', 600))
+                  if commands else {'verdict': 'NOT_RUN', 'checks': [], 'unchanged': True})
+        report['commands'] = checks
+        failed = (not checks['unchanged'] or any(
+            c['timed_out'] or c['output_limit_exceeded'] or c['returncode'] is None
+            for c in checks['checks']))
+        gates.append(verdict('baseline', 'FAIL' if failed else 'PASS',
+                             'initial test result: ' + checks['verdict']))
+    elif settings.get('expect_red') and not commands:
         gates.append(verdict('red', 'FAIL', 'no verification command configured'))
         failed = True
     elif not commands and docs_only and not failed:

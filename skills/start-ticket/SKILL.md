@@ -72,6 +72,16 @@ utilisateur/configuration. La review conserve son niveau requis. Ne pas déduire
 prix ou une capacité du seul nom d’un modèle ; consigner requested/observed et les
 mesures absentes à null. Aucun changement fictif du modèle de la session principale.
 
+Sélectionner à chaque mission utile selon MODELS/DELEGATION : PREPARE reste une
+décision de l'orchestrateur, puis test-author limité aux tests RM/AC, implementer,
+Verify déterministe et reviewer indépendant en lecture seule. Pour MEDIUM,
+`agentic-run.py delegate` avec `run.missions.enabled: true` enchaîne ces missions
+dans la même tâche/PR ; conserver son état pour la reprise. L'option est désactivée
+par défaut et ne change pas les gates. Tickets simples : réduire les missions
+superflues sans supprimer tests attendus ni revue indépendante ; ne pas créer
+des processus permanents par phase ou une PR par rôle. Hors runner, transmettre
+explicitement le même contrat de fichiers et contrôler les snapshots.
+
 Lancer réellement l’implementer via les outils natifs disponibles ou le harnais
 configuré (`agentic-run.py` si adapté). Les profils `agentic_implementer`,
 `agentic_explorer`, `agentic_reviewer` ne sont utilisables comme profils natifs que
@@ -92,6 +102,11 @@ déclaratif ne vaut pas PASS.
 Un seul écrivain par worktree. Conserver reçus, identités observées, fin confirmée
 et handoff vérifié avant changement d’owner. Respecter les dépendances et sérialiser
 les collisions ; une dépendance structurante échouée bloque ses descendants.
+Le test-author ne peut altérer le produit ; l'implementer préserve les tests
+transmis. Détecter les mutations de contenu et HEAD, pas seulement les chemins.
+Une transition exige arrêt confirmé et preuves fraîches liées au plan/contenu.
+À la reprise, contrôler l'historique et les entrées courantes avant de poursuivre
+une mission arrêtée ; ne pas rejouer un lancement ni avancer depuis un BLOCKED.
 
 ## Review, corrections et SHIP
 
@@ -99,6 +114,9 @@ Lancer un reviewer indépendant de l’implementer selon REVIEWER, avec ticket/A
 préparation, diff réel et preuves Verify sur base/head actuels. Lecture seule :
 il rend ses findings à l’orchestrateur, sans modifier le code ni publier un avis
 GitHub. Changer de modèle dans la même session ne crée pas cette indépendance.
+Confronter l'identité runtime observée, le snapshot inchangé, les findings et
+le verdict structuré aux preuves Verify et au diff/base/head/plan examinés.
+Un rapport absent ou Critical/Major bloque même si le processus finit avec succès.
 LIGHT/STANDARD : le profil Lead Tech peut couvrir les deux examens ; LARGE ou
 risque critique : seconde lecture distincte selon les exigences de SHIP.
 

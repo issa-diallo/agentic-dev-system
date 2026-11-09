@@ -1,7 +1,6 @@
 # Délégation à des modèles économiques
 
-Un agent fort cadre et vérifie ; un modèle moins cher implémente un périmètre fermé.
-Outils stdlib :
+Cadrage/revue séparés de l’implémentation déléguée. Outils stdlib :
 
 | Script | Rôle |
 |---|---|
@@ -118,5 +117,6 @@ tests, règles, AC et échecs préexistants à l'implementer pour guider son cod
 les tests ; revoir avec l'orchestrateur tout changement d'attente métier. Verify exécute
 les tests et contrôles pertinents.
 
-Le défaut installé est `run.tdd.enabled: false`. Le cycle TDD en deux phases (`true`,
-`--review-red`, `--green-only`) reste disponible sur demande explicite du ticket/projet.
+Défaut : `run.tdd.enabled: false`. TDD explicite (`true`, `--review-red`,
+`--green-only`) facultatif.
+Flux optionnel : [missions](WORKFLOW.md#missions-successives-dune-pr-préparée).
