@@ -1,7 +1,7 @@
 # Délégation à des modèles économiques
 
 Un agent fort cadre et vérifie ; un modèle moins cher implémente un périmètre fermé.
-Quatre scripts stdlib l'outillent, sans service permanent ni dépendance :
+Outils stdlib :
 
 | Script | Rôle |
 |---|---|
@@ -10,7 +10,7 @@ Quatre scripts stdlib l'outillent, sans service permanent ni dépendance :
 | `agentic-gates.py` | gates déterministes sur le diff, sortie prête pour `scheduler accept` |
 | `agentic-claude.sh` | lance Claude Code avec les rôles de `claude/agents/` (équivalent de `agentic-codex.sh`) |
 
-## Démarrage rapide
+## Démarrage
 
 ```bash
 cp docs/agentic/templates/agentic.config.json agentic.config.json   # racine de la méthode
@@ -20,9 +20,8 @@ python3 scripts/agentic-run.py quick --id csv-export \
   --ac "La première ligne contient les en-têtes" --test "python3 -m unittest" --dry-run
 ```
 
-`quick` crée la branche `agentic/<id>` et son worktree (aussi avec `--dry-run`, qui ne
-lance aucun agent : le retirer avec `git worktree remove`), génère un plan d'une PR, route
-le modèle, lance l'agent puis les gates. Il ne commite, ne pousse ni ne fusionne rien : le worktree est laissé à l'orchestrateur, puis commits via
+`quick` crée branche `agentic/<id>`, worktree et plan, route, lance puis vérifie.
+`--dry-run` crée aussi le worktree mais ne lance rien ; retrait : `git worktree remove`. Il ne commite, ne pousse ni ne fusionne rien : le worktree est laissé à l'orchestrateur, puis commits via
 `agentic-commit.sh` et review indépendante. `delegate <plan.json>` fait de même pour un
 plan PR_SPLIT à plusieurs unités ; les unités indépendantes tournent en parallèle.
 
@@ -36,7 +35,7 @@ plan PR_SPLIT à plusieurs unités ; les unités indépendantes tournent en para
   binaire est absent du `PATH` n'entre pas dans l'inventaire.
 - `harnesses` : presets `claude`, `codex`, `opencode`, ou `{"argv": [...]}` avec les
   jetons `{prompt}`, `{model}`, `{effort}`, `{worktree}` pour tout autre CLI. `extra_args`
-  et `env_passthrough` sont facultatifs. Le niveau d'effort n'est transmis que par `codex`.
+  et `env_passthrough` sont facultatifs. L'effort passe par `codex` ou le jeton `{effort}`.
 - `gates` : `commands` (argv, jamais un shell), `timeout`, `require_tests`, `size`.
 - `run` : `timeout_seconds`, `max_turns`, `allowed_tools` (Claude).
 
@@ -87,14 +86,16 @@ diagnostic bloque, comme dans [MODEL_ROUTING](MODEL_ROUTING.md).
 
 ## Garanties et limites
 
-- L'agent n'est lancé qu'après validation du reçu : il reste en lecture seule jusqu'alors.
-- Identité observée = PID d'un processus enfant créé ici, non authentifié. Runtime `process`.
-- L'environnement transmis est filtré (clés du harnais seulement) ; ce n'est pas un bac à
-  sable. Pour un modèle non fiable, exécuter dans un conteneur sans secrets.
-- Jetons et coût ne sont connus que si le harnais les expose (JSON de Claude) ; sinon `null`.
-  Chaque run ajoute une ligne à `runs.jsonl`, avec `brief.md` et les logs, dans
-  `<git-common-dir>/agentic-runs/` (hors Git).
-- Aucun worktree n'est supprimé automatiquement.
+- Reçu confirmé avant libération ; PID observé, runtime `process`.
+  Environnement filtré, pas de sandbox ; conteneur pour modèle non fiable.
+- `routing_policy` active le routage par `routing.role/phase` de chaque unité
+  (défaut implementer/BUILD). Preuves `model_execution` : sélection, demande,
+  transmission, observation/application, harnais, fournisseur déclaré, PID,
+  sessions runtime/CLI distinctes et provenance. Voir [MODELS](MODELS.md).
+- Effort imposé non transmissible : BLOCKED sans fallback. Lecture seule :
+  preset Codex non modifié requis. Politique changée : réconciliation sans relance.
+- Brief, logs et `runs.jsonl` : `<git-common-dir>/agentic-runs/`, hors Git.
+  Tokens/coût absents : null. Aucun worktree supprimé automatiquement.
 
 ## Vérification automatique
 

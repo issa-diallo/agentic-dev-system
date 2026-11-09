@@ -106,6 +106,118 @@ class SchedulerTests(unittest.TestCase):
         evidence.update(extras)
         return evidence
 
+
+    def test_AC1_policy_role_phase_context_and_explicit_session_are_forwarded(self):
+        unit = self.plan['prs'][0]
+        unit['routing'] = {'role': 'reviewer', 'phase': 'SHIP',
+                           'session_id': 'review-session', 'implementer_session_id': 'writer-session'}
+        self.write()
+        policy = {'version': 1, 'enabled': True, 'rules': [
+            {'id': 'review', 'match': {'role': 'reviewer', 'phase': 'SHIP'},
+             'prefer': [{'harness': 'codex'}]}]}
+        models = {'models': [
+            {'id': 'review-model', 'harness': 'codex', 'max_level': 'HIGH',
+             'efforts': ['high'], 'cost_rank': 1}], 'runtime_overrides': True}
+        scheduler = SCHEDULER.Scheduler(self.manifest, self.repo, self.path,
+                                        models=models, routing_policy=policy)
+        task = scheduler.prepare('a')
+        self.assertEqual(task['role'], 'reviewer')
+        self.assertEqual(task['delegation']['role'], 'reviewer')
+        self.assertEqual(task['phase'], 'SHIP')
+        self.assertEqual(task['model_requested']['model'], 'review-model')
+        self.assertEqual(task['model_routing']['policy']['matched_rule'], 'review')
+
+    def test_AC4_active_policy_keeps_independent_launches_before_collection(self):
+        self.add('b')
+        for unit, role in zip(self.plan['prs'], ('implementer', 'test-author')):
+            unit['routing'] = {'role': role, 'phase': 'BUILD'}
+        self.write()
+        models = {'models': [{'id': name, 'harness': name, 'max_level': 'MEDIUM',
+                               'efforts': ['medium'], 'cost_rank': 1} for name in ('writer', 'tester')]}
+        policy = {'version': 1, 'enabled': True, 'rules': [
+            {'id': role, 'match': {'role': role}, 'prefer': [{'model': model}]}
+            for role, model in [('implementer', 'writer'), ('test-author', 'tester')]]}
+        scheduler = SCHEDULER.Scheduler(self.manifest, self.repo, self.path,
+                                        models=models, routing_policy=policy)
+        adapter = SimulatedAdapter()
+        state = scheduler.dispatch(adapter)
+        self.assertEqual(adapter.calls, [('launch', 'a'), ('launch', 'b'),
+                                         ('wait', 'a'), ('wait', 'b')])
+        self.assertEqual(state['tasks']['a']['model_requested']['model'], 'writer')
+        self.assertEqual(state['tasks']['b']['model_requested']['model'], 'tester')
+        self.assertEqual(self.owners(), {})
+
+    def test_AC2_partial_runtime_evidence_does_not_replace_complete_native_observation(self):
+        models = {'models': [{'id': 'inventory-model', 'max_level': 'MEDIUM',
+                             'efforts': ['medium'], 'cost_rank': 1}]}
+        self.scheduler = SCHEDULER.Scheduler(self.manifest, self.repo, self.path, models=models)
+        task = self.scheduler.prepare('a')
+        observed = dict(task['model_requested'])
+        self.scheduler.receipt('a', {'agent_id': 'simulated-a', 'runtime': 'native',
+                                    'launch_observed': True, 'identity_verified': True,
+                                    'model_observed': observed})
+        result = self.handoff(model_execution={
+            'observed': {'model': 'concrete-cli-model', 'effort': None},
+            'applied': {'model': True, 'effort': False}})
+        self.assertEqual(result['model_observed'], observed)
+        self.assertTrue(result['model_applied'])
+        self.assertIsNone(result['model_execution']['observed']['effort'])
+
+    def absent_component(self, missing):
+        original = SCHEDULER.module
+
+        def load(name, optional=False):
+            if name == missing:
+                if optional:
+                    return None
+                raise FileNotFoundError('missing component: ' + name)
+            return original(name, optional)
+        return mock.patch.object(SCHEDULER, 'module', side_effect=load)
+
+    def test_legacy_assignment_works_without_optional_models_component(self):
+        with self.absent_component('models'):
+            task = self.scheduler.prepare('a')
+        self.assertEqual(task['state'], 'ASSIGNED')
+        self.assertIsNone(task['model_requested'])
+        self.assertFalse(task['read_only'])
+
+    def test_legacy_assignment_works_without_optional_brief_component(self):
+        with self.absent_component('brief'):
+            task = self.scheduler.prepare('a')
+        self.assertEqual(task['state'], 'ASSIGNED')
+        self.assertEqual(task['role'], 'implementer')
+        self.assertEqual(task['phase'], 'BUILD')
+        self.assertFalse(task['read_only'])
+
+    def test_specialized_routing_missing_components_blocks_explicitly(self):
+        self.plan['prs'][0]['routing'] = {'role': 'reviewer', 'phase': 'SHIP'}
+        self.write()
+        for component in ('models', 'brief'):
+            with self.subTest(component=component), self.absent_component(component):
+                with self.assertRaisesRegex(SCHEDULER.Blocked, 'component.*required'):
+                    self.scheduler.prepare('a')
+        self.plan['prs'][0]['routing'] = {}
+        self.write()
+        scheduler = SCHEDULER.Scheduler(self.manifest, self.repo, self.root / 'policy-state.json',
+                                        routing_policy={'version': 1, 'enabled': True, 'rules': []})
+        with self.absent_component('models'):
+            with self.assertRaisesRegex(SCHEDULER.Blocked, 'component.*required'):
+                scheduler.prepare('a')
+
+    def test_AC3_policy_change_after_assignment_blocks_instead_of_redispatch(self):
+        models = {'models': [{'id': 'm', 'max_level': 'MEDIUM',
+                             'efforts': ['medium'], 'cost_rank': 1}]}
+        first = SCHEDULER.Scheduler(self.manifest, self.repo, self.path, models=models)
+        first.prepare('a')
+        policy = {'version': 1, 'enabled': True, 'rules': []}
+        reboot = SCHEDULER.Scheduler(self.manifest, self.repo, self.path,
+                                     models=models, routing_policy=policy)
+        adapter = SimulatedAdapter()
+        state = reboot.dispatch(adapter)
+        self.assertEqual(adapter.calls, [])
+        self.assertEqual(state['tasks']['a']['state'], 'BLOCKED')
+        self.assertIn('owner', state['tasks']['a'])
+
     def test_prepare_is_assignment_not_launch_and_reserves_all_files(self):
         self.plan['prs'][0]['files'].append('other.py')
         self.plan['prs'][0]['resources'] = [{'type': 'api', 'name': 'public'}]

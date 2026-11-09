@@ -48,13 +48,16 @@ def snapshot(repo):
 
 class Scheduler:
     def __init__(self, manifest, repo='.', state_path=None, *, skill_roots=(), models=None,
-                 attempts=None):
+                 attempts=None, routing_policy=None):
         self.manifest = Path(manifest).resolve()
         self.repo = WORKSPACE.root(repo)
         common = BUILD.common_dir(self.repo)
         namespace = hashlib.sha256(str(self.manifest).encode()).hexdigest()
         self.path = Path(state_path) if state_path else common / 'agentic-scheduler' / namespace / 'state.json'
         self.skill_roots, self.models, self.attempts = skill_roots, models, attempts
+        self.routing_policy = routing_policy
+        self.routing_fingerprint = hashlib.sha256(
+            json.dumps(routing_policy, sort_keys=True).encode()).hexdigest()
 
     def _save(self, state):
         fd, temporary = tempfile.mkstemp(dir=self.path.parent)
@@ -123,6 +126,9 @@ class Scheduler:
                                        'plan_sha256': digest, 'agent_id': None, 'active': False}
             elif key not in changed and not state['tasks'][key].get('owner'):
                 state['tasks'][key]['plan_sha256'] = digest
+        changed.update(key for key, task in state['tasks'].items()
+                       if task.get('routing_fingerprint', self.routing_fingerprint)
+                       != self.routing_fingerprint)
         for key in changed:
             if key in state['tasks']:
                 self._block(state, state['tasks'][key], 'plan changed; revalidation required')
@@ -173,9 +179,29 @@ class Scheduler:
         self._block_descendants(state, invalidated)
 
     def _context(self, delegation, unit):
-        context = {'skills': {'selected': [], 'loaded': [], 'applied': []},
-                   'model_requested': None}
         skills, models = module('skills', True), module('models', True)
+        brief = module('brief', True)
+        classification = dict(unit.get('routing', {}))
+        allowed = {'type', 'risk', 'complexity', 'role', 'phase', 'modalities',
+                   'routing_override', 'session_id', 'implementer_session_id'}
+        require(set(classification) <= allowed, 'invalid routing metadata')
+        role, phase = classification.get('role', 'implementer'), classification.get('phase', 'BUILD')
+        specialized = role != 'implementer' or phase != 'BUILD'
+        routing_needed = (specialized or self.models is not None or self.routing_policy is not None
+                          or bool(set(classification) - {'type', 'risk', 'complexity', 'role', 'phase'}))
+        require(models is not None or not routing_needed, 'Models component required for routing')
+        require(brief is not None or not specialized, 'Brief component required for specialized role')
+        if models:
+            require(role in models.SELECTORS['role'], 'unknown task role')
+            require(phase in models.SELECTORS['phase'], 'unknown task phase')
+        require(self.routing_policy is None or self.models is not None,
+                'model inventory required for configured routing policy')
+        delegation.update(role=role, phase=phase)
+        context = {'role': role, 'phase': phase,
+                   'read_only': role in brief.READ_ONLY_ROLES if brief else False,
+                   'routing_fingerprint': self.routing_fingerprint,
+                   'skills': {'selected': [], 'loaded': [], 'applied': []},
+                   'model_requested': None}
         if skills and self.skill_roots:
             context['skills']['selection'] = skills.select(
                 delegation['objective'], delegation['files'], self.skill_roots)
@@ -185,18 +211,22 @@ class Scheduler:
             description = ''.join(char for char in unicodedata.normalize('NFKD', description)
                                   if not unicodedata.combining(char)).lower()
             description = description.replace('_', ' ')
-            classification = dict(unit.get('routing', {}))
-            require(set(classification) <= {'type', 'risk', 'complexity'}, 'invalid routing metadata')
             if re.search(AUTH_TERMS, description):
                 classification.update(type='authentication', risk='security_critical')
             elif re.search(r'\b(migrations?|schema)\b|\.sql\b', description):
                 classification.update(type='migration', risk='critical')
             elif re.search(r'\b(refactor|refactoring|architecture|cross.module)\b', description):
                 classification.setdefault('complexity', 'high')
+            classification.update(role=role, phase=phase)
             routing = models.route({'id': delegation['pr'], **classification}, self.models,
-                                   self.attempts)
+                                   self.attempts, self.routing_policy)
             require(routing['verdict'] == 'PASS', routing['reason'])
-            context.update(model_routing=routing, model_requested=routing['recommendation'])
+            explicit_effort = False
+            if self.routing_policy and self.routing_policy.get('enabled'):
+                _, selection = models.policy_context(classification, self.routing_policy['rules'])
+                explicit_effort = 'effort' in selection
+            context.update(model_routing=routing, model_requested=routing['recommendation'],
+                           model_effort_required=explicit_effort)
         return context
 
     def _assign(self, state, pr):
@@ -215,7 +245,7 @@ class Scheduler:
             WORKSPACE.normalize_resource(resource, Path(delegation['worktree']))
             for resource in resources]}
         task.update(delegation=delegation, owner=owner, reservation_status='INTENT',
-                    reservation=reservation, **context, role='implementer',
+                    reservation=reservation, **context,
                     result=None, model_observed=None, duration_seconds=None, accepted=False,
                     starting_head=WORKSPACE.git(delegation['worktree'], 'rev-parse', 'HEAD'),
                     assigned_snapshot=snapshot(delegation['worktree']))
@@ -252,6 +282,8 @@ class Scheduler:
                     launched_at=time.time(), model_observed=observation.get('model_observed'),
                     identity_provenance='trusted orchestrator observation; not authenticated here',
                     independent_review=False)
+        if 'model_execution' in observation:
+            task['model_execution'] = copy.deepcopy(observation['model_execution'])
         task['model_applied'] = bool(task['model_requested'] and task['model_observed']
                                      == task['model_requested'])
         try:
@@ -298,6 +330,11 @@ class Scheduler:
                         and isinstance(item.get('evidence'), str) and item['evidence'].strip()
                         for item in applied), 'skill application requires loaded hash and evidence')
             task['skills']['applied'] = applied
+            if 'model_execution' in observation:
+                task['model_execution'] = copy.deepcopy(observation['model_execution'])
+            if task.get('read_only'):
+                if snapshot(task['delegation']['worktree']) != task['assigned_snapshot']:
+                    self._block(state, task, 'read-only mission modified worktree')
             task.update(active=False, result=observation['result'], stop_evidence=observation,
                         duration_seconds=max(0, time.time() - task['launched_at'])
                         if task.get('launched_at') else None)

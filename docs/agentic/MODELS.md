@@ -44,15 +44,18 @@ Un cache ou une réduction d'octets ne prouve pas un gain de quota.
 Lancement réel vers un modèle économique, brief et gates : [DELEGATION](DELEGATION.md).
 
 
-## Politique déclarative optionnelle (recommandation)
+## Politique déclarative optionnelle
 
 `route(task, capabilities, attempts=None, policy=None)` conserve le routeur historique
 sans politique. Le CLI `python3 scripts/agentic-models.py input.json` lit les champs
 `task`, `capabilities`, `attempts` optionnel et `routing_policy` optionnel. Le template
 `agentic.config.json` expose `routing_policy` désactivée par défaut. Pour utiliser
-cette politique consultative, l'appelant transmet explicitement ce champ au routeur ;
-le lanceur/scheduler historique n'active pas encore ce contrat. Le lancement et
-l'attestation du modèle effectif relèvent du runtime, pas de cette recommandation.
+cette politique, `delegate` transmet ce champ au scheduler et au routeur. Le routeur
+seul reste consultatif : le lancement réel et son attestation relèvent du runtime.
+Dans chaque unité du manifeste, `routing` accepte `role`, `phase`, `risk`, `type`,
+`complexity`, `modalities`, `routing_override`, `session_id` et `implementer_session_id`.
+Les défauts sont `implementer` / `BUILD`. Les sessions du manifeste sont déclarées :
+l'orchestrateur vérifie encore l'indépendance réelle du reviewer.
 
 ```json
 {
@@ -114,3 +117,39 @@ qu'une raison explicite. `applied` reste false, `observed` null et `verification
 annoncés observés/appliqués par cette fonction. Les coûts/quotas non exposés restent
 null ; `cost_rank` est un ordre relatif non monétaire. L'historique des tentatives
 continue de bloquer les relances non diagnostiquées, y compris avec override/fallback.
+
+## Preuves du lancement par mission
+
+Le scheduler conserve `model_routing` (recommandation consultative),
+`model_requested` (identifiant d'inventaire) et `model_execution` dans l'état,
+le reçu, le handoff, le rapport et `runs.jsonl`. Ce dernier distingue :
+
+- `selected` : choix d'inventaire ; `requested` : modèle CLI et effort demandés ;
+- `transmitted` : arguments transmis après libération du handshake, jamais preuve
+  d'effort ou modèle effectif ; `observed` et `applied` exigent une observation CLI ;
+- `harness`, `provider` (déclaré par la configuration ou null), `pid` enfant,
+  `session_id` de corrélation propre au lancement et `cli_session_id` séparé ;
+- `provenance` : origine de chaque preuve. Le modèle principal n'est jamais changé.
+
+Seul le JSON de résultat Claude expose ici un modèle (`modelUsage`) et une session
+CLI (`session_id`). Une seule entrée modèle donne une observation ; plusieurs
+restent dans `models_reported`, sans choix implicite. `applied.model` exige une
+égalité exacte au modèle demandé : aucune résolution d'alias/version. L'effort
+observé reste null et `applied.effort` false faute de preuve CLI. Un dry-run n'atteste
+ni processus ni transmission ni modèle. Aucun coût/quota absent n'est inventé.
+
+Avec politique active, un harnais personnalisé doit contenir `{model}` ; un effort
+explicitement imposé nécessite `{effort}` ou le preset Codex. Les `extra_args` des
+presets sont refusés pour éviter un override caché. Aucun fallback silencieux.
+Les rôles explorer/reviewer/lead-tech/orchestrator utilisent un brief en lecture
+seule et exigent le preset Codex non modifié (`-s read-only`), sinon BLOCKED avant
+lancement. Le snapshot de fin détecte aussi une modification du worktree. Les
+harnais personnalisés d'écriture restent une frontière de confiance, pas une sandbox.
+
+Une modification de politique après attribution bloque la mission et conserve
+l'owner jusqu'à arrêt/réconciliation explicites. Le scheduler ne redispatche ni une
+mission interrompue, ni BLOCKED, ni COMPLETED ; `requeue` conserve ses exigences de
+preuve. Les unités indépendantes continuent à être lancées avant la collecte.
+Chaque lancement rend un nouveau brief, sans réutiliser de session CLI implicite ;
+les livrables/preuves sont transmis par le contrat de handoff existant. L'enchaînement
+automatique de rôles spécialisés appartient à l'orchestrateur.

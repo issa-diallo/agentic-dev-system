@@ -14,6 +14,7 @@ from pathlib import Path
 
 FENCE = '`' * 3
 STATUSES = ('COMPLETED', 'BLOCKED')
+READ_ONLY_ROLES = ('explorer', 'reviewer', 'lead-tech', 'orchestrator')
 REPLY = re.compile(FENCE + r'handoff[ \t]*\r?\n(.*?)\r?\n?' + FENCE, re.DOTALL)
 EXAMPLE = ('{"status":"COMPLETED|BLOCKED","summary":"...","files":["..."],'
            '"tests":[{"command":"...","result":"PASS|FAIL|NOT_RUN"}],'
@@ -26,7 +27,14 @@ def bullets(items):
 
 def render(delegation, commands=None, skills=None, max_skill_chars=6000):
     """commands: trusted argv lists; skills: loaded dicts with 'path'/'instructions'."""
-    parts = ['# Mission ' + delegation['pr'], 'Objectif : ' + delegation['objective'],
+    role = delegation.get('role', 'implementer')
+    read_only = role in READ_ONLY_ROLES
+    test_instruction = ('Ne modifie aucun fichier : mission en lecture seule.' if read_only else
+                        'Ajoute ou adapte les tests du comportement. Ne supprime, ne désactive '
+                        'et n\'assouplis aucun test existant.')
+    parts = ['# Mission ' + delegation['pr'],
+             'Rôle : %s ; phase : %s' % (role, delegation.get('phase', 'BUILD')),
+             'Objectif : ' + delegation['objective'],
              "## Critères d'acceptation", bullets(delegation['acceptance']),
              '## Périmètre fermé',
              'Travaille dans le worktree courant (branche `%s`). Fichiers autorisés, '
@@ -37,8 +45,7 @@ def render(delegation, commands=None, skills=None, max_skill_chars=6000):
         parts += ['Exécute exactement ces commandes, sans les modifier, jusqu\'au succès :',
                   bullets('`%s`' % shlex.join(command) for command in commands)]
     parts += ['Tests attendus par le plan :', bullets(delegation['tests']),
-              'Ajoute ou adapte les tests du comportement. Ne supprime, ne désactive '
-              'et n\'assouplis aucun test existant.', '## Interdits',
+              test_instruction, '## Interdits',
               bullets(delegation['prohibitions'] + [
                   'Ne commite pas, ne pousse pas, ne fusionne pas.',
                   'Règle métier manquante ou périmètre insuffisant : arrête-toi et '

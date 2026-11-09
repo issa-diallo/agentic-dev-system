@@ -20,6 +20,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import uuid
 
 METHOD_ROOT = Path(__file__).resolve().parents[1]
 BASE_ENV = ('PATH', 'HOME', 'LANG', 'LC_ALL', 'TERM', 'TMPDIR', 'USER', 'SHELL')
@@ -70,7 +71,8 @@ def claude(v):
 
 
 def codex(v):
-    return (['codex', 'exec', '-m', v['model'], '-s', 'workspace-write', '-C', v['worktree'],
+    sandbox = 'read-only' if v.get('read_only') else 'workspace-write'
+    return (['codex', 'exec', '-m', v['model'], '-s', sandbox, '-C', v['worktree'],
              '-c', 'model_reasoning_effort=' + json.dumps(v['effort'])] + v['extra'] + [v['prompt']])
 
 
@@ -117,9 +119,11 @@ def build_inventory(config, which=shutil.which):
     require(len(ids) == len(set(ids)), 'duplicate model id')
     for entry in config['models']:
         harness = harness_of(config, entry['harness'])
-        if entry.get('enabled', True) is False or not which(binary(harness)):
+        if (entry.get('enabled', True) is False or entry.get('available', True) is False
+                or not which(binary(harness))):
             continue
-        keep = {k: entry[k] for k in ('id', 'efforts', 'cost_rank', 'tiers', 'max_level') if k in entry}
+        keep = {k: entry[k] for k in ('id', 'efforts', 'cost_rank', 'tiers', 'max_level',
+                                     'harness', 'available', 'enabled', 'modalities') if k in entry}
         models.append(keep)
         index[entry['id']] = {**entry, 'harness_config': harness}
     return {'models': models, 'runtime_overrides': True}, index
@@ -294,18 +298,22 @@ def tool_rules(config, commands):
         'Bash(%s)' % shlex.join(command) for command in commands]
 
 
-def parse_output(harness, text):
-    """Return (reply_text, usage, cost, models). Only Claude's JSON carries metrics."""
-    if harness.get('preset') != 'claude':
-        return text, None, None, None
+def claude_result(harness, text):
+    """Return only a structured result emitted by the Claude CLI, never handoff claims."""
+    if harness.get('preset') != 'claude' or 'argv' in harness:
+        return {}
     try:
         data = json.loads(text)
     except ValueError:
-        return text, None, None, None
+        return {}
     if isinstance(data, list):
         data = next((i for i in reversed(data) if isinstance(i, dict) and i.get('type') == 'result'), {})
-    if not isinstance(data, dict):
-        return text, None, None, None
+    return data if isinstance(data, dict) else {}
+
+
+def parse_output(harness, text):
+    """Return (reply_text, usage, cost, models). Only Claude's JSON carries metrics."""
+    data = claude_result(harness, text)
     models = data.get('modelUsage')
     return (data.get('result') if isinstance(data.get('result'), str) else text,
             data.get('usage'), data.get('total_cost_usd'),
@@ -330,9 +338,25 @@ class ProcessAdapter:
         require(request and request['model'] in self.index, 'routed model not in inventory')
         entry = self.index[request['model']]
         harness, run = entry['harness_config'], self.config.get('run', {})
+        read_only = task.get('role') in self.brief.READ_ONLY_ROLES
+        if read_only:
+            require(harness == {'preset': 'codex'},
+                    'read-only missions require the unmodified codex preset')
+        active_policy = bool(self.config.get('routing_policy', {}).get('enabled'))
+        preset = harness.get('preset') if 'argv' not in harness else None
+        tokens = ' '.join(harness.get('argv', []))
+        model_sent = preset in PRESETS or '{model}' in tokens
+        effort_sent = preset == 'codex' or '{effort}' in tokens
+        require(not task.get('model_effort_required') or effort_sent,
+                'configured harness cannot transmit required effort')
+        if active_policy:
+            require(model_sent, 'configured harness cannot transmit selected model')
+            require(not harness.get('extra_args'),
+                    'active routing policy refuses preset argument overrides')
         subscription = (check_subscription(harness, task['delegation']['worktree'], self.run_probe)
                         if subscription_only(self.config) else None)
-        directory = self.run_dir / pr / time.strftime('%Y%m%dT%H%M%S')
+        launch_id = uuid.uuid4().hex
+        directory = self.run_dir / pr / (time.strftime('%Y%m%dT%H%M%S') + '-' + launch_id)
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         commands = self.commands(task) if callable(self.commands) else list(self.commands)
         prompt = self.brief.render(task['delegation'], commands, task.get('skill_instructions'))
@@ -340,16 +364,29 @@ class ProcessAdapter:
         argv = build_argv(harness, {
             'prompt': prompt, 'model': entry['model'], 'effort': request['effort'],
             'worktree': task['delegation']['worktree'], 'max_turns': run.get('max_turns', 40),
-            'tools': tool_rules(self.config, commands)})
+            'tools': tool_rules(self.config, commands), 'read_only': read_only})
         job = {'pr': pr, 'dir': directory, 'harness': harness, 'entry': entry, 'request': request,
                'argv': [a if a != prompt else '<brief.md>' for a in argv],
                'timeout': run.get('timeout_seconds', 1800), 'started': time.time(),
-               'subscription': subscription}
+               'subscription': subscription,
+               'transmission_supported': {'model': model_sent, 'effort': effort_sent},
+               'model_execution': {
+                   'selected': dict(request),
+                   'requested': {'model': entry['model'], 'effort': request['effort']},
+                   'observed': {'model': None, 'effort': None},
+                   'applied': {'model': False, 'effort': False},
+                   'transmitted': {'model': False, 'effort': False},
+                   'harness': entry['harness'], 'provider': entry.get('provider'),
+                   'pid': None, 'session_id': None, 'cli_session_id': None,
+                   'provenance': {'selected': 'model router recommendation',
+                                  'requested': 'configured argv; transmission is not execution proof',
+                                  'provider': 'model configuration' if entry.get('provider') else None,
+                                  'identity': None, 'model': None, 'effort': None}}}
         if self.dry_run:
             job['agent_id'] = 'dry-run:' + pr
             self.jobs[pr] = job
             return {'agent_id': job['agent_id'], 'runtime': 'simulated', 'launch_observed': True,
-                    'identity_verified': True}
+                    'identity_verified': True, 'model_execution': job['model_execution']}
         require(shutil.which(argv[0]), 'harness binary not found: ' + argv[0])
         with open(directory / 'stdout.log', 'wb') as out, open(directory / 'stderr.log', 'wb') as err:
             try:
@@ -360,9 +397,15 @@ class ProcessAdapter:
             except OSError as error:
                 raise Blocked('cannot start %s: %s' % (argv[0], error))
         job.update(process=process, agent_id='%s:pid:%d' % (argv[0], process.pid), released=False)
+        job['model_execution'].update(pid=process.pid, session_id='process:' + launch_id)
+        job['model_execution']['provenance']['identity'] = (
+            'runner launch UUID correlated with spawned child PID; not a CLI session')
+        # The child is held at the handshake, so no model arguments have been consumed yet.
+        receipt = json.loads(json.dumps(job['model_execution']))
+        receipt['transmitted'] = {'model': False, 'effort': False}
         self.jobs[pr] = job
         return {'agent_id': job['agent_id'], 'runtime': 'process', 'launch_observed': True,
-                'identity_verified': True, 'model_observed': None}
+                'identity_verified': True, 'model_observed': None, 'model_execution': receipt}
 
     def release(self):
         """Let every receipted agent start. dispatch() calls wait() only after all receipts."""
@@ -372,6 +415,7 @@ class ProcessAdapter:
                 try:
                     job['process'].stdin.write(b'go\n')
                     job['process'].stdin.close()
+                    job['model_execution']['transmitted'] = dict(job['transmission_supported'])
                 except OSError:
                     pass
 
@@ -394,7 +438,8 @@ class ProcessAdapter:
         if self.dry_run:
             return {**base, 'outcome': 'COMPLETED', 'blockers': [],
                     'result': {'dry_run': True, 'model': job['request'], 'argv': job['argv'],
-                               'subscription': job['subscription']}}
+                               'subscription': job['subscription']},
+                    'model_execution': job['model_execution']}
         process, timed_out = job['process'], False
         try:
             process.wait(timeout=job['timeout'])
@@ -411,6 +456,18 @@ class ProcessAdapter:
         base['stopped_confirmed'] = process.poll() is not None
         raw = (job['dir'] / 'stdout.log').read_bytes()[:2_000_000]
         reply, usage, cost, reported = parse_output(job['harness'], raw.decode('utf-8', 'replace'))
+        execution = job['model_execution']
+        metadata = claude_result(job['harness'], raw.decode('utf-8', 'replace'))
+        session = metadata.get('session_id')
+        if isinstance(session, str) and session.strip():
+            execution['cli_session_id'] = session
+            execution['provenance']['cli_session_id'] = 'CLI stdout Claude result.session_id'
+        execution['observed']['model'] = (
+            reported[0] if reported and len(reported) == 1 and reported[0].strip() else None)
+        execution['applied']['model'] = (execution['observed']['model'] is not None
+                                        and execution['observed']['model'] == job['entry']['model'])
+        if reported:
+            execution['provenance']['model'] = 'CLI stdout Claude modelUsage; aliases not resolved'
         handoff = self.brief.parse_handoff(reply)
         blockers = []
         if timed_out:
@@ -424,14 +481,15 @@ class ProcessAdapter:
         result = {'exit_code': process.returncode, 'handoff': handoff, 'usage': usage,
                   'cost_usd': cost, 'models_reported': reported, 'model_requested': job['request'],
                   'log': str(job['dir']), 'duration_seconds': round(time.time() - job['started'], 1),
-                  'subscription': job['subscription']}
+                  'subscription': job['subscription'], 'model_execution': execution}
         with open(self.run_dir / 'runs.jsonl', 'a') as stream:
             stream.write(json.dumps({'pr': job['pr'], 'harness': job['entry']['harness'],
                                      'model': job['entry']['id'], 'blocked': bool(blockers),
+                                     'model_execution': execution,
                                      **{k: result[k] for k in ('usage', 'cost_usd', 'duration_seconds')}})
                          + '\n')
         return {**base, 'outcome': 'BLOCKED' if blockers else 'COMPLETED', 'blockers': blockers,
-                'result': result}
+                'result': result, 'model_execution': execution}
 
 
 def claude_agents(directory=None):
@@ -499,7 +557,7 @@ def delegate(manifest, repo, config_path=None, state=None, accept=False, dry_run
         state = str(Path(tempfile.mkdtemp(prefix='agentic-dry-')) / 'state.json')
     scheduler = module('scheduler').Scheduler(
         manifest, repo, state, skill_roots=[str(METHOD_ROOT / 'skills')], models=inventory,
-        attempts=load_attempts(repo))
+        attempts=load_attempts(repo), routing_policy=config.get('routing_policy'))
     adapter = ProcessAdapter(config, index, run_dir, commands_for, dry_run, popen)
     try:
         final = scheduler.dispatch(adapter)
@@ -508,7 +566,8 @@ def delegate(manifest, repo, config_path=None, state=None, accept=False, dry_run
     gates, report = module('gates'), {}
     for pr, task in final['tasks'].items():
         entry = {'state': task['state'], 'blockers': task['blockers'],
-                 'model_requested': task.get('model_requested')}
+                 'model_requested': task.get('model_requested'),
+                 'model_execution': task.get('model_execution')}
         if pr in adapter.finished:
             entry['result'] = task.get('result')
             if task['state'] == 'COMPLETED' and not dry_run:
