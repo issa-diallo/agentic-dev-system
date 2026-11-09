@@ -26,6 +26,19 @@ BASE_ENV = ('PATH', 'HOME', 'LANG', 'LC_ALL', 'TERM', 'TMPDIR', 'USER', 'SHELL')
 ENV_PRESET = {'claude': ('ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_BASE_URL'),
               'codex': ('OPENAI_API_KEY', 'CODEX_HOME')}
 DEFAULT_TOOLS = ('Read', 'Edit', 'Write', 'Glob', 'Grep')
+SUBSCRIPTION_PRESETS = ('claude', 'codex')
+CLAUDE_MANAGED_DIR = Path('/etc/claude-code')
+# Refuse ambient billing/routing inputs rather than silently stripping them.
+SUBSCRIPTION_ENV_PREFIXES = ('OPENAI_', 'ANTHROPIC_', 'AZURE_OPENAI_', 'CODEX_API_',
+                             'CLAUDE_CODE_USE_', 'CLAUDE_CODE_OAUTH_TOKEN')
+PROXY_ENV = frozenset(('http_proxy', 'https_proxy', 'all_proxy'))
+# Codex settings that move inference to another provider or endpoint.
+CODEX_ROUTING_KEYS = ('model_provider', 'model_providers', 'openai_base_url', 'chatgpt_base_url')
+QUOTA_MARKERS = re.compile(r'usage limit|out of credits|credit balance is too low|'
+                           r'quota (?:exceeded|exhausted)|insufficient_quota', re.I)
+# Not exposed by either CLI: reported as such, never claimed.
+SUBSCRIPTION_UNVERIFIED = {'quota': 'not_verified', 'overage': 'not_verified'}
+
 # The harness is exec'd only after the scheduler confirmed the launch receipt: the
 # contract requires a read-only agent until then. EOF without "go" means abort.
 GATE = ('import os, sys\n'
@@ -78,6 +91,7 @@ def load_config(path):
                                                 for k in ('id', 'harness', 'model')),
                 'model entry needs id, harness, model')
         require(not entry['model'].startswith('<'), 'model placeholder not filled: ' + entry['id'])
+    subscription_only(config)
     return config
 
 
@@ -130,6 +144,150 @@ def child_env(harness, environ=None):
     return {name: environ[name] for name in names if name in environ}
 
 
+def subscription_only(config):
+    enabled = config.get('run', {}).get('subscription_only', False)
+    require(type(enabled) is bool, 'run.subscription_only must be a boolean')
+    return enabled
+
+
+def billing_name(name):
+    return name.startswith(SUBSCRIPTION_ENV_PREFIXES) or name.lower() in PROXY_ENV
+
+
+def settings_file(path, parse, required=False):
+    try:
+        data = parse(Path(path).read_text())
+    except FileNotFoundError:
+        require(not required and not Path(path).is_symlink(),
+                'subscription-only: unreadable settings file: %s' % path)
+        return {}
+    except (OSError, ValueError):
+        raise Blocked('subscription-only: unreadable settings file: %s' % path) from None
+    require(isinstance(data, dict), 'subscription-only: invalid settings file: %s' % path)
+    return data
+
+
+def claude_managed_settings(environ):
+    r"""Read Linux file policy and every nonhidden JSON fragment before probing.
+
+    Other policy stores need dedicated inspection: macOS uses
+    /Library/Application Support/ClaudeCode plus managed preferences; Windows uses
+    C:\Program Files\ClaudeCode plus HKLM/HKCU; WSL can inherit Windows policy.
+    Those platforms are blocked until their complete policy chain can be checked.
+    """
+    require(sys.platform == 'linux' and 'microsoft' not in os.uname().release.lower()
+            and not any(key in environ for key in ('WSL_DISTRO_NAME', 'WSL_INTEROP')),
+            'subscription-only: managed settings inspection requires native Linux')
+    directory = CLAUDE_MANAGED_DIR / 'managed-settings.d'
+    try:
+        fragments = sorted(path for path in directory.iterdir()
+                           if not path.name.startswith('.') and path.name.endswith('.json'))
+    except FileNotFoundError:
+        require(not directory.is_symlink(), 'subscription-only: unreadable managed settings directory')
+        fragments = []
+    except OSError:
+        raise Blocked('subscription-only: unreadable managed settings directory') from None
+    return [settings_file(CLAUDE_MANAGED_DIR / 'managed-settings.json', json.loads)] + [
+        settings_file(path, json.loads, required=True) for path in fragments]
+
+
+def routing_overrides(preset, worktree, environ):
+    """Names (never values) of local settings that reroute the CLI away from the subscription."""
+    home = Path(environ.get('HOME') or Path.home())
+    found = []
+    if preset == 'codex':
+        try:
+            import tomllib
+        except ImportError:
+            raise Blocked('subscription-only: Python 3.11+ required to read Codex settings')
+        for path in (Path('/etc/codex/config.toml'),
+                     Path(environ.get('CODEX_HOME') or home / '.codex') / 'config.toml',
+                     Path(worktree) / '.codex' / 'config.toml'):
+            config = settings_file(path, tomllib.loads)
+            profiles = config.get('profiles')
+            tables = [config] + [p for p in (profiles.values() if isinstance(profiles, dict) else ())
+                                 if isinstance(p, dict)]
+            found += [key for table in tables for key in CODEX_ROUTING_KEYS
+                      if key in table and not (key == 'model_provider' and table[key] == 'openai')]
+        return found
+    settings_sources = claude_managed_settings(environ) + [
+        settings_file(path, json.loads) for path in (
+            home / '.claude' / 'settings.json', Path(worktree) / '.claude' / 'settings.json',
+            Path(worktree) / '.claude' / 'settings.local.json')]
+    for settings in settings_sources:
+        env = settings.get('env', {})
+        require(isinstance(env, dict), 'subscription-only: invalid settings env object')
+        found += [key for key in ('apiKeyHelper', 'policyHelper', 'forceLoginGatewayUrl')
+                  if key in settings]
+        found += [name for name in env if billing_name(name)]
+    return found
+
+
+def probe_subscription(preset, worktree, env, run=subprocess.run):
+    """Ask the CLI how it is logged in. No inference; identity fields are not kept."""
+    argv = [preset, 'auth', 'status', '--json'] if preset == 'claude' else [preset, 'login', 'status']
+    try:
+        done = run(argv, cwd=worktree, env=env, stdin=subprocess.DEVNULL, capture_output=True,
+                   text=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise Blocked('subscription-only: %s login check failed (%s)' % (preset, type(error).__name__))
+    if preset == 'codex':
+        require(done.returncode == 0 and 'Logged in using ChatGPT' in done.stdout + done.stderr,
+                'subscription-only: codex is not logged in with ChatGPT (run `codex login`)')
+        return {'auth': 'chatgpt', 'plan': None}
+    try:
+        status = json.loads(done.stdout)
+    except ValueError:
+        status = None
+    require(done.returncode == 0 and isinstance(status, dict) and status.get('loggedIn') is True
+            and status.get('authMethod') == 'claude.ai' and status.get('apiProvider') == 'firstParty',
+            'subscription-only: claude is not logged in with a Claude subscription '
+            '(run `claude auth login`)')
+    plan = status.get('subscriptionType')
+    return {'auth': 'claude.ai', 'plan': plan if isinstance(plan, str) else None}
+
+
+def check_subscription(harness, worktree, run=subprocess.run):
+    """Allow an unmodified codex/claude preset only when logged in with a subscription.
+
+    Proven before launch: no API key, endpoint or proxy in the environment or in the
+    CLI settings, and the CLI's own login method. Remaining quota and paid overage or
+    credits are not exposed by the CLIs: they are reported not_verified. Disable paid
+    overage in the account. The executable is the one found on PATH (origin not verified).
+    """
+    preset = harness.get('preset')
+    require(preset in SUBSCRIPTION_PRESETS and harness == {'preset': preset},
+            'subscription-only: harness must be an unmodified codex or claude preset')
+    require(not any(billing_name(name) for name in os.environ),
+            'subscription-only: billing or endpoint environment inputs are forbidden')
+    found = routing_overrides(preset, worktree, os.environ)
+    require(not found, 'subscription-only: routing settings forbidden: ' + ', '.join(sorted(set(found))))
+    require(shutil.which(preset), 'subscription-only: executable not found: ' + preset)
+    return {**probe_subscription(preset, worktree, child_env(harness), run), **SUBSCRIPTION_UNVERIFIED}
+
+
+def quota_exhausted(job):
+    """A subscription run that failed on its usage limit; the scheduler never retries it.
+
+    Only the CLI's own error channel is read (stderr, or Claude's JSON error result), never
+    the agent transcript, so a task about rate limiting is not misreported as quota.
+    """
+    if job.get('subscription') is None or job['process'].returncode is None:
+        return False
+    stderr = job['dir'] / 'stderr.log'
+    text = (stderr.read_bytes()[-20_000:].decode('utf-8', 'replace')
+            if job['process'].returncode != 0 and stderr.exists() else '')
+    if job['harness'].get('preset') == 'claude':
+        try:
+            data = json.loads((job['dir'] / 'stdout.log').read_text())
+        except (OSError, ValueError):
+            data = None
+        if (isinstance(data, dict) and data.get('is_error') is True
+                and isinstance(data.get('result'), str)):
+            text += '\n' + data['result']
+    return bool(QUOTA_MARKERS.search(text))
+
+
 def tool_rules(config, commands):
     run = config.get('run', {})
     return list(run.get('allowed_tools', DEFAULT_TOOLS)) + [
@@ -155,11 +313,14 @@ def parse_output(harness, text):
 
 
 class ProcessAdapter:
-    """Scheduler adapter: launch() spawns, wait() joins. dry_run spawns nothing."""
+    """Scheduler adapter: launch() spawns, wait() joins. dry_run spawns no agent (subscription_only
+    still runs the login check, which makes no inference)."""
 
-    def __init__(self, config, index, run_dir, commands=(), dry_run=False, popen=subprocess.Popen):
+    def __init__(self, config, index, run_dir, commands=(), dry_run=False, popen=subprocess.Popen,
+                 run_probe=subprocess.run):
         self.config, self.index, self.run_dir = config, index, Path(run_dir)
         self.commands, self.dry_run, self.popen = commands, dry_run, popen
+        self.run_probe = run_probe
         self.jobs, self.finished = {}, []
         self.brief = module('brief')
 
@@ -169,6 +330,8 @@ class ProcessAdapter:
         require(request and request['model'] in self.index, 'routed model not in inventory')
         entry = self.index[request['model']]
         harness, run = entry['harness_config'], self.config.get('run', {})
+        subscription = (check_subscription(harness, task['delegation']['worktree'], self.run_probe)
+                        if subscription_only(self.config) else None)
         directory = self.run_dir / pr / time.strftime('%Y%m%dT%H%M%S')
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         commands = self.commands(task) if callable(self.commands) else list(self.commands)
@@ -180,7 +343,8 @@ class ProcessAdapter:
             'tools': tool_rules(self.config, commands)})
         job = {'pr': pr, 'dir': directory, 'harness': harness, 'entry': entry, 'request': request,
                'argv': [a if a != prompt else '<brief.md>' for a in argv],
-               'timeout': run.get('timeout_seconds', 1800), 'started': time.time()}
+               'timeout': run.get('timeout_seconds', 1800), 'started': time.time(),
+               'subscription': subscription}
         if self.dry_run:
             job['agent_id'] = 'dry-run:' + pr
             self.jobs[pr] = job
@@ -229,7 +393,8 @@ class ProcessAdapter:
         base = {'agent_id': job['agent_id'], 'identity_verified': True, 'stopped_confirmed': True}
         if self.dry_run:
             return {**base, 'outcome': 'COMPLETED', 'blockers': [],
-                    'result': {'dry_run': True, 'model': job['request'], 'argv': job['argv']}}
+                    'result': {'dry_run': True, 'model': job['request'], 'argv': job['argv'],
+                               'subscription': job['subscription']}}
         process, timed_out = job['process'], False
         try:
             process.wait(timeout=job['timeout'])
@@ -250,13 +415,16 @@ class ProcessAdapter:
         blockers = []
         if timed_out:
             blockers.append('timeout after %ss' % job['timeout'])
+        elif quota_exhausted(job):
+            blockers.append('subscription-only: quota exhausted; no automatic retry')
         elif process.returncode != 0:
             blockers.append('exit code %s' % process.returncode)
         if handoff and handoff['status'] == 'BLOCKED':
             blockers += handoff['blockers'] or ['agent reported BLOCKED']
         result = {'exit_code': process.returncode, 'handoff': handoff, 'usage': usage,
                   'cost_usd': cost, 'models_reported': reported, 'model_requested': job['request'],
-                  'log': str(job['dir']), 'duration_seconds': round(time.time() - job['started'], 1)}
+                  'log': str(job['dir']), 'duration_seconds': round(time.time() - job['started'], 1),
+                  'subscription': job['subscription']}
         with open(self.run_dir / 'runs.jsonl', 'a') as stream:
             stream.write(json.dumps({'pr': job['pr'], 'harness': job['entry']['harness'],
                                      'model': job['entry']['id'], 'blocked': bool(blockers),
@@ -482,7 +650,7 @@ def main():
     common.add_argument('--repo', default='.')
     common.add_argument('--config', help='default: $AGENTIC_CONFIG or <method>/agentic.config.json')
     flags = argparse.ArgumentParser(add_help=False)
-    flags.add_argument('--dry-run', action='store_true', help='route and build argv; spawn nothing')
+    flags.add_argument('--dry-run', action='store_true', help='route and build argv; spawn no agent')
     flags.add_argument('--accept', action='store_true',
                        help='accept tasks whose gates pass (dependency readiness, not merge)')
     sub.add_parser('inventory', parents=[common])

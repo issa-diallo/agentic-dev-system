@@ -45,6 +45,11 @@ Le routeur choisit le `cost_rank` le plus bas capable du niveau requis (voir
 tests utilisent un faux harnais, aucun appel réel à Claude, Codex ou OpenCode n'a été fait.
 Les options changent entre versions : surcharger avec `argv` si besoin.
 
+`run.subscription_only: true` : sans clé/endpoint/proxy, login abonnement sinon
+BLOCKED. Quota épuisé : sans relance. Quota/dépassement payant (à désactiver) :
+`not_verified`. Binaire PATH. Claude : Linux natif (managed et fragments JSON),
+autres OS bloqués. Défaut `false`.
+
 ## Brief, handoff, gates
 
 Le brief contient l'objectif, les critères, la **liste exhaustive des fichiers**, les
