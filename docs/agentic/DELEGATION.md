@@ -39,14 +39,15 @@ plan PR_SPLIT à plusieurs unités ; les unités indépendantes tournent en para
 - `run` : `timeout_seconds`, `max_turns`, `allowed_tools` (Claude).
 
 Le routeur choisit le `cost_rank` le plus bas capable du niveau requis (voir
-[MODELS](MODELS.md)). Presets vérifiés sur la documentation des CLI le 2026-11-07 ; les
-tests utilisent un faux harnais, aucun appel réel à Claude, Codex ou OpenCode n'a été fait.
-Les options changent entre versions : surcharger avec `argv` si besoin.
+[MODELS](MODELS.md)). Presets : documentation CLI vérifiée le 2026-11-07 ; tests sur faux harnais sans
+inférence réelle. Options variables selon version ; surcharge `argv` possible.
 
 `run.subscription_only: true` : sans clé/endpoint/proxy, login abonnement sinon
 BLOCKED. Quota épuisé : sans relance. Quota/dépassement payant (à désactiver) :
 `not_verified`. Binaire PATH. Claude : Linux natif (managed et fragments JSON),
 autres OS bloqués. Défaut `false`.
+
+Double analyse HIGH/EXTRA_HIGH optionnelle : [contrat](DOUBLE_ANALYSIS.md).
 
 ## Brief, handoff, gates
 

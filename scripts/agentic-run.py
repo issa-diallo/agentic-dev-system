@@ -65,6 +65,12 @@ def module(name):
 
 
 def claude(v):
+    if v.get('analysis'):
+        return ['claude', '-p', v['prompt'], '--model', v['model'], '--output-format', 'json',
+                '--max-turns', str(v['max_turns']), '--permission-mode', 'dontAsk',
+                '--bare', '--tools', '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
+                '--disallowedTools', 'mcp__*', '--disable-slash-commands', '--setting-sources', '',
+                '--no-session-persistence']
     argv = ['claude', '-p', v['prompt'], '--model', v['model'], '--output-format', 'json',
             '--permission-mode', 'acceptEdits', '--max-turns', str(v['max_turns'])] + v['extra']
     return argv + (['--allowedTools', *v['tools']] if v['tools'] else [])  # variadic: keep last
@@ -94,6 +100,7 @@ def load_config(path):
                 'model entry needs id, harness, model')
         require(not entry['model'].startswith('<'), 'model placeholder not filled: ' + entry['id'])
     subscription_only(config)
+    module('analysis').settings(config)
     return config
 
 
@@ -339,9 +346,17 @@ class ProcessAdapter:
         entry = self.index[request['model']]
         harness, run = entry['harness_config'], self.config.get('run', {})
         read_only = task.get('role') in self.brief.READ_ONLY_ROLES
+        analyzing = bool(task['delegation'].get('analysis') and task.get('phase') == 'PREPARE'
+                         and task.get('role') == 'explorer')
         if read_only:
-            require(harness == {'preset': 'codex'},
+            require(harness == {'preset': 'codex'} or (
+                analyzing and task.get('analysis_provider') == 'claude'
+                and harness == {'preset': 'claude'}),
                     'read-only missions require the unmodified codex preset')
+        if analyzing:
+            require(subscription_only(self.config), 'double analysis requires subscription-only')
+            require(harness == {'preset': task['analysis_provider']},
+                    'analysis requires the matching unmodified provider preset')
         active_policy = bool(self.config.get('routing_policy', {}).get('enabled'))
         preset = harness.get('preset') if 'argv' not in harness else None
         tokens = ' '.join(harness.get('argv', []))
@@ -364,7 +379,7 @@ class ProcessAdapter:
         argv = build_argv(harness, {
             'prompt': prompt, 'model': entry['model'], 'effort': request['effort'],
             'worktree': task['delegation']['worktree'], 'max_turns': run.get('max_turns', 40),
-            'tools': tool_rules(self.config, commands), 'read_only': read_only})
+            'tools': tool_rules(self.config, commands), 'read_only': read_only, 'analysis': analyzing})
         job = {'pr': pr, 'dir': directory, 'harness': harness, 'entry': entry, 'request': request,
                'argv': [a if a != prompt else '<brief.md>' for a in argv],
                'timeout': run.get('timeout_seconds', 1800), 'started': time.time(),
@@ -548,6 +563,9 @@ def missions_enabled(config):
 def mission_pipeline(scheduler, adapter, commands_for, settings, accept, dry_run):
     """Use the existing task/ownership lifecycle, retaining every stopped mission."""
     gates = module('gates')
+    if not dry_run and scheduler.double_analysis['enabled']:
+        for pr in scheduler.pending_analyses():
+            scheduler.resolve_analysis(pr)
     while True:
         final = scheduler.dispatch(adapter)
         advanced = False
@@ -559,7 +577,10 @@ def mission_pipeline(scheduler, adapter, commands_for, settings, accept, dry_run
                     scheduler.accept(pr, task['mission_gate']['acceptance_evidence'])
                     advanced = True
                 continue
-            if task['role'] == 'reviewer':
+            if task['phase'] == 'PREPARE' and task.get('analysis_required'):
+                gate = {'verdict': 'PASS', 'snapshot': task['result_snapshot'],
+                        'plan_sha256': task['plan_sha256'], 'base': task['starting_head']}
+            elif task['role'] == 'reviewer':
                 gate = task['verify_evidence']
             else:
                 options = {**settings, 'baseline_only': task['role'] == 'test-author'}
@@ -578,6 +599,12 @@ def mission_pipeline(scheduler, adapter, commands_for, settings, accept, dry_run
     for pr, task in final['tasks'].items():
         entry = {k: task.get(k) for k in ('state', 'blockers', 'model_requested',
                                          'model_execution', 'result')}
+        if task.get('analysis_summary'):
+            entry['analysis'] = task['analysis_summary']
+            if task.get('analysis_stale'):
+                entry['analysis'] = {**entry['analysis'], 'verdict': 'BLOCKED', 'stale': True,
+                                     'historical_verdict': task['analysis_summary']['verdict'],
+                                     'reason': task['analysis_stale']}
         entry['missions'] = [{'role': h['task']['role'], 'agent_id': h['task']['agent_id'],
                               'gate': h['gate']['verdict'],
                               'model_execution': h['task'].get('model_execution')}
@@ -600,9 +627,14 @@ def delegate(manifest, repo, config_path=None, state=None, accept=False, dry_run
     gates_config = {**config.get('gates', {}), **(gates_extra or {})}
     configured = commands or gates_config.get('commands', 'auto')
     mission_mode = missions_enabled(config) if missions is None else missions
+    analysis = module('analysis').settings(config)
+    require(not analysis['enabled'] or mission_mode,
+            'double analysis requires the mission pipeline; explicit TDD is not supported')
     detect = module('detect')
 
     def commands_for(task):
+        if task['delegation'].get('analysis'):
+            return []
         if configured != 'auto':
             return configured
         found = detect.detect(task['delegation']['worktree'], task['unit']['files'])
@@ -615,6 +647,10 @@ def delegate(manifest, repo, config_path=None, state=None, accept=False, dry_run
         manifest, repo, state, skill_roots=[str(METHOD_ROOT / 'skills')], models=inventory,
         attempts=load_attempts(repo), routing_policy=config.get('routing_policy'),
         missions=mission_mode,
+        double_analysis=analysis,
+        analysis_models={provider: [identifier for identifier, entry in index.items()
+                                   if entry['harness_config'] == {'preset': provider}]
+                         for provider in ('codex', 'claude')},
         execution_context={'config': config, 'commands': configured} if mission_mode else None)
     adapter = ProcessAdapter(config, index, run_dir, commands_for, dry_run, popen)
     try:

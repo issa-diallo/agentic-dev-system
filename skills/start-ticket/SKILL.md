@@ -59,6 +59,15 @@ L’orchestrateur n’écrit ni tests ni code applicatif. À PREPARE PASS et PR_
 mettre à jour le checkpoint : sources, AC, fichiers, tests/commandes, référence des
 contrôles, branche/worktree/owner, décisions et prochaine action BUILD.
 
+Si la double analyse optionnelle est activée selon DELEGATION, préparer son contrat
+AC/RM/sources et la justification quota pour les seules unités HIGH/EXTRA_HIGH.
+Avant toute mission d’écriture BUILD, obtenir deux lancements et handoffs réellement
+indépendants Codex/Claude sur le même bundle en lecture seule. Vérifier la synthèse
+et les résolutions sourcées ; désaccord critique, avis absent, quota ou timeout
+bloquent sans faux consensus ni fallback silencieux. Reprendre un arbitrage avec
+les preuves fraîches conservées, sans relancer aveuglément les deux analyses.
+LOW/MEDIUM et option désactivée conservent le parcours habituel.
+
 ## BUILD : transmettre et déléguer automatiquement
 
 Poursuivre sans demander à l’utilisateur de lancer un autre skill. Si un skill
