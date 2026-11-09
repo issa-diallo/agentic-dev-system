@@ -1,11 +1,13 @@
 """Runner tests: real Git worktrees and the real Scheduler, with a fake harness process."""
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 SOURCE = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location('agentic_run', SOURCE / 'scripts/agentic-run.py')
@@ -194,6 +196,189 @@ class RunTests(unittest.TestCase):
         with self.assertRaises(Exception):
             self.quick()
 
+    def policy_run(self, *, routing=None, rule=None, model_tokens=True, dry_run=False,
+                   alternate_harness=False, mode=None):
+        report = self.quick(dry_run=True)
+        if mode:
+            self.set_mode(mode)
+        plan = Path(report['plan'])
+        data = json.loads(plan.read_text())
+        data['prs'][0]['routing'] = routing or {'role': 'implementer', 'phase': 'BUILD'}
+        plan.write_text(json.dumps(data))
+        path = Path(self.config())
+        config = json.loads(path.read_text())
+        if mode == 'sleep':
+            config['run']['timeout_seconds'] = 1
+        config['routing_policy'] = {'version': 1, 'enabled': True, 'rules': [
+            {'id': 'build', 'match': {'role': 'implementer', 'phase': 'BUILD'},
+             'prefer': [{'model': 'strong'}], **(rule or {})}]}
+        config['harnesses']['fake']['argv'] += ['{model}', '{effort}'] if model_tokens else []
+        if alternate_harness:
+            alternate = self.root / 'alternate-cli'
+            alternate.write_text('#!' + sys.executable + '\n' + self.agent.read_text())
+            alternate.chmod(0o700)
+            config['models'][1]['harness'] = 'alternate'
+            config['harnesses']['alternate'] = {
+                'argv': [str(alternate), '{worktree}', '{prompt}', '{model}', '{effort}']}
+        path.write_text(json.dumps(config))
+        self.actual_plan, self.actual_config = plan, path
+        return RUN.delegate(plan, self.repo, path, state=self.root / 'actual.json', dry_run=dry_run)
+
+    def test_AC1_role_phase_policy_reaches_real_cli_and_persists_receipt_stop(self):
+        self.agent.write_text(self.agent.read_text().replace('import sys, time', 'import sys, time, json')
+                              .replace("print('done')", "print(json.dumps(sys.argv))"))
+        task = self.policy_run()['t1']
+        self.assertEqual(task['state'], 'COMPLETED')
+        self.assertEqual(task['model_requested'], {'model': 'strong', 'effort': 'high'})
+        state = json.loads((self.root / 'actual.json').read_text())['tasks']['t1']
+        evidence = task['model_execution']
+        self.assertEqual(evidence['selected'], {'model': 'strong', 'effort': 'high'})
+        self.assertEqual(evidence['requested'], {'model': 'y', 'effort': 'high'})
+        self.assertEqual(evidence['harness'], 'fake')
+        self.assertGreater(evidence['pid'], 0)
+        self.assertIsNone(evidence['provider'])
+        self.assertIsNone(evidence['cli_session_id'])
+        self.assertIsNone(evidence['observed']['model'])
+        self.assertIsNone(evidence['observed']['effort'])
+        self.assertFalse(evidence['applied']['model'])
+        self.assertFalse(evidence['applied']['effort'])
+        self.assertTrue(evidence['transmitted']['model'])
+        self.assertTrue(evidence['transmitted']['effort'])
+        self.assertEqual(state['model_execution'], evidence)
+        self.assertTrue(state['stop_evidence']['stopped_confirmed'])
+        self.assertFalse(state['active'])
+        self.assertNotIn('owner', state)
+        stdout = (Path(task['result']['log']) / 'stdout.log').read_text()
+        self.assertIn('"y", "high"', stdout)
+        self.assertFalse(state['model_applied'])
+        before = (self.repo / '.git' / 'agentic-runs' / 'runs.jsonl').read_text()
+        RUN.delegate(self.actual_plan, self.repo, self.actual_config, state=self.root / 'actual.json')
+        self.assertEqual((self.repo / '.git' / 'agentic-runs' / 'runs.jsonl').read_text(), before)
+
+    def test_AC1_harness_preference_runs_the_alternate_binary(self):
+        task = self.policy_run(alternate_harness=True,
+                               rule={'prefer': [{'harness': 'alternate'}]})['t1']
+        self.assertEqual(task['state'], 'COMPLETED')
+        self.assertEqual(task['model_execution']['harness'], 'alternate')
+        state = json.loads((self.root / 'actual.json').read_text())['tasks']['t1']
+        self.assertTrue(state['agent_id'].startswith(str(self.root / 'alternate-cli') + ':pid:'))
+        self.assertEqual(task['model_execution']['requested']['model'], 'y')
+
+    def test_AC3_active_policy_blocked_handoff_does_not_redispatch_after_reboot(self):
+        task = self.policy_run(mode='blocked')['t1']
+        self.assertEqual(task['state'], 'BLOCKED')
+        before = (self.repo / '.git' / 'agentic-runs' / 'runs.jsonl').read_text()
+        RUN.delegate(self.actual_plan, self.repo, self.actual_config, state=self.root / 'actual.json')
+        self.assertEqual((self.repo / '.git' / 'agentic-runs' / 'runs.jsonl').read_text(), before)
+        state = json.loads((self.root / 'actual.json').read_text())['tasks']['t1']
+        self.assertTrue(state['stop_evidence']['stopped_confirmed'])
+        self.assertNotIn('owner', state)
+
+    def test_AC3_active_policy_timeout_is_stopped_and_never_redispatched(self):
+        task = self.policy_run(mode='sleep')['t1']
+        self.assertEqual(task['state'], 'BLOCKED')
+        self.assertTrue(any('timeout' in b for b in task['blockers']))
+        before = (self.repo / '.git' / 'agentic-runs' / 'runs.jsonl').read_text()
+        RUN.delegate(self.actual_plan, self.repo, self.actual_config, state=self.root / 'actual.json')
+        self.assertEqual((self.repo / '.git' / 'agentic-runs' / 'runs.jsonl').read_text(), before)
+        state = json.loads((self.root / 'actual.json').read_text())['tasks']['t1']
+        self.assertTrue(state['stop_evidence']['stopped_confirmed'])
+        self.assertNotIn('owner', state)
+
+    def test_AC1_read_only_role_blocks_incompatible_harness_without_fallback(self):
+        task = self.policy_run(routing={'role': 'explorer', 'phase': 'PREPARE'})['t1']
+        self.assertEqual(task['state'], 'BLOCKED')
+        self.assertTrue(any('read-only' in b for b in task['blockers']))
+        self.assertIsNone(json.loads((self.root / 'actual.json').read_text())['tasks']['t1']['agent_id'])
+
+    def test_AC1_read_only_reviewer_uses_codex_read_only_sandbox_and_role_brief(self):
+        initial = self.quick(dry_run=True)
+        plan = Path(initial['plan'])
+        data = json.loads(plan.read_text())
+        data['prs'][0]['routing'] = {'role': 'reviewer', 'phase': 'SHIP',
+                                     'session_id': 'review', 'implementer_session_id': 'writer'}
+        plan.write_text(json.dumps(data))
+        executable = self.root / 'codex'
+        executable.write_text('#!' + sys.executable + '\nimport sys,json\nprint(json.dumps(sys.argv))\n')
+        executable.chmod(0o700)
+        config = {'version': 1, 'models': [
+            {'id': 'review-model', 'harness': 'codex', 'model': 'review-cli-model',
+             'max_level': 'HIGH', 'efforts': ['high'], 'cost_rank': 1}],
+                  'routing_policy': {'version': 1, 'enabled': True, 'rules': []}}
+        path = self.root / 'review-config.json'
+        path.write_text(json.dumps(config))
+        with mock.patch.dict(os.environ, {'PATH': str(self.root) + os.pathsep + os.environ['PATH']}):
+            task = RUN.delegate(plan, self.repo, path, state=self.root / 'review.json')['t1']
+        self.assertEqual(task['state'], 'COMPLETED')
+        stdout = json.loads((Path(task['result']['log']) / 'stdout.log').read_text())
+        self.assertEqual(stdout[stdout.index('-s') + 1], 'read-only')
+        self.assertIn('Ne modifie aucun fichier', stdout[-1])
+        self.assertIn('reviewer', stdout[-1])
+        self.assertNotIn('Ajoute ou adapte les tests', stdout[-1])
+        self.assertEqual(self.git('status', '--porcelain', repo=initial['worktree']), '')
+
+    def test_AC2_cli_observation_exact_alias_multiple_and_missing_remain_distinct(self):
+        executable = self.root / 'claude'
+        config = {'version': 1, 'models': [
+            {'id': 'candidate', 'harness': 'claude', 'model': 'requested-model',
+             'max_level': 'MEDIUM', 'efforts': ['medium'], 'cost_rank': 1}]}
+        path = self.root / 'claude-config.json'
+        path.write_text(json.dumps(config))
+        for index, (models, expected, applied) in enumerate([
+                ({'requested-model': {}}, 'requested-model', True),
+                ({'requested-model-version': {}}, 'requested-model-version', False),
+                ({'one': {}, 'two': {}}, None, False), (None, None, False)]):
+            with self.subTest(models=models):
+                payload = {'result': 'ok', 'session_id': 'cli-session-' + str(index)}
+                if models is not None:
+                    payload['modelUsage'] = models
+                executable.write_text('#!' + sys.executable + '\nprint(' + repr(json.dumps(payload)) + ')\n')
+                executable.chmod(0o700)
+                with mock.patch.dict(os.environ, {'PATH': str(self.root) + os.pathsep + os.environ['PATH']}):
+                    report = RUN.quick(self.repo, 'obs' + str(index), 'Deliver a',
+                                       ['a.py', 'test_a.py'], ['A is 1'], self.tests,
+                                       worktree_root=self.root / 'wt', config_path=path)
+                task = self.task(report, 'obs' + str(index))
+                self.assertEqual(task['state'], 'COMPLETED', task['blockers'])
+                evidence = task['model_execution']
+                scheduler = RUN.module('scheduler').Scheduler(report['plan'], self.repo)
+                legacy = scheduler.resume()['tasks']['obs' + str(index)]
+                self.assertIsNone(legacy['model_observed'])
+                self.assertFalse(legacy['model_applied'])
+                self.assertEqual(evidence['observed']['model'], expected)
+                self.assertEqual(evidence['applied']['model'], applied)
+                self.assertIsNone(evidence['observed']['effort'])
+                self.assertFalse(evidence['transmitted']['effort'])
+                self.assertFalse(evidence['applied']['effort'])
+                self.assertEqual(evidence['cli_session_id'], 'cli-session-' + str(index))
+                self.assertNotEqual(evidence['session_id'], evidence['cli_session_id'])
+
+    def test_AC2_dry_run_never_attests_execution_or_effective_model(self):
+        task = self.policy_run(dry_run=True)['t1']
+        evidence = task['model_execution']
+        self.assertIsNone(evidence['pid'])
+        self.assertIsNone(evidence['session_id'])
+        self.assertIsNone(evidence['observed']['model'])
+        self.assertFalse(evidence['transmitted']['model'])
+        self.assertFalse(evidence['applied']['model'])
+
+    def test_AC1_explicit_effort_not_transmissible_blocks_before_process(self):
+        task = self.policy_run(rule={'effort': 'high'}, model_tokens=False)['t1']
+        self.assertEqual(task['state'], 'BLOCKED')
+        self.assertTrue(any('effort' in blocker for blocker in task['blockers']))
+        self.assertIsNone(json.loads((self.root / 'actual.json').read_text())['tasks']['t1']['agent_id'])
+
+    def test_AC1_missing_model_placeholder_blocks_active_policy(self):
+        task = self.policy_run(model_tokens=False)['t1']
+        self.assertEqual(task['state'], 'BLOCKED')
+        self.assertTrue(any('model' in blocker for blocker in task['blockers']))
+
+    def test_AC1_policy_impossible_spawns_nothing(self):
+        task = self.policy_run(rule={'prefer': [{'model': 'absent'}]})['t1']
+        self.assertEqual(task['state'], 'BLOCKED')
+        self.assertIsNone(task['model_requested'])
+        self.assertEqual(list((self.repo / '.git' / 'agentic-runs').rglob('stdout.log')), [])
+
 
 class ConfigAndArgvTests(unittest.TestCase):
     CONFIG = {'version': 1, 'models': [
@@ -211,6 +396,14 @@ class ConfigAndArgvTests(unittest.TestCase):
         self.assertTrue(inventory['runtime_overrides'])
         self.assertEqual(sorted(RUN.build_inventory(self.CONFIG, which=lambda name: True)[1]),
                          ['a', 'c'])
+
+    def test_inventory_preserves_policy_harness_and_modalities_and_unavailability(self):
+        models = [{**self.CONFIG['models'][0], 'modalities': ['text', 'image']},
+                  {**self.CONFIG['models'][2], 'available': False}]
+        inventory, index = RUN.build_inventory({**self.CONFIG, 'models': models}, which=lambda name: True)
+        self.assertEqual(inventory['models'][0]['harness'], 'claude')
+        self.assertEqual(inventory['models'][0]['modalities'], ['text', 'image'])
+        self.assertEqual(list(index), ['a'])
 
     def test_config_rejects_bad_versions_placeholders_and_duplicates(self):
         with tempfile.TemporaryDirectory() as directory:

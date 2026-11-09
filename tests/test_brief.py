@@ -25,6 +25,13 @@ class BriefTests(unittest.TestCase):
                          'Ne commite pas', 'BLOCKED', FENCE + 'handoff'):
             self.assertIn(expected, text)
 
+    def test_review_brief_is_read_only_and_has_no_test_edit_instruction(self):
+        text = BRIEF.render({**DELEGATION, 'role': 'reviewer', 'phase': 'SHIP'})
+        self.assertIn('reviewer', text)
+        self.assertIn('lecture seule', text)
+        self.assertNotIn('Ajoute ou adapte les tests', text)
+        self.assertIn('Ne modifie aucun fichier', text)
+
     def test_skill_instructions_are_capped(self):
         skill = {'path': '/x/skills/tdd/SKILL.md', 'instructions': 'a' * 500}
         text = BRIEF.render(DELEGATION, None, [skill], max_skill_chars=100)
