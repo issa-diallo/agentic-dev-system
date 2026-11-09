@@ -10,6 +10,7 @@
     {"id": "deepseek", "harness": "opencode", "model": "deepseek/deepseek-chat",
      "max_level": "MEDIUM", "efforts": ["medium"], "cost_rank": 0, "enabled": false}
   ],
+  "routing_policy": {"version": 1, "enabled": false, "rules": []},
   "gates": {
     "commands": "auto",
     "timeout": 600,
