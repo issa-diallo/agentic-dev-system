@@ -17,6 +17,7 @@ inconnue, lire METHOD, repérer le dernier PASS prouvé et reprendre la suite.
 | Installation / usage personnel | [INSTALL](INSTALL.md), [LOCAL](LOCAL.md) si LOCAL | activation, protections et migration |
 | Modèles / délégation | [MODELS](MODELS.md), rôles ci-dessous | capacités réelles, contrats et observations |
 | Déléguer à un modèle économique | [DELEGATION](DELEGATION.md) | routage, brief fermé, gates mécaniques |
+| Activer Codex + Claude sur abonnements | [Guide multi-modèles](MULTI_MODEL_GUIDE.md) | installation, limites observées, recette et reprise sans API à l'usage |
 | Recherche / reprise / tâche longue | [CONTEXT](CONTEXT.md), [HANDOFF](templates/HANDOFF.md) | checkpoint local vérifiable |
 | Outil tiers envisagé | [OPTIONAL_TOOLS](OPTIONAL_TOOLS.md) | choix et validations planifiées |
 | BUILD non trivial / PR | [PULL_REQUESTS](PULL_REQUESTS.md), [PR_SPLIT](templates/PR_SPLIT.md) | split PASS avant BUILD, scope PASS avant SHIP |
