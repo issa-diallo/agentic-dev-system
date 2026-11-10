@@ -29,6 +29,22 @@ def install(files):
 
 
 class UpdateTests(unittest.TestCase):
+    def test_first_run_resources_are_added_without_replacing_saved_choices(self):
+        src = fake_source()
+        for relative in ('scripts/agentic-onboard.py', 'docs/agentic/ONBOARDING.md'):
+            target = src / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes((ROOT / relative).read_bytes())
+        project = install({'.agentic-local/docs/agentic/README.md': 'r2',
+                           '.agentic-local/agentic.config.json': '{"personal": "keep"}'})
+        report = update.update(project, source=src, stamp='onboarding')
+        for relative in ('scripts/agentic-onboard.py', 'docs/agentic/ONBOARDING.md'):
+            self.assertIn(relative, report['added'])
+            self.assertEqual((project / '.agentic-local' / relative).read_bytes(),
+                             (src / relative).read_bytes())
+        self.assertEqual((project / '.agentic-local/agentic.config.json').read_text(),
+                         '{"personal": "keep"}')
+
     def test_native_profiles_migrate_update_and_preserve_customizations(self):
         src = fake_source()
         project = install({'.agentic-local/docs/agentic/README.md': 'r2'})

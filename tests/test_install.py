@@ -95,6 +95,22 @@ class InstallTests(unittest.TestCase):
                                 cwd=self.repo / '.agentic-local', capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_first_run_resources_are_distributed_without_configuring_accounts(self):
+        self.install('--local')
+        method = self.repo / '.agentic-local'
+        for relative in ('scripts/agentic-onboard.py', 'docs/agentic/ONBOARDING.md'):
+            self.assertEqual((method / relative).read_bytes(), (SOURCE / relative).read_bytes())
+        self.assertFalse((method / 'agentic.config.json').exists())
+        result = subprocess.run([sys.executable, str(method / 'scripts/agentic-onboard.py'),
+                                 'status', '--repo', str(self.repo)], capture_output=True,
+                                text=True, env={**os.environ, 'HOME': str(self.home),
+                                                'CODEX_HOME': str(self.home / '.codex')}, timeout=5)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        status = json.loads(result.stdout)
+        self.assertTrue(status['onboarding_required'])
+        self.assertEqual(Path(status['config']), method / 'agentic.config.json')
+        self.assertFalse((method / 'agentic.config.json').exists())
+
     def test_shared_install_adds_claude_adapter_without_replacing_team_files(self):
         (self.repo / 'CLAUDE.md').write_text('team claude rules\n')
         self.install('--shared', '--existing')
