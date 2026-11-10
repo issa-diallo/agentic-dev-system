@@ -51,14 +51,27 @@ Le runner refuse les entrées de facturation/redirection qu'il contrôle, y comp
 Ce contrôle n'est pas une sandbox : les commandes du projet, outils et MCP
 peuvent avoir leurs propres coûts et accès, à qualifier avant de les autoriser.
 
-**Limite Claude `--bare`.** Les analyses et revues Claude isolées utilisent
-`--bare`, sans outils ni MCP. La documentation d'authentification actuelle précise
-que ce mode ne lit pas `CLAUDE_CODE_OAUTH_TOKEN` et recommande une clé API ou un
-helper. Ces voies sont interdites ici. Un login réussi hors de ce mode ne prouve
-donc pas sa compatibilité abonnement. Garder `double_analysis` et `review_cycle`
-désactivés tant qu'un essai du preset exact, sur la version installée, n'établit
-pas une connexion officielle par abonnement sans API. Si cette compatibilité
-est impossible, l'option reste BLOCKED ; conserver les protections existantes.
+**Analyses et reviews Claude sur abonnement.** Le preset isolé utilise
+`--safe-mode`, qui conserve l'authentification native, avec les outils désactivés,
+MCP strict vide, `dontAsk`, sources de settings vides, commandes/skills désactivés,
+`disableAllHooks: true` et aucune persistance de session. `--bare` n'est pas utilisé :
+ce mode ignore la connexion abonnement. Une version CLI qui ne reconnaît pas
+`--safe-mode` échoue explicitement, sans relance moins isolée.
+
+Le safe mode conserve toutefois certaines politiques administrateur. Pour ne pas
+exécuter de hooks ou de helpers managed, cette exception refuse avant le probe
+d'authentification toute source managed Linux ou cache `~/.claude/remote-settings.json`
+non vide, illisible ou malformé. Les objets JSON vides sont permis. Elle exige ensuite
+un plan personnel vérifié `pro`, `max` ou `ultra` ; Team, Enterprise et plan inconnu
+restent BLOCKED car leurs politiques distantes peuvent être chargées après le
+contrôle local. Ces restrictions concernent seulement les analyses/reviews isolées,
+pas l'implémentation Claude ni les missions Codex.
+Sources : [CLI](https://code.claude.com/docs/en/cli-reference),
+[hooks managed](https://code.claude.com/docs/en/settings-reference#disableallhooks),
+[politiques distantes](https://code.claude.com/docs/en/server-managed-settings#platform-availability).
+Garder `double_analysis` et `review_cycle` désactivés jusqu'à un essai réel réussi
+du preset exact avec chaque modèle voulu. Un login ou des tests factices ne prouvent
+pas l'authentification du processus d'inférence.
 
 ## Configurer localement le routage
 
@@ -191,7 +204,7 @@ par une CI verte. L'essai réel est à effectuer avant activation des options.
 - [ ] Configuration locale exclue, aucun chemin de facturation/redirection ; commandes/outils/MCP autorisés et non facturants vérifiés séparément.
 - [ ] Ticket LOW : une mission ciblée, pas de double analyse ; contrôles adaptés et review indépendante de livraison conservés.
 - [ ] Ticket MEDIUM : tests, implémentation, Verify puis review dans une session indépendante ; modèle/effort transmis confrontés aux observations disponibles.
-- [ ] Ticket HIGH : niveau/effort capables vérifiés ; deux analyses seulement si justifiées et si Claude `--bare` fonctionne officiellement sur abonnement. Vérifier les deux reçus, avis et arbitrage sourcé avant le premier écrivain.
+- [ ] Ticket HIGH : niveau/effort capables vérifiés ; deux analyses seulement si justifiées et après essai réel du preset Claude `--safe-mode` sur abonnement personnel, sans politique managed ni cache distant non vide. Vérifier les deux reçus, avis et arbitrage sourcé avant le premier écrivain.
 - [ ] Ticket EXTRA_HIGH : inventaire capable étendu après vérification, analyses indépendantes/arbitrage, protections du risque et seconde lecture Lead Tech distincte ; validation humaine applicable conservée.
 - [ ] Pour chaque niveau, durée/tentatives/usage réellement exposés notés, valeurs absentes non inventées ; images/MCP marqués non vérifiés ou liés à un essai explicite par version/modèle/preset.
 - [ ] Quota indisponible ou épuisé, avis absent, désaccord critique, mutation du plan ou timeout : BLOCKED sans fallback payant ; arrêt et ownership réconciliés avant reprise.

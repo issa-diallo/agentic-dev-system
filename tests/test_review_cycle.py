@@ -22,6 +22,9 @@ if args[:2] in (['auth', 'status'], ['login', 'status']):
         print(json.dumps({'loggedIn':True,'authMethod':'claude.ai',
                           'apiProvider':'firstParty','subscriptionType':'pro'}))
     sys.exit(0)
+if name == 'claude' and '--bare' in args:
+    print(json.dumps({'type': 'result', 'is_error': True, 'result': 'Not logged in'}))
+    sys.exit(1)
 tree = Path(args[args.index('-C') + 1]) if name == 'codex' else Path.cwd()
 prompt = args[-1] if name == 'codex' else args[args.index('-p') + 1]
 role = re.search(r'Rôle : ([\w-]+)', prompt).group(1)
@@ -128,7 +131,10 @@ class ReviewCycleTests(unittest.TestCase):
         event = next(e for e in self.events() if e.get('role') == 'reviewer')
         self.assertEqual(event['provider'], 'claude')
         self.assertEqual(event['argv'][event['argv'].index('--tools') + 1], '')
-        self.assertIn('--bare',event['argv'])
+        self.assertNotIn('--bare',event['argv'])
+        self.assertIn('--safe-mode',event['argv'])
+        self.assertEqual(json.loads(event['argv'][event['argv'].index('--settings') + 1]),
+                         {'disableAllHooks': True})
         self.assertNotIn('acceptEdits',event['argv'])
         self.assertIn('VALUE = 1',event['prompt'])
         self.assertIn('test_RM1',event['prompt'])
