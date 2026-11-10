@@ -42,6 +42,11 @@ bloquante non résolue bloque PREPARE.
 ## TRD
 Stack observée ou choix retenus : frameworks, services, API, infrastructure,
 sécurité, déploiement et contraintes techniques ; responsabilités, contrats et dépendances.
+Si double analyse optionnelle HIGH/EXTRA_HIGH : justifier le surcoût quota,
+préparer les IDs AC/RM et les sources explicites du contrat `analysis` selon
+`docs/agentic/DOUBLE_ANALYSIS.md` du socle. Deux avis
+indépendants puis synthèse/arbitrage sourcé requis avant BUILD ; désaccord critique
+non résolu ou fournisseur manquant : BLOCKED. Aucun double lancement LOW/MEDIUM.
 Décisions durables : ADR ciblé ; aucune qualification systématique des outils.
 Validations différées : hypothèse, responsable, échéance, preuve attendue, action si échec.
 

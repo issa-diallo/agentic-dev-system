@@ -1,4 +1,5 @@
 import importlib.util
+import json
 from pathlib import Path
 import unittest
 
@@ -52,6 +53,26 @@ class BriefTests(unittest.TestCase):
             '"findings":[{"severity":"Major","message":"Missing AC"}]}}'))
         self.assertEqual(parsed['review']['verdict'], 'PASS')
         self.assertEqual(parsed['review']['findings'][0]['severity'], 'Major')
+
+    def test_analysis_handoff_preserves_structured_opinion_for_validation(self):
+        analysis = {'bundle_sha256': 'a' * 64,
+                    'decisions': [], 'risks': [], 'assumptions': []}
+        parsed = BRIEF.parse_handoff(reply(json.dumps(
+            {'status': 'COMPLETED', 'analysis': analysis})))
+        self.assertEqual(parsed['analysis'], analysis)
+
+    def test_analysis_brief_contains_identical_inline_sources_and_read_only_contract(self):
+        bundle = {'bundle_sha256': 'a' * 64, 'acceptance': {'AC1': 'Header first'},
+                  'rules': [{'id': 'RM1', 'text': 'Header first'}],
+                  'sources': [{'id': 'S1', 'path': 'export.py', 'content': 'HEADER = 1'}]}
+        delegation = {**DELEGATION, 'role': 'explorer', 'phase': 'PREPARE',
+                      'analysis': bundle}
+        text = BRIEF.render(delegation)
+        self.assertIn(FENCE + 'analysis-input', text)
+        self.assertIn('HEADER = 1', text)
+        self.assertIn('Ne modifie aucun fichier', text)
+        self.assertIn('analysis', text)
+        self.assertNotIn('Ajoute ou adapte les tests', text)
 
     def test_skill_instructions_are_capped(self):
         skill = {'path': '/x/skills/tdd/SKILL.md', 'instructions': 'a' * 500}

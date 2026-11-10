@@ -85,6 +85,16 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('--once', result.stdout)
 
+    def test_dual_analysis_module_is_distributed_with_the_runner(self):
+        self.install('--local')
+        relative = 'scripts/agentic-analysis.py'
+        installed = self.repo / '.agentic-local' / relative
+        self.assertTrue(installed.is_file())
+        self.assertEqual(installed.read_bytes(), (SOURCE / relative).read_bytes())
+        result = subprocess.run(['bash', 'scripts/agentic-check.sh', '--existing'],
+                                cwd=self.repo / '.agentic-local', capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_shared_install_adds_claude_adapter_without_replacing_team_files(self):
         (self.repo / 'CLAUDE.md').write_text('team claude rules\n')
         self.install('--shared', '--existing')

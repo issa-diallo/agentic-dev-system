@@ -65,7 +65,8 @@ def file_hashes(repo):
 
 class Scheduler:
     def __init__(self, manifest, repo='.', state_path=None, *, skill_roots=(), models=None,
-                 attempts=None, routing_policy=None, missions=False, execution_context=None):
+                 attempts=None, routing_policy=None, missions=False, execution_context=None,
+                 double_analysis=None, analysis_models=None):
         self.manifest = Path(manifest).resolve()
         self.repo = WORKSPACE.root(repo)
         common = BUILD.common_dir(self.repo)
@@ -74,8 +75,14 @@ class Scheduler:
         self.skill_roots, self.models, self.attempts = skill_roots, models, attempts
         self.routing_policy = routing_policy
         self.missions = missions
+        self.double_analysis = double_analysis or {'enabled': False}
+        self.analysis_models = analysis_models or {}
         fingerprint = ({'policy': routing_policy, 'missions': True, 'runtime': execution_context}
                        if missions else routing_policy)
+        if self.double_analysis['enabled']:
+            require(missions, 'double analysis requires the mission pipeline')
+            fingerprint = {'context': fingerprint, 'double_analysis': self.double_analysis,
+                           'analysis_models': self.analysis_models}
         self.routing_fingerprint = hashlib.sha256(
             json.dumps(fingerprint, sort_keys=True).encode()).hexdigest()
 
@@ -154,9 +161,18 @@ class Scheduler:
         changed.update(key for key, task in state['tasks'].items()
                        if task.get('routing_fingerprint', self.routing_fingerprint)
                        != self.routing_fingerprint)
+        changed.update(key for key, task in state['tasks'].items()
+                       if task.get('analysis_required') and task.get('analysis_bundle')
+                       and (task['analysis_bundle']['plan_sha256'] != digest
+                            or task['analysis_bundle'].get('routing_fingerprint')
+                            != self.routing_fingerprint))
         for key in changed:
             if key in state['tasks']:
-                self._block(state, state['tasks'][key], 'plan changed; revalidation required')
+                task = state['tasks'][key]
+                if task.get('analysis_required'):
+                    task.setdefault('analysis_stale', 'analysis contract or routing context changed; '
+                                    'explicit renewed analysis required')
+                self._block(state, task, 'plan changed; revalidation required')
         state.update(plan=plan, plan_sha256=digest)
         self._historical(state, units)
         return units
@@ -203,6 +219,19 @@ class Scheduler:
                 invalidated.add(pr)
         self._block_descendants(state, invalidated)
 
+    def _classification(self, unit, delegation):
+        classification = dict(unit.get('routing', {}))
+        description = delegation['objective'] + ' ' + ' '.join(delegation['files'])
+        description = ''.join(char for char in unicodedata.normalize('NFKD', description)
+                              if not unicodedata.combining(char)).lower().replace('_', ' ')
+        if re.search(AUTH_TERMS, description):
+            classification.update(type='authentication', risk='security_critical')
+        elif re.search(r'\b(migrations?|schema)\b|\.sql\b', description):
+            classification.update(type='migration', risk='critical')
+        elif re.search(r'\b(refactor|refactoring|architecture|cross.module)\b', description):
+            classification.setdefault('complexity', 'high')
+        return classification
+
     def _context(self, delegation, unit):
         skills, models = module('skills', True), module('models', True)
         brief = module('brief', True)
@@ -232,18 +261,14 @@ class Scheduler:
                 delegation['objective'], delegation['files'], self.skill_roots)
             context['skills']['selected'] = context['skills']['selection']['selected']
         if models and self.models is not None:
-            description = delegation['objective'] + ' ' + ' '.join(delegation['files'])
-            description = ''.join(char for char in unicodedata.normalize('NFKD', description)
-                                  if not unicodedata.combining(char)).lower()
-            description = description.replace('_', ' ')
-            if re.search(AUTH_TERMS, description):
-                classification.update(type='authentication', risk='security_critical')
-            elif re.search(r'\b(migrations?|schema)\b|\.sql\b', description):
-                classification.update(type='migration', risk='critical')
-            elif re.search(r'\b(refactor|refactoring|architecture|cross.module)\b', description):
-                classification.setdefault('complexity', 'high')
+            classification = self._classification(unit, delegation)
             classification.update(role=role, phase=phase)
-            routing = models.route({'id': delegation['pr'], **classification}, self.models,
+            inventory = self.models
+            if delegation.get('analysis'):
+                allowed_models = self.analysis_models.get(delegation['analysis_provider'], [])
+                inventory = {**self.models, 'models': [m for m in self.models['models']
+                                                       if m['id'] in allowed_models]}
+            routing = models.route({'id': delegation['pr'], **classification}, inventory,
                                    self.attempts, self.routing_policy)
             require(routing['verdict'] == 'PASS', routing['reason'])
             explicit_effort = False
@@ -253,6 +278,29 @@ class Scheduler:
             context.update(model_routing=routing, model_requested=routing['recommendation'],
                            model_effort_required=explicit_effort)
         return context
+
+    def _prepare_analysis(self, task, unit, delegation, plan_sha256):
+        if (self.double_analysis['enabled'] and task.get('mission_index') == 0
+                and not task.get('analysis_required')):
+            if module('models').classify(self._classification(unit, delegation)) >= 2:
+                task.update(analysis_required=True, mission_roles=['explorer', 'explorer']
+                            + task['mission_roles'])
+                task['analysis_bundle'] = module('analysis').bundle(unit, delegation['worktree'], {
+                    'plan_sha256': plan_sha256,
+                    'routing_fingerprint': self.routing_fingerprint,
+                    'base': WORKSPACE.git(delegation['worktree'], 'rev-parse', 'HEAD'),
+                    'snapshot': snapshot(delegation['worktree'])})
+
+    def _analysis_inputs(self, task, delegation, analyzing):
+        if analyzing:
+            provider = ('codex', 'claude')[task['mission_index']]
+            task['analysis_provider'] = provider
+            delegation.update(analysis=task['analysis_bundle'], analysis_provider=provider)
+            self._analysis_sources(task, delegation['worktree'])
+        elif task.get('analysis_required'):
+            require(task.get('analysis_summary', {}).get('verdict') == 'PASS',
+                    'two independent analyses and valid arbitration required before BUILD')
+            self._analysis_sources(task, delegation['worktree'])
 
     def _assign(self, state, pr):
         task = state['tasks'][pr]
@@ -264,6 +312,7 @@ class Scheduler:
         require(delegation['plan_sha256'] == state['plan_sha256'], 'plan changed during prepare')
         delegation['runtime_handshake'] = 'Remain read-only until orchestrator confirms launch receipt'
         unit = copy.deepcopy(task['unit'])
+        self._prepare_analysis(task, unit, delegation, state['plan_sha256'])
         if task.get('mission_roles'):
             require(self.missions, 'mission pipeline disabled; reconciliation required')
             require(unit.get('routing', {}).get('role', 'implementer') == 'implementer'
@@ -274,7 +323,10 @@ class Scheduler:
                     'mission input changed; revalidation required')
             role = task['mission_roles'][task['mission_index']]
             classification = unit.setdefault('routing', {})
-            classification.update(role=role, phase='BUILD', session_id='mission:' + uuid.uuid4().hex)
+            analyzing = task.get('analysis_required') and task['mission_index'] < 2
+            phase = 'PREPARE' if analyzing else 'BUILD'
+            classification.update(role=role, phase=phase, session_id='mission:' + uuid.uuid4().hex)
+            self._analysis_inputs(task, delegation, analyzing)
             if role == 'reviewer':
                 classification['complexity'] = 'high'  # Review floor also applies without a policy.
                 writer = next(h['task'] for h in task['mission_history']
@@ -290,8 +342,9 @@ class Scheduler:
             delegation['writable_files'] = [p for p in unit['files']
                                             if (bool(is_test(p)) if role == 'test-author'
                                                 else not is_test(p))]
-            if role == 'reviewer':
+            if role == 'reviewer' or analyzing:
                 delegation['writable_files'] = []
+            if role == 'reviewer':
                 delegation['verification'] = task['verify_evidence']
         context = self._context(delegation, unit)
         owner = {'id': 'scheduler-' + uuid.uuid4().hex, 'task': pr,
@@ -355,6 +408,12 @@ class Scheduler:
             self._block(state, task, str(error))
             self._event(state, task, 'launch_observed_scope_invalid')
             raise
+        if (not blocked and task.get('analysis_required') and task['mission_index'] == 2
+                and task['phase'] == 'BUILD' and task['role'] in ('test-author', 'implementer')
+                and runtime in ('native', 'process') and not task.get('analysis_consumption')):
+            task['analysis_consumption'] = {'bundle_sha256': task['analysis_bundle']['bundle_sha256'],
+                                            'role': task['role'], 'receipt': copy.deepcopy(observation)}
+            self._event(state, task, 'analysis_consumption_authorized')
         task['state'] = 'BLOCKED' if blocked else 'RUNNING'
         self._event(state, task, 'launch_observed')
 
@@ -449,6 +508,8 @@ class Scheduler:
         self._scope(task)
         require(task['assigned_snapshot'] == snapshot(task['delegation']['worktree']),
                 'assignment content changed before launch receipt')
+        if task.get('analysis_required'):
+            self._analysis_sources(task, task['delegation']['worktree'])
 
     def accept(self, pr, evidence):
         """Trusted orchestrator accepts tests and contract for dependency readiness."""
@@ -500,6 +561,10 @@ class Scheduler:
                         and gate.get('base') == task['starting_head'], 'mission gate failed or stale')
                 handoff = task.get('result', {}).get('handoff')
                 require(handoff and handoff['status'] == 'COMPLETED', 'mission handoff required')
+                analyzing = task['phase'] == 'PREPARE' and task.get('analysis_required')
+                if analyzing:
+                    require(not handoff.get('blockers'), 'analysis handoff has unresolved blockers')
+                    module('analysis').validate_opinion(handoff.get('analysis'), task['analysis_bundle'])
                 if task['role'] == 'reviewer':
                     require(task.get('independent_review') is True
                             and module('brief').review_passes(handoff.get('review')),
@@ -512,10 +577,97 @@ class Scheduler:
                     task['verify_evidence'] = copy.deepcopy(gate)
                 if task['role'] == 'reviewer':
                     task['mission_complete'] = True
+                elif analyzing and task['mission_index'] == 1:
+                    self._finish_analysis(state, task)
                 else:
                     task.update(state='PLANNED', mission_index=task['mission_index'] + 1,
                                 agent_id=None, active=False, result=None, accepted=False)
                 self._event(state, task, 'mission_verified')
+            except (ValueError, OSError, KeyError, TypeError) as error:
+                self._block(state, task, str(error))
+            return copy.deepcopy(task)
+
+    def _analysis_consumed(self, task):
+        proof = task.get('analysis_consumption')
+        if proof is None:
+            return False
+        receipt = proof.get('receipt') if isinstance(proof, dict) else None
+        require(isinstance(receipt, dict) and receipt.get('launch_observed') is True
+                and receipt.get('identity_verified') is True
+                and receipt.get('runtime') in ('native', 'process')
+                and isinstance(receipt.get('agent_id'), str) and receipt['agent_id'].strip()
+                and proof.get('role') in ('test-author', 'implementer')
+                and proof.get('bundle_sha256') == task['analysis_bundle']['bundle_sha256'],
+                'analysis consumption requires the observed first-writer authorization')
+        return True
+
+    def _analysis_sources(self, task, tree, plan_sha256=None):
+        """Bind every reuse to its contract; content may evolve only after authorization."""
+        try:
+            require(not task.get('analysis_stale'), 'analysis invalidated; renewed analysis required')
+            contract = task['analysis_bundle']
+            current = {'plan_sha256': plan_sha256 or task['plan_sha256'],
+                       'routing_fingerprint': self.routing_fingerprint,
+                       'base': WORKSPACE.git(tree, 'rev-parse', 'HEAD')}
+            require(all(contract.get(k) == value for k, value in current.items()),
+                    'analysis plan, base or routing context is stale; renewed analysis required')
+            if not self._analysis_consumed(task):
+                current['snapshot'] = snapshot(tree)
+                require(contract['snapshot'] == current['snapshot'],
+                        'analysis prewrite snapshot is stale; renewed analysis required')
+                require(module('analysis').bundle(task['unit'], tree, current) == contract,
+                        'analysis sources changed; renewed analysis required')
+        except (ValueError, OSError, KeyError, TypeError) as error:
+            task.setdefault('analysis_stale', str(error))
+            raise
+
+    def _finish_analysis(self, state, task):
+        analysis = module('analysis')
+        self._analysis_sources(task, task['delegation']['worktree'])
+        histories = [h['task'] for h in task['mission_history'] if h['task']['phase'] == 'PREPARE']
+        arbitration, arbitration_error = None, None
+        try:
+            arbitration = analysis.arbitration_for(self.double_analysis.get('arbitration_file'),
+                                                   task['unit']['id'])
+        except (ValueError, OSError) as error:
+            arbitration_error = str(error)
+        summary = analysis.synthesize(histories, task['analysis_bundle'], arbitration)
+        if arbitration_error and summary['verdict'] == 'BLOCKED':
+            summary['reason'] = arbitration_error
+        task['analysis_summary'] = summary
+        if summary['verdict'] == 'PASS':
+            task.update(state='PLANNED', mission_index=2, agent_id=None, active=False,
+                        result=None, accepted=False, analysis_pending=False, blockers=[])
+        else:
+            task['analysis_pending'] = True
+            self._block(state, task, 'analysis arbitration required')
+
+    def pending_analyses(self):
+        with self._state() as state:
+            self._sync(state)
+            self._validate_owners(state)
+            return [pr for pr, task in state['tasks'].items() if task.get('analysis_pending')]
+
+    def resolve_analysis(self, pr):
+        """Reconcile only pending arbitration; never redispatch missing analyses."""
+        with self._state() as state:
+            self._sync(state)
+            self._validate_owners(state)
+            task = state['tasks'][pr]
+            if (not task.get('analysis_pending') or task['state'] != 'BLOCKED'
+                    or task['blockers'] != ['analysis arbitration required']):
+                return copy.deepcopy(task)
+            try:
+                require(task.get('active') is False and 'owner' not in task,
+                        'analysis runtime stop required')
+                self._scope(task)
+                tree, contract = task['delegation']['worktree'], task['analysis_bundle']
+                require(snapshot(tree) == contract['snapshot']
+                        and state['plan_sha256'] == contract['plan_sha256']
+                        and WORKSPACE.git(tree, 'rev-parse', 'HEAD') == contract['base'],
+                        'analysis input evidence stale')
+                self._analysis_sources(task, tree)
+                self._finish_analysis(state, task)
             except (ValueError, OSError, KeyError, TypeError) as error:
                 self._block(state, task, str(error))
             return copy.deepcopy(task)
@@ -534,6 +686,12 @@ class Scheduler:
             require(pr in units, 'task removed from current plan')
             delegation = BUILD.prepare(self.manifest, self.repo, pr, self._done(state))
             require(delegation['plan_sha256'] == state['plan_sha256'], 'plan changed during requeue')
+            if task.get('analysis_required'):
+                try:
+                    self._analysis_sources(task, delegation['worktree'], state['plan_sha256'])
+                except (ValueError, OSError, KeyError, TypeError) as error:
+                    self._block(state, task, str(error))
+                    raise
             reconciled = {**task, 'unit': units[pr], 'delegation': delegation}
             reconciled.setdefault('starting_head', WORKSPACE.git(delegation['worktree'],
                                                                  'rev-parse', 'HEAD'))
@@ -549,7 +707,9 @@ class Scheduler:
                                                  'requeue': copy.deepcopy(evidence), 'time': time.time()}]
             mission = {key: copy.deepcopy(task[key]) for key in (
                 'mission_roles', 'mission_index', 'mission_history', 'mission_complete',
-                'verify_evidence', 'starting_head', 'role', 'mission_protected') if key in task}
+                'verify_evidence', 'starting_head', 'role', 'mission_protected',
+                'analysis_required', 'analysis_bundle', 'analysis_summary',
+                'analysis_pending', 'analysis_provider', 'analysis_consumption') if key in task}
             if mission:
                 mission['mission_snapshot'] = evidence['snapshot']
             task.clear()
@@ -628,6 +788,8 @@ class Scheduler:
                     info = WORKSPACE.inspect(self.repo, str(tree))
                     require(info['branch'] == unit['branch'], 'assigned worktree has wrong branch')
                     require(not BUILD.dirty_paths(tree) - set(unit['files']), 'dirty paths outside scope')
+                    if task.get('analysis_bundle'):
+                        self._analysis_sources(task, tree, state['plan_sha256'])
                     if task.get('starting_head'):
                         self._scope(task)
                     if task.get('mission_roles') and not task.get('owner'):
