@@ -69,7 +69,8 @@ def claude(v):
     if v.get('analysis') or v.get('review_context'):
         return ['claude', '-p', v['prompt'], '--model', v['model'], '--output-format', 'json',
                 '--max-turns', str(v['max_turns']), '--permission-mode', 'dontAsk',
-                '--bare', '--tools', '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
+                '--safe-mode', '--settings', '{"disableAllHooks":true}',
+                '--tools', '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
                 '--disallowedTools', 'mcp__*', '--disable-slash-commands', '--setting-sources', '',
                 '--no-session-persistence']
     argv = ['claude', '-p', v['prompt'], '--model', v['model'], '--output-format', 'json',
@@ -262,7 +263,20 @@ def probe_subscription(preset, worktree, env, run=subprocess.run):
     return {'auth': 'claude.ai', 'plan': plan if isinstance(plan, str) else None}
 
 
-def check_subscription(harness, worktree, run=subprocess.run):
+def check_claude_isolation(environ):
+    """Safe mode preserves managed policy: refuse it, never attempt to override it.
+
+    Only personal plans are accepted later, so a new organization policy cannot be
+    fetched after this check. An old remote cache must not apply at startup either.
+    """
+    home = Path(environ.get('HOME') or Path.home())
+    sources = claude_managed_settings(environ)
+    sources.append(settings_file(home / '.claude' / 'remote-settings.json', json.loads))
+    require(not any(sources),
+            'isolated Claude: nonempty managed or remote settings are not supported')
+
+
+def check_subscription(harness, worktree, run=subprocess.run, isolated_claude=False):
     """Allow an unmodified codex/claude preset only when logged in with a subscription.
 
     Proven before launch: no API key, endpoint or proxy in the environment or in the
@@ -275,10 +289,17 @@ def check_subscription(harness, worktree, run=subprocess.run):
             'subscription-only: harness must be an unmodified codex or claude preset')
     require(not any(billing_name(name) for name in os.environ),
             'subscription-only: billing or endpoint environment inputs are forbidden')
+    if isolated_claude:
+        check_claude_isolation(os.environ)
     found = routing_overrides(preset, worktree, os.environ)
     require(not found, 'subscription-only: routing settings forbidden: ' + ', '.join(sorted(set(found))))
     require(shutil.which(preset), 'subscription-only: executable not found: ' + preset)
-    return {**probe_subscription(preset, worktree, child_env(harness), run), **SUBSCRIPTION_UNVERIFIED}
+    subscription = probe_subscription(preset, worktree, child_env(harness), run)
+    if isolated_claude:
+        require(subscription['plan'] in ('pro', 'max', 'ultra'),
+                'isolated Claude: verified personal subscription (pro/max/ultra) required; '
+                'organization or unknown plans may load uninspected remote settings')
+    return {**subscription, **SUBSCRIPTION_UNVERIFIED}
 
 
 def quota_exhausted(job):
@@ -407,7 +428,8 @@ class ProcessAdapter:
             require(model_sent, 'configured harness cannot transmit selected model')
             require(not harness.get('extra_args'),
                     'active routing policy refuses preset argument overrides')
-        subscription = (check_subscription(harness, task['delegation']['worktree'], self.run_probe)
+        subscription = (check_subscription(harness, task['delegation']['worktree'], self.run_probe,
+                                           isolated_claude=preset == 'claude' and (analyzing or reviewing))
                         if subscription_only(self.config) else None)
         launch_id = uuid.uuid4().hex
         directory = self.run_dir / pr / (time.strftime('%Y%m%dT%H%M%S') + '-' + launch_id)

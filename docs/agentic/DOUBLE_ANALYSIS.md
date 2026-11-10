@@ -88,13 +88,21 @@ remplace cette réconciliation ; un arbitrage ne répare pas des inputs périmé
 
 Codex conserve sa sandbox `read-only`. Claude reçoit uniquement le bundle, sans
 outil intégré/MCP, commande, hook, plugin ou contexte découvert automatiquement
-(`--bare`, `--tools ""`, MCP strict vide, `dontAsk`, session neuve). Cette exception
+(`--safe-mode`, `disableAllHooks: true`, `--tools ""`, MCP strict vide, `dontAsk`,
+sources de settings vides, commandes/skills désactivés, session neuve sans persistance).
+Contrairement à `--bare`, ce preset conserve la connexion abonnement. Comme le
+safe mode conserve certaines politiques managed, toute source managed Linux ou
+cache distant non vide est refusé avant le probe ; un plan personnel vérifié
+`pro`, `max` ou `ultra` est requis ensuite. Sources illisibles/malformées et comptes
+Team/Enterprise/inconnus restent BLOCKED. Voir le
+[guide multi-modèles](MULTI_MODEL_GUIDE.md) pour les restrictions et l'essai réel.
+Cette exception
 est limitée à l’analyse et à la revue inline du
 [cycle de revue optionnel](DELEGATION.md#cycle-de-revue-corrective-borné) ; les
 autres missions Claude en lecture seule restent refusées. Ces protections
 reposent sur le CLI officiel de confiance, sans sandbox OS ajoutée. Options
 vérifiées dans la [référence Claude Code](https://code.claude.com/docs/en/cli-reference)
-le 2026-11-09 ; CLI ne supportant pas ces options : échec explicite. Les tests
+le 2026-11-10 ; CLI ne supportant pas ces options : échec explicite sans downgrade. Les tests
 utilisent de faux CLI, ne prouvent pas le raisonnement des modèles. Modèle/effort
 effectifs non exposés restent null ; quota et dépassement payant non vérifiés.
 Cette gate ne remplace aucun Verify, review indépendante, PR_SCOPE, CI ou SHIP.

@@ -34,11 +34,20 @@ if args[:2] in (['auth', 'status'], ['login', 'status']):
               'apikey': {{'loggedIn': True, 'authMethod': 'api_key', 'apiProvider': 'firstParty'}},
               'bedrock': {{'loggedIn': True, 'authMethod': 'claude.ai', 'apiProvider': 'bedrock'}},
               'missing': {{'loggedIn': False}}}}.get(login)
+    if login.startswith('plan:'):
+        status = {{'loggedIn': True, 'authMethod': 'claude.ai', 'apiProvider': 'firstParty',
+                   'subscriptionType': json.loads(login[5:])}}
     print(json.dumps(status) if status else 'not json')
     sys.exit(1 if login == 'missing' else 0)
 with (root / 'inference').open('a') as stream:
     stream.write(json.dumps({{'argv': args, 'env': sorted(os.environ)}}) + '\\n')
 run = (root / 'run').read_text()
+if name == 'claude' and '--bare' in args:
+    print(json.dumps({{'type': 'result', 'is_error': True, 'result': 'Not logged in'}}))
+    sys.exit(1)
+if run == 'unsupported-safe-mode' and '--safe-mode' in args:
+    print('unknown option --safe-mode', file=sys.stderr)
+    sys.exit(2)
 if run == 'quota':
     print('Error: usage limit reached, try again later', file=sys.stderr)
     sys.exit(1)
@@ -105,9 +114,18 @@ class SubscriptionTests(unittest.TestCase):
         return {'unit': {'id': 't'}, 'model_requested': {'model': 'm', 'effort': 'low'},
                 'delegation': {'worktree': str(self.work)}}
 
-    def launch_blocked(self, adapter=None, reason=None):
+    def isolated(self, popen=None):
+        adapter = self.adapter(popen=popen)
+        adapter.config['run']['review_cycle'] = {
+            'enabled': True, 'max_attempts': 3, 'max_corrections': 0, 'max_cost_rank': 1}
+        task = self.task()
+        task.update(role='reviewer', phase='BUILD')
+        task['delegation']['review_context'] = {'diff': 'inline only'}
+        return adapter, task
+
+    def launch_blocked(self, adapter=None, reason=None, task=None):
         with self.assertRaises(RUN.Blocked) as raised:
-            (adapter or self.adapter()).launch(self.task())
+            (adapter or self.adapter()).launch(task or self.task())
         message = str(raised.exception)
         if reason:
             self.assertIn(reason, message)
@@ -115,6 +133,109 @@ class SubscriptionTests(unittest.TestCase):
         self.assertFalse((self.root / 'runs').exists())
         self.assertEqual(self.lines('inference'), [])
         return message
+
+    def test_RM1_personal_subscription_runs_isolated_review_without_bare(self):
+        for plan in ('pro', 'max', 'ultra'):
+            with self.subTest(plan=plan):
+                self.set_login('plan:' + json.dumps(plan))
+                adapter, task = self.isolated(popen=subprocess.Popen)
+                try:
+                    adapter.launch(task)
+                    done = adapter.wait(task)
+                finally:
+                    adapter.close()
+                self.assertEqual(done['outcome'], 'COMPLETED', done)
+                self.assertEqual(done['result']['subscription']['plan'], plan)
+        for call in self.lines('inference'):
+            args = call['argv']
+            self.assertNotIn('--bare', args)
+            self.assertIn('--safe-mode', args)
+            self.assertEqual(json.loads(args[args.index('--settings') + 1]),
+                             {'disableAllHooks': True})
+            self.assertEqual(args[args.index('--tools') + 1], '')
+            self.assertEqual(args[args.index('--setting-sources') + 1], '')
+            self.assertEqual(json.loads(args[args.index('--mcp-config') + 1]),
+                             {'mcpServers': {}})
+            self.assertIn('--strict-mcp-config', args)
+            self.assertIn('--no-session-persistence', args)
+            self.assertIn('--disable-slash-commands', args)
+            self.assertEqual(args[args.index('--disallowedTools') + 1], 'mcp__*')
+            self.assertEqual(args[args.index('--permission-mode') + 1], 'dontAsk')
+
+    def test_RM2_organization_or_unknown_plan_blocks_only_isolated_review(self):
+        for plan in ('team', 'enterprise', 'unknown', None, '', 1):
+            with self.subTest(plan=plan):
+                self.set_login('plan:' + json.dumps(plan))
+                adapter, task = self.isolated()
+                self.launch_blocked(adapter, 'personal subscription', task)
+        self.assertEqual(len(self.lines('probes')), 6)
+        self.assertEqual(self.run_to_end('claude')['outcome'], 'COMPLETED')
+
+    def test_RM2_managed_execution_is_refused_before_auth_probe(self):
+        fragments = self.managed / 'managed-settings.d'
+        fragments.mkdir(parents=True)
+        settings = [
+            {'hooks': {'SessionStart': [{'hooks': [{'type': 'command',
+                                                   'command': 'secret-sentinel'}]}]}},
+            *[{key: {'command': 'secret-sentinel'}}
+              for key in ('statusLine', 'subagentStatusLine', 'fileSuggestion')],
+            {'policyHelper': 'secret-sentinel'}, {'otelHeadersHelper': 'secret-sentinel'},
+            {'env': {'CLAUDE_CODE_SIMPLE': '1'}},
+            {'env': {'CLAUDE_CODE_SAFE_MODE': '0'}},
+            {'permissions': {'deny': ['Bash']}},
+        ]
+        for filename in ('managed-settings.json', 'managed-settings.d/20-policy.json'):
+            target = self.managed / filename
+            for content in settings:
+                with self.subTest(file=filename, keys=list(content)):
+                    target.write_text(json.dumps(content))
+                    try:
+                        adapter, task = self.isolated()
+                        self.launch_blocked(adapter, 'isolated Claude', task)
+                    finally:
+                        target.unlink()
+        self.assertEqual(self.lines('probes'), [])
+
+    def test_RM2_remote_cache_is_refused_before_probe_even_for_personal_plan(self):
+        cache = self.home / '.claude' / 'remote-settings.json'
+        cache.parent.mkdir()
+        for content in ('{"hooks": {"SessionStart": []}}', '{invalid', '[]'):
+            with self.subTest(content=content):
+                cache.write_text(content)
+                adapter, task = self.isolated()
+                self.launch_blocked(adapter, 'settings', task)
+        cache.unlink()
+        cache.symlink_to(cache.parent / 'missing')
+        adapter, task = self.isolated()
+        self.launch_blocked(adapter, 'settings', task)
+        cache.unlink()
+        self.assertEqual(self.lines('probes'), [])
+
+    def test_RM2_empty_remote_cache_and_managed_policy_are_allowed(self):
+        cache = self.home / '.claude' / 'remote-settings.json'
+        cache.parent.mkdir()
+        cache.write_text('{}')
+        self.managed.mkdir()
+        (self.managed / 'managed-settings.json').write_text('{}')
+        adapter, task = self.isolated(popen=subprocess.Popen)
+        try:
+            adapter.launch(task)
+            done = adapter.wait(task)
+        finally:
+            adapter.close()
+        self.assertEqual(done['outcome'], 'COMPLETED', done)
+
+    def test_RM1_unsupported_safe_mode_blocks_without_less_isolated_retry(self):
+        self.set_run('unsupported-safe-mode')
+        adapter, task = self.isolated(popen=subprocess.Popen)
+        try:
+            adapter.launch(task)
+            done = adapter.wait(task)
+        finally:
+            adapter.close()
+        self.assertEqual(done['outcome'], 'BLOCKED', done)
+        self.assertEqual(done['blockers'], ['exit code 2'])
+        self.assertEqual(len(self.lines('inference')), 1)
 
     def run_to_end(self, preset):
         adapter = self.adapter(preset, popen=subprocess.Popen)

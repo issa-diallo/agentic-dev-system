@@ -57,7 +57,15 @@ et une analyse renouvelées ; cette API ne réhabilite pas l'ancien consensus.
 Claude reviewer utilise, seulement dans ce cycle, le preset officiel non modifié,
 sans outils intégrés/MCP, hooks ou contexte automatique, avec les restrictions
 existantes de l'analyse. Diff, sources UTF-8 régulières du périmètre et Verify
-sont fournis inline. Les chemins ignorés non suivis, même absents, sont refusés
+sont fournis inline. Le preset utilise `--safe-mode` avec `disableAllHooks: true`,
+sans `--bare`, pour conserver l'authentification abonnement. Les politiques managed
+ne sont pas neutralisées par ce mode : toute source managed Linux ou cache distant
+non vide est refusé avant le probe ; un plan personnel vérifié `pro`, `max` ou
+`ultra` est ensuite requis. Les sources illisibles/malformées et les plans
+Team/Enterprise/inconnus restent BLOCKED ; CLI sans les options requises : échec
+explicite sans fallback. L'essai réel du preset exact reste nécessaire selon le
+[guide multi-modèles](MULTI_MODEL_GUIDE.md).
+Les chemins ignorés non suivis, même absents, sont refusés
 avant lecture : le snapshot Git ne lie pas leur contenu. Les fichiers suivis
 restent admissibles même si un pattern ignore correspond ; les nouvelles sources
 non ignorées et les suppressions restent représentées dans le contexte/diff. Le contexte est limité à 100 000 octets et bloque si trop

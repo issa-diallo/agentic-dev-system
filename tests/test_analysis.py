@@ -31,6 +31,9 @@ if args[:2] in (['auth', 'status'], ['login', 'status']):
         print(json.dumps({'loggedIn': True, 'authMethod': 'claude.ai',
                           'apiProvider': 'firstParty', 'subscriptionType': 'pro'}))
     sys.exit(0)
+if name == 'claude' and '--bare' in args:
+    print(json.dumps({'type': 'result', 'is_error': True, 'result': 'Not logged in'}))
+    sys.exit(1)
 tree = Path(args[args.index('-C') + 1]) if name == 'codex' else Path.cwd()
 prompt = args[-1] if name == 'codex' else args[args.index('-p') + 1]
 role = re.search(r'Rôle : ([\w-]+)', prompt).group(1)
@@ -365,6 +368,10 @@ class DualAnalysisTests(unittest.TestCase):
         self.assertTrue(RUN.succeeded(report, False), report)
         claude = next(e for e in self.analyses() if e['provider'] == 'claude')
         argv = claude['argv']
+        self.assertNotIn('--bare', argv)
+        self.assertIn('--safe-mode', argv)
+        self.assertEqual(json.loads(argv[argv.index('--settings') + 1]),
+                         {'disableAllHooks': True})
         self.assertIn('--tools', argv)
         self.assertEqual(argv[argv.index('--tools') + 1], '')
         self.assertIn('--strict-mcp-config', argv)
