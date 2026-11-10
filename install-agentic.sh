@@ -86,6 +86,7 @@ V2_RESOURCES=(
   docs/agentic/RUNTIME.md
   docs/agentic/DELEGATION.md
   docs/agentic/DOUBLE_ANALYSIS.md
+  docs/agentic/ONBOARDING.md
   docs/agentic/templates/agentic.config.json
   scripts/agentic-build.py
   scripts/agentic-workspace.py
@@ -99,6 +100,7 @@ V2_RESOURCES=(
   scripts/agentic-quality.py
   scripts/agentic-codex.sh
   scripts/agentic-run.py
+  scripts/agentic-onboard.py
   scripts/agentic-analysis.py
   scripts/agentic-brief.py
   scripts/agentic-gates.py

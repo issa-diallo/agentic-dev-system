@@ -1,10 +1,13 @@
 # Navigation de la méthode
 
-Lire cet index après README. Charger uniquement les règles utiles à la phase et
-au risque ; chaque déclencheur rend sa lecture obligatoire. Si la phase est
-inconnue, lire METHOD, repérer le dernier PASS prouvé et reprendre la suite.
+Lire après README. Chaque déclencheur impose les lectures utiles à la phase et au
+risque. Phase inconnue : lire METHOD et reprendre après le dernier PASS prouvé.
 
 `PREPARE → BUILD → SHIP`
+
+Première mission : suivre [ONBOARDING](ONBOARDING.md), sauf aide, lecture, statut
+ou `agentic ?`. Si déjà configuré, réutiliser les choix. Passer leur chemin de
+configuration à chaque appel du runner et reprise.
 
 | Déclencheur | Lecture obligatoire | Résultat attendu |
 |---|---|---|
@@ -37,8 +40,8 @@ nouvelle mission V2, aucun PASS distinct exigé. [ADR](templates/ADR.md) trace l
 décisions durables. Leur présence ne constitue pas un gate.
 
 Rôles : [orchestrator](roles/ORCHESTRATOR.md), [implementer](roles/IMPLEMENTER.md),
-[reviewer](roles/REVIEWER.md). Les spécialisations sont des contrats temporaires,
-pas des agents automatiquement lancés. Les scripts `agentic-build.py`,
+[reviewer](roles/REVIEWER.md). Les spécialisations sont des contrats, pas des
+agents lancés. Les scripts `agentic-build.py`,
 `agentic-workspace.py`, `agentic-skills.py`, `agentic-models.py`,
 `agentic-scheduler.py`, `agentic-quality.py`, `agentic-run.py`, `agentic-brief.py`,
 `agentic-gates.py` sont utilisés si disponibles ; vérifier

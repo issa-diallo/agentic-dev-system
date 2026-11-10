@@ -8,6 +8,13 @@ sur demande explicite.
 
 ## Activation
 
+Avant la première mission de développement, appliquer le questionnaire de
+[premier lancement](ONBOARDING.md), vérifier les connexions et tester les modèles
+avant d’enregistrer les choix. Une configuration complète évite de reposer les
+questions. Conserver le chemin `config` renvoyé et le passer explicitement à
+chaque commande du runner. Une demande d’aide, de lecture, de statut ou le message
+exact `agentic ?` reste sans questionnaire ni inférence.
+
 > Lis d’abord les règles du dépôt et de l’équipe. Utilise ensuite
 > .agentic-local/docs/agentic/LOCAL.md et l’index de méthode dans le même dossier.
 > Pour un ticket cadré, utilise EXISTING_PROJECT.md ; pour un nouveau produit ou
