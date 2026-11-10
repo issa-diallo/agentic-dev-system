@@ -11,6 +11,7 @@ import fcntl
 import hashlib
 import importlib.util
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -37,6 +38,30 @@ STATES = {'PLANNED', 'ASSIGNED', 'RUNNING', 'COMPLETED', 'BLOCKED', 'INTEGRATED'
 AUTH_TERMS = (r'\b(auth|authent(?:icat|ifi)\w*|authori[sz]\w*|autoris\w*|'
               r'permissions?|tenants?|secrets?|security|secure|securite|securis\w*|'
               r'login|log[- ]?in|sign[- ]?in|oauth2?|jwt)\b')
+
+
+def review_cycle_settings(raw):
+    """An explicit launch/correction budget, never a monetary or quota estimate."""
+    if raw is None:
+        return {'enabled': False}
+    allowed = {'enabled', 'max_attempts', 'max_corrections', 'max_cost_rank',
+               'prefer_cross_provider', 'justification'}
+    require(isinstance(raw, dict) and not set(raw) - allowed, 'invalid run.review_cycle fields')
+    require(type(raw.get('enabled')) is bool, 'review_cycle.enabled must be boolean')
+    if not raw['enabled']:
+        return {'enabled': False}
+    for key, minimum in (('max_attempts', 1), ('max_corrections', 0)):
+        require(type(raw.get(key)) is int and raw[key] >= minimum,
+                'review_cycle.' + key + ' requires an explicit integer budget')
+    rank = raw.get('max_cost_rank')
+    require(type(rank) in (int, float) and math.isfinite(rank) and rank >= 0,
+            'review_cycle.max_cost_rank requires an explicit finite relative budget')
+    require(type(raw.get('prefer_cross_provider', False)) is bool,
+            'review_cycle.prefer_cross_provider must be boolean')
+    if raw.get('prefer_cross_provider'):
+        require(isinstance(raw.get('justification'), str) and raw['justification'].strip(),
+                'cross-provider preference requires quota justification')
+    return {**raw, 'prefer_cross_provider': raw.get('prefer_cross_provider', False)}
 
 
 def snapshot(repo):
@@ -66,7 +91,7 @@ def file_hashes(repo):
 class Scheduler:
     def __init__(self, manifest, repo='.', state_path=None, *, skill_roots=(), models=None,
                  attempts=None, routing_policy=None, missions=False, execution_context=None,
-                 double_analysis=None, analysis_models=None):
+                 double_analysis=None, analysis_models=None, review_cycle=None):
         self.manifest = Path(manifest).resolve()
         self.repo = WORKSPACE.root(repo)
         common = BUILD.common_dir(self.repo)
@@ -75,10 +100,14 @@ class Scheduler:
         self.skill_roots, self.models, self.attempts = skill_roots, models, attempts
         self.routing_policy = routing_policy
         self.missions = missions
+        self.review_cycle = review_cycle_settings(review_cycle)
+        require(not self.review_cycle['enabled'] or missions, 'review cycle requires missions')
         self.double_analysis = double_analysis or {'enabled': False}
         self.analysis_models = analysis_models or {}
         fingerprint = ({'policy': routing_policy, 'missions': True, 'runtime': execution_context}
                        if missions else routing_policy)
+        if self.review_cycle['enabled']:
+            fingerprint = {'context': fingerprint, 'review_cycle': self.review_cycle}
         if self.double_analysis['enabled']:
             require(missions, 'double analysis requires the mission pipeline')
             fingerprint = {'context': fingerprint, 'double_analysis': self.double_analysis,
@@ -264,13 +293,34 @@ class Scheduler:
             classification = self._classification(unit, delegation)
             classification.update(role=role, phase=phase)
             inventory = self.models
+            if self.review_cycle['enabled']:
+                inventory = {**inventory, 'models': [m for m in inventory['models']
+                    if m['cost_rank'] <= self.review_cycle['max_cost_rank']]}
             if delegation.get('analysis'):
                 allowed_models = self.analysis_models.get(delegation['analysis_provider'], [])
-                inventory = {**self.models, 'models': [m for m in self.models['models']
+                inventory = {**inventory, 'models': [m for m in inventory['models']
                                                        if m['id'] in allowed_models]}
-            routing = models.route({'id': delegation['pr'], **classification}, inventory,
+            routing_id = delegation['pr']
+            if self.review_cycle['enabled']:
+                require(not any(a.get('task_id') == routing_id for a in (self.attempts or [])),
+                        'review cycle requires role-scoped attempt IDs (<PR>:<role>)')
+                routing_id += ':' + role
+            routing = models.route({'id': routing_id, **classification}, inventory,
                                    self.attempts, self.routing_policy)
             require(routing['verdict'] == 'PASS', routing['reason'])
+            if delegation.get('review_author') and self.review_cycle.get('prefer_cross_provider'):
+                provider = delegation['review_author'].get('provider')
+                alternatives = {**inventory, 'models': [m for m in inventory['models']
+                    if provider and m.get('provider') and m['provider'] != provider]}
+                cross = models.route({'id': routing_id, **classification}, alternatives,
+                                     self.attempts, self.routing_policy)
+                routing['review_selection'] = {
+                    'justification': self.review_cycle['justification'],
+                    'alternative_available': cross['verdict'] == 'PASS',
+                    'reason': cross['reason'], 'provider_provenance': 'model configuration'}
+                if cross['verdict'] == 'PASS':
+                    selection_proof = routing['review_selection']
+                    routing = {**cross, 'review_selection': selection_proof}
             explicit_effort = False
             if self.routing_policy and self.routing_policy.get('enabled'):
                 _, selection = models.policy_context(classification, self.routing_policy['rules'])
@@ -305,6 +355,9 @@ class Scheduler:
     def _assign(self, state, pr):
         task = state['tasks'][pr]
         require(task['state'] == 'PLANNED', 'task is not PLANNED; no redispatch')
+        if self.review_cycle['enabled']:
+            require(task.get('attempts_used', 0) < self.review_cycle['max_attempts'],
+                    'review cycle attempt budget exhausted')
         require(not task.get('owner'), 'interrupted assignment; reconcile owner before dispatch')
         require(not self.missions or task.get('mission_roles'),
                 'legacy task requires reviewed reconciliation before mission pipeline')
@@ -329,15 +382,21 @@ class Scheduler:
             self._analysis_inputs(task, delegation, analyzing)
             if role == 'reviewer':
                 classification['complexity'] = 'high'  # Review floor also applies without a policy.
-                writer = next(h['task'] for h in task['mission_history']
+                writer = next(h['task'] for h in reversed(task['mission_history'])
                               if h['task']['role'] == 'implementer')
                 classification['implementer_session_id'] = writer['agent_id']
+                if self.review_cycle['enabled']:
+                    delegation['review_author'] = self._review_actor(writer)
             hashes = file_hashes(delegation['worktree'])
             is_test = module('gates').TEST_PATH.search
             protected = {p: value for p, value in hashes.items()
                          if (not is_test(p) if role == 'test-author' else bool(is_test(p)))}
             task['mission_protected'] = protected
             if role == 'implementer':
+                if task.get('correction'):
+                    delegation['correction'] = task['correction']
+                    if task['correction'].get('routing_override'):
+                        classification['routing_override'] = task['correction']['routing_override']
                 delegation['locked_tests'] = [p for p in hashes if is_test(p)]
             delegation['writable_files'] = [p for p in unit['files']
                                             if (bool(is_test(p)) if role == 'test-author'
@@ -346,7 +405,16 @@ class Scheduler:
                 delegation['writable_files'] = []
             if role == 'reviewer':
                 delegation['verification'] = task['verify_evidence']
+                if self.review_cycle['enabled']:
+                    current = snapshot(delegation['worktree'])
+                    require(task['verify_evidence']['snapshot'] == current
+                            and task['verify_evidence']['plan_sha256'] == state['plan_sha256'],
+                            'Verify evidence stale before review')
+                    delegation['review_context'] = module('brief').review_context(
+                        delegation, task.get('scope_base', task['starting_head']), current)
         context = self._context(delegation, unit)
+        if self.review_cycle['enabled']:
+            task.setdefault('scope_base', WORKSPACE.git(delegation['worktree'], 'rev-parse', 'HEAD'))
         owner = {'id': 'scheduler-' + uuid.uuid4().hex, 'task': pr,
                  'plan_sha256': delegation['plan_sha256']}
         resources = [{'type': 'file', 'name': file} for file in delegation['files']]
@@ -490,7 +558,7 @@ class Scheduler:
         info = WORKSPACE.inspect(self.repo, tree)
         require(info['branch'] == unit['branch'], 'assigned worktree has wrong branch')
         committed = BUILD.git(tree, 'diff', '--name-only', '--no-renames', '-z',
-                              task['starting_head'], 'HEAD').split(b'\0')
+                              task.get('scope_base', task['starting_head']), 'HEAD').split(b'\0')
         changed = {path.decode('utf-8', 'surrogateescape') for path in committed if path}
         require(not (changed | BUILD.dirty_paths(tree)) - set(unit['files']),
                 'committed/dirty paths outside scope')
@@ -510,6 +578,9 @@ class Scheduler:
                 'assignment content changed before launch receipt')
         if task.get('analysis_required'):
             self._analysis_sources(task, task['delegation']['worktree'])
+        if task['delegation'].get('review_context'):
+            require(task['delegation']['review_context']['snapshot'] == task['assigned_snapshot'],
+                    'inline review context stale before launch')
 
     def accept(self, pr, evidence):
         """Trusted orchestrator accepts tests and contract for dependency readiness."""
@@ -558,7 +629,8 @@ class Scheduler:
                 require(task.get('result_snapshot') == current, 'mission output changed')
                 require(gate.get('verdict') == 'PASS' and gate.get('snapshot') == current
                         and gate.get('plan_sha256') == state['plan_sha256']
-                        and gate.get('base') == task['starting_head'], 'mission gate failed or stale')
+                        and gate.get('base') == task.get('scope_base', task['starting_head']),
+                        'mission gate failed or stale')
                 handoff = task.get('result', {}).get('handoff')
                 require(handoff and handoff['status'] == 'COMPLETED', 'mission handoff required')
                 analyzing = task['phase'] == 'PREPARE' and task.get('analysis_required')
@@ -566,6 +638,8 @@ class Scheduler:
                     require(not handoff.get('blockers'), 'analysis handoff has unresolved blockers')
                     module('analysis').validate_opinion(handoff.get('analysis'), task['analysis_bundle'])
                 if task['role'] == 'reviewer':
+                    if self.review_cycle['enabled']:
+                        task['review_identity'] = self._review_identity(task)
                     require(task.get('independent_review') is True
                             and module('brief').review_passes(handoff.get('review')),
                             'independent review missing or blocking findings')
@@ -672,6 +746,106 @@ class Scheduler:
                 self._block(state, task, str(error))
             return copy.deepcopy(task)
 
+    @staticmethod
+    def _review_actor(task):
+        execution = task.get('model_execution', {})
+        return {'agent_id': task.get('agent_id'),
+                'session_id': execution.get('session_id') or task.get('agent_id'),
+                'cli_session_id': execution.get('cli_session_id'),
+                'requested': execution.get('requested'),
+                'observed': execution.get('observed', {'model': None, 'effort': None}),
+                'provider': execution.get('provider'),
+                'provider_provenance': execution.get('provenance', {}).get('provider')}
+
+    def _review_identity(self, task):
+        author = next(h['task'] for h in reversed(task['mission_history'])
+                      if h['task']['role'] == 'implementer')
+        writer, reviewer = self._review_actor(author), self._review_actor(task)
+        return {'author': writer, 'reviewer': reviewer,
+                'cross_provider': bool(writer['provider'] and reviewer['provider']
+                                       and writer['provider'] != reviewer['provider']),
+                'provider_verification': 'declared, not observed',
+                'head': task['starting_head'], 'snapshot': task['result_snapshot'],
+                'plan_sha256': task['plan_sha256']}
+
+    def request_correction(self, pr, evidence):
+        """Authorize a stopped review's correction; never launch or silently escalate."""
+        require(self.review_cycle['enabled'], 'review cycle not enabled')
+        with self._state() as state:
+            self._sync(state)
+            self._validate_owners(state)
+            task = state['tasks'][pr]
+            require(task['state'] in ('BLOCKED', 'COMPLETED') and not task.get('accepted')
+                    and task.get('active') is False and 'owner' not in task,
+                    'correction requires a stopped, unaccepted review without owner')
+            require(task.get('role') == 'reviewer' and task.get('independent_review') is True,
+                    'correction requires an independent review')
+            self._requeue_evidence(task, evidence, state['plan_sha256'])
+            require(not any('plan changed' in reason for reason in task.get('blockers', [])),
+                    'stale correction plan/config')
+            require(task.get('routing_fingerprint') == self.routing_fingerprint
+                    and task['plan_sha256'] == state['plan_sha256'], 'stale correction plan/config')
+            stop = task.get('stop_evidence', {})
+            require(stop.get('stopped_confirmed') is True and stop.get('identity_verified') is True,
+                    'correction stop evidence required')
+            handoff = task.get('result', {}).get('handoff') or {}
+            review = handoff.get('review')
+            require(handoff.get('status') == 'COMPLETED' and isinstance(review, dict)
+                    and isinstance(review.get('findings'), list) and review['findings']
+                    and not module('brief').review_passes(review),
+                    'correction requires precise blocking review findings; quota is not a review')
+            require(all(isinstance(f, dict) and f.get('severity') in ('Critical', 'Major', 'Minor', 'Nit')
+                        and isinstance(f.get('message'), str) and f['message'].strip()
+                        for f in review['findings']), 'invalid correction findings')
+            require(task.get('corrections', 0) < self.review_cycle['max_corrections']
+                    and task.get('attempts_used', 0) + 2 <= self.review_cycle['max_attempts'],
+                    'correction or attempt budget exhausted')
+            require(evidence.get('diagnosis_kind') in ('implementation', 'capacity')
+                    and isinstance(evidence.get('diagnosis'), str) and evidence['diagnosis'].strip(),
+                    'concrete correction diagnosis required')
+            override = evidence.get('routing_override')
+            if override is not None:
+                require(self.routing_policy and self.routing_policy.get('enabled'),
+                        'correction override requires active routing policy')
+                classification = self._classification(task['unit'], task['delegation'])
+                classification.update(role='implementer', phase='BUILD', routing_override=override)
+                inventory = {**self.models, 'models': [m for m in self.models['models']
+                    if m['cost_rank'] <= self.review_cycle['max_cost_rank']]}
+                routed = module('models').route({'id': pr + ':implementer', **classification}, inventory,
+                                               self.attempts, self.routing_policy)
+                require(routed['verdict'] == 'PASS', routed['reason'])
+            require(override is None or evidence['diagnosis_kind'] == 'capacity',
+                    'model/effort escalation requires concrete capacity diagnosis')
+            tree = task['delegation']['worktree']
+            current = snapshot(tree)
+            require(evidence.get('snapshot') == current
+                    and evidence.get('head') == WORKSPACE.git(tree, 'rev-parse', 'HEAD'),
+                    'stale correction head/snapshot')
+            # Commit reconciliation is explicit; complete PR scope remains relative to scope_base.
+            reconciled = {**task, 'starting_head': current['head']}
+            self._scope(reconciled)
+            require(not task.get('analysis_required') or current['head'] == task['starting_head'],
+                    'changed analysis HEAD requires renewed PREPARE analysis')
+            with WORKSPACE.registry(self.repo) as owners:
+                require(not any(o['worktree'] == tree for o in owners.values()),
+                        'workspace still reserved')
+            correction = {'findings': copy.deepcopy(review['findings']),
+                          'reviewer': self._review_actor(task), 'previous_head': task['starting_head'],
+                          'head': current['head'], 'diagnosis_kind': evidence['diagnosis_kind'],
+                          'diagnosis': evidence['diagnosis'],
+                          **({'routing_override': copy.deepcopy(override)} if override else {})}
+            previous = {k: copy.deepcopy(v) for k, v in task.items() if k != 'mission_history'}
+            task['mission_history'].append({'task': previous, 'gate': {'verdict': 'BLOCKED'}})
+            task.update(state='PLANNED', mission_index=task['mission_roles'].index('implementer'),
+                        role='implementer', starting_head=current['head'], mission_snapshot=current,
+                        mission_complete=False, active=False, agent_id=None, accepted=False,
+                        result=None, blockers=[], correction=correction,
+                        corrections=task.get('corrections', 0) + 1)
+            for key in ('verify_evidence', 'mission_gate', 'result_snapshot', 'review_identity'):
+                task.pop(key, None)
+            self._event(state, task, 'correction_authorized')
+            return copy.deepcopy(task)
+
     def requeue(self, pr, evidence):
         """Reconcile a stopped attempt and plan a new one without launch or release."""
         with self._state() as state:
@@ -683,6 +857,12 @@ class Scheduler:
             require(task.get('active') is False, 'runtime stop must be known before requeue')
             require('owner' not in task, 'reservation must be released by confirmed handoff')
             self._requeue_evidence(task, evidence, state['plan_sha256'])
+            if self.review_cycle['enabled'] and task.get('role') == 'reviewer':
+                review = (task.get('result', {}).get('handoff') or {}).get('review')
+                require(not task.get('mission_complete'), 'completed review proceeds to SHIP')
+                require(not (isinstance(review, dict) and review.get('findings')
+                             and not module('brief').review_passes(review)),
+                        'blocking findings require request_correction and renewed Verify')
             require(pr in units, 'task removed from current plan')
             delegation = BUILD.prepare(self.manifest, self.repo, pr, self._done(state))
             require(delegation['plan_sha256'] == state['plan_sha256'], 'plan changed during requeue')
@@ -707,7 +887,8 @@ class Scheduler:
                                                  'requeue': copy.deepcopy(evidence), 'time': time.time()}]
             mission = {key: copy.deepcopy(task[key]) for key in (
                 'mission_roles', 'mission_index', 'mission_history', 'mission_complete',
-                'verify_evidence', 'starting_head', 'role', 'mission_protected',
+                'verify_evidence', 'starting_head', 'scope_base', 'role', 'mission_protected', 'delegation',
+                'attempts_used', 'corrections', 'correction', 'review_identity',
                 'analysis_required', 'analysis_bundle', 'analysis_summary',
                 'analysis_pending', 'analysis_provider', 'analysis_consumption') if key in task}
             if mission:
@@ -829,6 +1010,8 @@ class Scheduler:
                     self._validate_owners(state)
                     require(task['state'] == 'ASSIGNED', 'assignment changed before launch')
                     self._launch_guard(task)
+                    if self.review_cycle['enabled'] and not getattr(adapter, 'dry_run', False):
+                        task['attempts_used'] = task.get('attempts_used', 0) + 1
                     task.update(active=None, launch_status='UNKNOWN', launch_attempted_at=time.time())
                     self._save(state)  # Crash during launch leaves ASSIGNED + owner, not PLANNED.
                     launch_task = copy.deepcopy(task)

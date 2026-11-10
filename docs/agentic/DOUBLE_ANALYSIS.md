@@ -89,7 +89,9 @@ remplace cette réconciliation ; un arbitrage ne répare pas des inputs périmé
 Codex conserve sa sandbox `read-only`. Claude reçoit uniquement le bundle, sans
 outil intégré/MCP, commande, hook, plugin ou contexte découvert automatiquement
 (`--bare`, `--tools ""`, MCP strict vide, `dontAsk`, session neuve). Cette exception
-est limitée à l’analyse ; les reviewers Claude restent refusés. Ces protections
+est limitée à l’analyse et à la revue inline du
+[cycle de revue optionnel](DELEGATION.md#cycle-de-revue-corrective-borné) ; les
+autres missions Claude en lecture seule restent refusées. Ces protections
 reposent sur le CLI officiel de confiance, sans sandbox OS ajoutée. Options
 vérifiées dans la [référence Claude Code](https://code.claude.com/docs/en/cli-reference)
 le 2026-11-09 ; CLI ne supportant pas ces options : échec explicite. Les tests

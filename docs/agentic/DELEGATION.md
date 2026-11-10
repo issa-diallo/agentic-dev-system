@@ -20,9 +20,10 @@ python3 scripts/agentic-run.py quick --id csv-export \
 ```
 
 `quick` crée branche `agentic/<id>`, worktree et plan, route, lance puis vérifie.
-`--dry-run` crée aussi le worktree mais ne lance rien ; retrait : `git worktree remove`. Il ne commite, ne pousse ni ne fusionne rien : le worktree est laissé à l'orchestrateur, puis commits via
-`agentic-commit.sh` et review indépendante. `delegate <plan.json>` fait de même pour un
-plan PR_SPLIT à plusieurs unités ; les unités indépendantes tournent en parallèle.
+`--dry-run` crée le worktree sans lancement ; retrait : `git worktree remove`.
+Ni commit, push ou merge : l'orchestrateur garde le worktree, commite via
+`agentic-commit.sh` et obtient une review indépendante. `delegate <plan.json>`
+traite le plan PR_SPLIT, unités indépendantes en parallèle.
 
 ## Configuration
 
@@ -121,3 +122,7 @@ les tests et contrôles pertinents.
 Défaut : `run.tdd.enabled: false`. TDD explicite (`true`, `--review-red`,
 `--green-only`) facultatif.
 Flux optionnel : [missions](WORKFLOW.md#missions-successives-dune-pr-préparée).
+
+## Cycle de revue corrective borné
+
+[Option : revue, corrections, budgets](REVIEW_CYCLE.md).
