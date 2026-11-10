@@ -61,6 +61,35 @@ lectures sont visibles dans la session.
 Installation partagée (versionnée avec l'équipe), collisions et migration :
 [INSTALL](docs/agentic/INSTALL.md). Usage personnel : [LOCAL](docs/agentic/LOCAL.md).
 
+### Activer Claude Code pour `start-ticket`
+
+Après installation ou mise à jour d'Agentic, installer Claude Code et connecter
+son compte avec abonnement suivant le [guide multi-modèles](docs/agentic/MULTI_MODEL_GUIDE.md).
+Les profils installés ne suffisent pas : le routage doit aussi être configuré.
+
+À faire une première fois dans chaque projet : ouvrir Codex à la racine du projet
+et y coller ce texte pour préparer la configuration locale :
+
+```text
+Configure Claude Code pour participer aux délégations de start-ticket.
+
+Lis .agentic-local/docs/agentic/MULTI_MODEL_GUIDE.md.
+Vérifie les CLI et les connexions existantes.
+Crée ou complète .agentic-local/agentic.config.json en conservant
+la configuration existante, avec Codex et Claude disponibles.
+Active subscription_only, sans clé API.
+Configure le routage selon les capacités des modèles accessibles.
+Vérifie l’inventaire et signale ce qui reste à valider.
+```
+
+Une fois la configuration et les vérifications du guide validées, lancer
+`$start-ticket <URL>` dans Codex si le skill y est installé, ou demander de lire
+`.agentic-local/skills/start-ticket/SKILL.md` et de traiter l'URL.
+L'orchestrateur choisit et lance les agents selon le routage configuré et les
+capacités disponibles ; il n'est pas nécessaire d'ouvrir Claude à chaque ticket.
+L'inventaire seul ne prouve ni l'accès aux modèles ni le fonctionnement réel de
+la délégation.
+
 ## Ce que ça garantit
 
 - **Un travail cadré** : besoin, critères d'acceptation et plan avant le code.
