@@ -10,6 +10,7 @@ in a container for untrusted models. Nothing here merges, commits or publishes.
 import argparse
 import importlib.util
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -330,6 +331,37 @@ def parse_output(harness, text):
             sorted(models) if isinstance(models, dict) else None)
 
 
+def numeric_metric(value):
+    """CLI metrics are observations, not arbitrary transcript-bearing JSON."""
+    number = type(value) is int or (type(value) is float and math.isfinite(value))
+    return value if number and value >= 0 else None
+
+
+def mission_metadata(task):
+    """Project decision/execution metadata without prompts, handoffs or diagnoses."""
+    routing, result = task.get('model_routing') or {}, task.get('result') or {}
+    policy, selection = routing.get('policy') or {}, routing.get('review_selection') or {}
+    raw_usage = result.get('usage')
+    counters = ('input_tokens', 'output_tokens', 'cache_creation_input_tokens',
+                'cache_read_input_tokens')
+    usage = {key: numeric_metric(raw_usage[key]) for key in counters if key in raw_usage
+             and numeric_metric(raw_usage[key]) is not None} if isinstance(raw_usage, dict) else {}
+    return {'role': task.get('role'), 'phase': task.get('phase'),
+            'routing_decision': {
+                'level': routing.get('level'), 'reason': routing.get('reason'),
+                'source': policy.get('source', 'legacy' if routing else None),
+                'matched_rule': policy.get('matched_rule'),
+                'preference_index': policy.get('preference_index'),
+                'fallback_used': policy.get('fallback_used'),
+                'review_selection': {key: selection.get(key) for key in
+                                     ('reason', 'alternative_available', 'provider_provenance')}
+                                    if selection else None,
+                'provenance': 'model router recommendation' if routing else None},
+            'attempts_used': task.get('attempts_used'),
+            'duration_seconds': numeric_metric(result.get('duration_seconds')),
+            'usage': usage or None, 'cost_usd': numeric_metric(result.get('cost_usd'))}
+
+
 class ProcessAdapter:
     """Scheduler adapter: launch() spawns, wait() joins. dry_run spawns no agent (subscription_only
     still runs the login check, which makes no inference)."""
@@ -509,7 +541,7 @@ class ProcessAdapter:
             stream.write(json.dumps({'pr': job['pr'], 'harness': job['entry']['harness'],
                                      'model': job['entry']['id'], 'blocked': bool(blockers),
                                      'model_execution': execution,
-                                     **{k: result[k] for k in ('usage', 'cost_usd', 'duration_seconds')}})
+                                     **mission_metadata({**task, 'result': result})})
                          + '\n')
         return {**base, 'outcome': 'BLOCKED' if blockers else 'COMPLETED', 'blockers': blockers,
                 'result': result, 'model_execution': execution}
@@ -611,6 +643,7 @@ def mission_pipeline(scheduler, adapter, commands_for, settings, accept, dry_run
     for pr, task in final['tasks'].items():
         entry = {k: task.get(k) for k in ('state', 'blockers', 'model_requested',
                                          'model_execution', 'result')}
+        entry.update(mission_metadata(task))
         if task.get('analysis_summary'):
             entry['analysis'] = task['analysis_summary']
             if task.get('analysis_stale'):
@@ -619,7 +652,7 @@ def mission_pipeline(scheduler, adapter, commands_for, settings, accept, dry_run
                                      'reason': task['analysis_stale']}
         if task.get('review_identity'):
             entry['review_identity'] = task['review_identity']
-        entry['missions'] = [{'role': h['task']['role'], 'agent_id': h['task']['agent_id'],
+        entry['missions'] = [{**mission_metadata(h['task']), 'agent_id': h['task']['agent_id'],
                               'gate': h['gate']['verdict'],
                               'model_execution': h['task'].get('model_execution')}
                              for h in task.get('mission_history', [])]
@@ -680,7 +713,7 @@ def delegate(manifest, repo, config_path=None, state=None, accept=False, dry_run
     for pr, task in final['tasks'].items():
         entry = {'state': task['state'], 'blockers': task['blockers'],
                  'model_requested': task.get('model_requested'),
-                 'model_execution': task.get('model_execution')}
+                 'model_execution': task.get('model_execution'), **mission_metadata(task)}
         if pr in adapter.finished:
             entry['result'] = task.get('result')
             if task['state'] == 'COMPLETED' and not dry_run:
