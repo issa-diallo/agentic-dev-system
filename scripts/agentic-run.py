@@ -65,7 +65,7 @@ def module(name):
 
 
 def claude(v):
-    if v.get('analysis'):
+    if v.get('analysis') or v.get('review_context'):
         return ['claude', '-p', v['prompt'], '--model', v['model'], '--output-format', 'json',
                 '--max-turns', str(v['max_turns']), '--permission-mode', 'dontAsk',
                 '--bare', '--tools', '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
@@ -99,8 +99,11 @@ def load_config(path):
                                                 for k in ('id', 'harness', 'model')),
                 'model entry needs id, harness, model')
         require(not entry['model'].startswith('<'), 'model placeholder not filled: ' + entry['id'])
+        require(entry.get('provider') is None or (isinstance(entry['provider'], str)
+                and entry['provider'].strip()), 'provider must be an explicit nonempty name or null')
     subscription_only(config)
     module('analysis').settings(config)
+    review_cycle_settings(config)
     return config
 
 
@@ -130,7 +133,7 @@ def build_inventory(config, which=shutil.which):
                 or not which(binary(harness))):
             continue
         keep = {k: entry[k] for k in ('id', 'efforts', 'cost_rank', 'tiers', 'max_level',
-                                     'harness', 'available', 'enabled', 'modalities') if k in entry}
+                                     'harness', 'provider', 'available', 'enabled', 'modalities') if k in entry}
         models.append(keep)
         index[entry['id']] = {**entry, 'harness_config': harness}
     return {'models': models, 'runtime_overrides': True}, index
@@ -348,9 +351,13 @@ class ProcessAdapter:
         read_only = task.get('role') in self.brief.READ_ONLY_ROLES
         analyzing = bool(task['delegation'].get('analysis') and task.get('phase') == 'PREPARE'
                          and task.get('role') == 'explorer')
+        reviewing = bool(task['delegation'].get('review_context'))
+        if reviewing:
+            require(subscription_only(self.config) and review_cycle_settings(self.config)['enabled'],
+                    'review cycle requires enabled subscription-only configuration')
         if read_only:
             require(harness == {'preset': 'codex'} or (
-                analyzing and task.get('analysis_provider') == 'claude'
+                (reviewing or (analyzing and task.get('analysis_provider') == 'claude'))
                 and harness == {'preset': 'claude'}),
                     'read-only missions require the unmodified codex preset')
         if analyzing:
@@ -379,7 +386,8 @@ class ProcessAdapter:
         argv = build_argv(harness, {
             'prompt': prompt, 'model': entry['model'], 'effort': request['effort'],
             'worktree': task['delegation']['worktree'], 'max_turns': run.get('max_turns', 40),
-            'tools': tool_rules(self.config, commands), 'read_only': read_only, 'analysis': analyzing})
+            'tools': tool_rules(self.config, commands), 'read_only': read_only, 'analysis': analyzing,
+            'review_context': reviewing})
         job = {'pr': pr, 'dir': directory, 'harness': harness, 'entry': entry, 'request': request,
                'argv': [a if a != prompt else '<brief.md>' for a in argv],
                'timeout': run.get('timeout_seconds', 1800), 'started': time.time(),
@@ -551,6 +559,10 @@ def record_attempt(repo, entry):
     return attempts
 
 
+def review_cycle_settings(config):
+    return module('scheduler').review_cycle_settings(config.get('run', {}).get('review_cycle'))
+
+
 def missions_enabled(config):
     raw = config.get('run', {}).get('missions', {})
     require(isinstance(raw, dict) and set(raw) <= {'enabled'},
@@ -584,7 +596,7 @@ def mission_pipeline(scheduler, adapter, commands_for, settings, accept, dry_run
                 gate = task['verify_evidence']
             else:
                 options = {**settings, 'baseline_only': task['role'] == 'test-author'}
-                gate = gates.run(task['delegation']['worktree'], task['starting_head'],
+                gate = gates.run(task['delegation']['worktree'], task.get('scope_base', task['starting_head']),
                                  task['unit']['files'], commands_for(task), options, task['plan_sha256'])
             checked = scheduler.finish_mission(pr, gate)
             if checked['state'] == 'PLANNED':
@@ -605,6 +617,8 @@ def mission_pipeline(scheduler, adapter, commands_for, settings, accept, dry_run
                 entry['analysis'] = {**entry['analysis'], 'verdict': 'BLOCKED', 'stale': True,
                                      'historical_verdict': task['analysis_summary']['verdict'],
                                      'reason': task['analysis_stale']}
+        if task.get('review_identity'):
+            entry['review_identity'] = task['review_identity']
         entry['missions'] = [{'role': h['task']['role'], 'agent_id': h['task']['agent_id'],
                               'gate': h['gate']['verdict'],
                               'model_execution': h['task'].get('model_execution')}
@@ -628,6 +642,9 @@ def delegate(manifest, repo, config_path=None, state=None, accept=False, dry_run
     configured = commands or gates_config.get('commands', 'auto')
     mission_mode = missions_enabled(config) if missions is None else missions
     analysis = module('analysis').settings(config)
+    review_cycle = review_cycle_settings(config)
+    require(not review_cycle['enabled'] or (mission_mode and subscription_only(config)),
+            'review cycle requires missions and subscription-only')
     require(not analysis['enabled'] or mission_mode,
             'double analysis requires the mission pipeline; explicit TDD is not supported')
     detect = module('detect')
@@ -646,7 +663,7 @@ def delegate(manifest, repo, config_path=None, state=None, accept=False, dry_run
     scheduler = module('scheduler').Scheduler(
         manifest, repo, state, skill_roots=[str(METHOD_ROOT / 'skills')], models=inventory,
         attempts=load_attempts(repo), routing_policy=config.get('routing_policy'),
-        missions=mission_mode,
+        missions=mission_mode, review_cycle=review_cycle,
         double_analysis=analysis,
         analysis_models={provider: [identifier for identifier, entry in index.items()
                                    if entry['harness_config'] == {'preset': provider}]

@@ -107,7 +107,8 @@ Les petits tickets peuvent garder l'option désactivée et appliquer les mission
 nécessaires selon le skill, avec revue indépendante obligatoire.
 
 Verify doit passer avant la revue. Le reviewer utilise une nouvelle identité
-runtime observée et le preset Codex en lecture seule déjà requis ; sans harnais
+runtime observée et le preset Codex en lecture seule déjà requis (ou la revue
+Claude tool-free du [cycle optionnel](DELEGATION.md#cycle-de-revue-corrective-borné)) ; sans harnais
 adéquat, BLOCKED sans fallback. Son handoff contient `review.verdict` et
 `review.findings` (sévérité/message). Une sortie zéro, un rapport absent ou PASS
 avec Critical/Major ne valident rien. Le contrôleur confronte runtime, contenu
@@ -125,7 +126,10 @@ de mission. La CLI scheduler isolée ne charge pas cette configuration du runner
 ne pas l'utiliser pour cette réconciliation ni effacer l'état pour contourner un blocage.
 `requeue` reprend la même mission et ne renouvelle pas Verify. Après une correction
 du produit consécutive à une revue, les anciennes preuves sont périmées : conserver
-un checkpoint BLOCKED. L'orchestrateur organise un retour explicite et contrôlé à
+un checkpoint BLOCKED. Le cycle optionnel `run.review_cycle` permet un retour
+explicite via `Scheduler.request_correction` : findings transmis, tests verrouillés,
+budget/tentatives persistants, Verify puis revue renouvelées sur la révision courante.
+Sans cette option, conserver la réconciliation manuelle décrite ci-dessous. L'orchestrateur organise un retour explicite et contrôlé à
 l'implémentation/Verify avant une nouvelle revue ; ni relance automatique du reviewer
 ni édition manuelle de l'état pour présenter l'ancien Verify comme actuel.
 Les restrictions tests/produit sont des comparaisons de contenu, pas une sandbox

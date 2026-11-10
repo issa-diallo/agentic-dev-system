@@ -143,7 +143,9 @@ explicitement imposé nécessite `{effort}` ou le preset Codex. Les `extra_args`
 presets sont refusés pour éviter un override caché. Aucun fallback silencieux.
 Les rôles explorer/reviewer/lead-tech/orchestrator utilisent un brief en lecture
 seule et exigent le preset Codex non modifié (`-s read-only`), sinon BLOCKED avant
-lancement. Le snapshot de fin détecte aussi une modification du worktree. Les
+lancement. Exceptions bornées : analyse Claude et reviewer Claude tool-free du
+[cycle optionnel](DELEGATION.md#cycle-de-revue-corrective-borné), avec preset
+officiel non modifié, contexte inline et protections décrites dans ces contrats. Le snapshot de fin détecte aussi une modification du worktree. Les
 harnais personnalisés d'écriture restent une frontière de confiance, pas une sandbox.
 
 Une modification de politique après attribution bloque la mission et conserve

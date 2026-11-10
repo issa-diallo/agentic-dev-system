@@ -17,6 +17,24 @@ Le reviewer n'est pas là pour confirmer l'implementer.
 
 Éviter de se laisser influencer par les conclusions de l'implementer.
 
+## Identité et correction contrôlée
+
+Identifier l'auteur et le reviewer par leurs sessions runtime réellement observées,
+leurs sessions CLI et modèles observés lorsqu'exposés ; garder null sinon et
+séparer demande, transmission et observation. Même fournisseur en session distincte
+est valable ; diversité de fournisseur ne prouve jamais l'indépendance.
+Le [cycle optionnel](../DELEGATION.md#cycle-de-revue-corrective-borné) peut préférer
+un autre fournisseur pour une raison explicite, sous les mêmes politiques/budgets.
+Quota épuisé : BLOCKED, aucune revue inventée ni API payante de remplacement.
+
+Findings précis (fichier, impact, correction attendue) Major/Critical bloquent SHIP,
+même avec verdict PASS. L'orchestrateur autorise le retour à l'implementer après
+arrêt confirmé et diagnostic, dans les limites persistantes déclarées. Une hausse
+de modèle/effort exige un diagnostic concret de capacité ; aucun retry automatique.
+Toute correction invalide Verify et la revue précédente : rejouer les contrôles et
+examiner le diff complet sur SHA/snapshot/plan actuels. Le profil Lead Tech et la
+seconde lecture LARGE/risque critique restent obligatoires selon les règles plus bas.
+
 ## Axes de revue
 
 ### Fonctionnel
