@@ -422,6 +422,21 @@ copie entièrement réécrite peut échapper à la détection Git des renames/co
 L’agent doit donc aussi inspecter le diff et conserver les travaux personnels
 aux chemins locaux. Les règles de messages de commit de l’équipe priment en LOCAL.
 
+## Publication GitHub et attribution
+
+Créer et modifier les PR, publier leurs commentaires et effectuer les merges via
+GitHub CLI (`gh`), authentifié avec le compte personnel de l’utilisateur.
+Vérifier le compte actif avec `gh auth status` avant ces écritures. Si ce compte
+n’est pas disponible, signaler le blocage ; ne pas utiliser de connecteur GitHub
+Codex/Claude ni de compte bot en remplacement.
+
+Ne pas ajouter de signature d’agent IA dans les titres, descriptions, commentaires
+ou messages de commit, ni de trailer `Co-authored-by` attribuant un agent IA.
+Avant un merge, vérifier aussi le message final de fusion ou de squash et en retirer
+les attributions IA générées automatiquement. Préserver les attributions humaines
+et les signatures cryptographiques. Les gates et l’autorisation de merge restent
+obligatoires ; cette règle ne vaut pas autorisation de publier ou de fusionner.
+
 ## Un commit logique final par Pull Request
 
 Chaque ticket d'implémentation a une PR et un commit final portant une intention

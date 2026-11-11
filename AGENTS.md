@@ -47,7 +47,7 @@ BLOCKED, ADR et ARCHITECTURE mis à jour puis validation ([METHOD](docs/agentic/
 
 [SAFETY](docs/agentic/SAFETY.md) : secrets protégés, actions sensibles validées. PREPARE traite
 auth, autorisation, tenant, données sensibles, secrets, actions externes, tests, observabilité
-et rollback selon risque. Code : [DEVELOPMENT](docs/agentic/DEVELOPMENT.md). Commits :
+et rollback selon risque. Code : [DEVELOPMENT](docs/agentic/DEVELOPMENT.md). PR, commentaires, merges et commits :
 [COMMITS](COMMITS.md), Gitmoji, `Fixes #<issue_number>`, garde `agentic-commit.sh`. Préparation
 et rapports hors Git/PR. Modèle le moins coûteux capable ([MODELS](docs/agentic/MODELS.md)),
 escalade sur preuves, jamais au prix d'un gate. SHIP : profil Lead Tech de
