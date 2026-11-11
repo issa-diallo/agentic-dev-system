@@ -19,6 +19,8 @@
 
 ## Pull Request
 
+- [ ] PR et commentaires publiés via `gh` avec le compte personnel vérifié,
+  sans signature ni co-auteur IA selon [COMMITS](../../../COMMITS.md#publication-github-et-attribution)
 - [ ] Un objectif précis ; 1 à 3 fichiers et diff court visés
 - [ ] Aucun artefact de préparation, plan ou rapport de mission dans le diff ;
   preuves conservées localement et transmises au reviewer hors du diff
@@ -90,6 +92,9 @@ ni Review ni l'autorisation de fusion. Après tout nouveau commit, revalider.
 
 ## Merge
 
+- [ ] Autorisation de merge obtenue ; `gh` utilise le compte personnel vérifié
+- [ ] Message final de fusion/squash vérifié : aucune signature ni attribution IA,
+  attributions humaines et signatures cryptographiques préservées
 - strategy :
 - merge commit :
 - date :
