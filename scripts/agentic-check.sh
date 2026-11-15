@@ -94,6 +94,7 @@ for resource in \
   scripts/agentic-onboard.py \
   scripts/agentic-analysis.py \
   scripts/agentic-brief.py \
+  scripts/agentic-checkpoint.py \
   scripts/agentic-gates.py \
   scripts/agentic-detect.py \
   scripts/agentic-prepare.py \
