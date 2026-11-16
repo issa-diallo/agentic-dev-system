@@ -95,6 +95,7 @@ for resource in \
   scripts/agentic-analysis.py \
   scripts/agentic-brief.py \
   scripts/agentic-checkpoint.py \
+  scripts/agentic-context-launch.py \
   scripts/agentic-gates.py \
   scripts/agentic-detect.py \
   scripts/agentic-prepare.py \
