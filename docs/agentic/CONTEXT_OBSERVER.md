@@ -63,6 +63,34 @@ connexion TUI** (`initialize` avec `codex-tui` réussi) :
    Un auxiliaire déjà déchargé au `snapshot` donne `raw_verdict` PASS (normal) ;
 7. l'auxiliaire est déjà connu au `snapshot` (un nouveau après lui est refusé).
 
+8. **Lectures après nommage (seule exception).** Une fois la chaîne 1–6 complète, y compris
+   la réponse positive de `thread/name/set`, sont tolérées des paires de requêtes client
+   `thread/read` ou `thread/turns/list` visant l'auxiliaire, chacune suivie de **sa** réponse
+   serveur positive unique (même identifiant, même connexion, sens serveur, `seq` ultérieur).
+   La connexion de lecture est celle du nommage, d'un TUI d'avant la reconnexion ou du TUI
+   reconnecté : elle doit s'ouvrir par un `initialize` client `codex-tui` dont la réponse
+   positive précède la lecture. Les lectures valent après `thread/unsubscribe` et
+   `thread/closed` sans les rouvrir. Cycle normal : la fermeture originale peut suivre une
+   lecture (après `thread/unsubscribe`) ; APRÈS `thread/closed`, aucun autre événement
+   auxiliaire n'est admis hors des paires de lecture prouvées. Preuve de forme et de tour :
+   la réponse doit porter le corps exigé par le schéma (`thread/read` : `result.thread`
+   objet avec `id` et `turns` tableau ; `thread/turns/list` : `result.data` tableau) et chaque
+   Turn lu un `id`, un `status` et un tableau `items` (vide admis). Tout Turn lu doit être le
+   seul tour auxiliaire de nommage, d'id identique et `completed` ; autre id, autre statut,
+   second tour, corps manquant ou mal formé, ou métadonnée de tour/item contradictoire sur la
+   requête ou la réponse donnent `BLOCKED`. Refus (`BLOCKED`) : requête sans réponse, réponse en
+   erreur, dupliquée, antérieure, d'id ou de connexion différents, connexion sans `initialize`
+   `codex-tui` réussi, lecture avant la réponse de nommage, nommage ou lecture depuis une
+   connexion non qualifiée. Les items de la réponse restent soumis aux règles 5 : pas
+   d'outil ni d'item inconnu, identité et sortie du final cohérentes avec celles du nommage
+   dans toutes leurs représentations. `thread/resume`, `turn/start`, souscription et toute
+   autre méthode, les rollouts auxiliaires et `AUXILIARY_NOTIFICATIONS` restent inchangés.
+
+La capture n'extrait les métadonnées de tours de `result.data` que pour une réponse positive
+corrélée (même connexion et id, sens serveur) à une requête client `thread/turns/list` ; les
+réponses `thread/list` ou non corrélées ne sont pas lues comme listes de tours. Aucun texte,
+paramètre, commande, titre ou erreur n'est conservé.
+
 Le préfixe, le timing ou un booléen fourni par l'appelant ne prouvent jamais le nommage.
 Tout autre `thread/start`, thread chargé inconnu, flux invalide, tronqué, trop gros, lacunaire
 ou capturé tardivement, erreur de collecte, ou ambiguïté donne `BLOCKED`.
