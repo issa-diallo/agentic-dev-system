@@ -359,10 +359,11 @@ def _reserve(request, state_path):
 
 # --------------------------------------------------------------------------- runtime
 
-def _overrides(permissions):
-    values = {'model': MODEL, 'model_reasoning_effort': EFFORT,
-              'approval_policy': permissions['approval_policy'],
-              'sandbox_mode': permissions['sandbox_mode']}
+def _overrides(permissions, resume=False):
+    values = {'model': MODEL, 'model_reasoning_effort': EFFORT}
+    if not resume:      # remote resume: permissions come from the dedicated server verified by _identify
+        values.update(approval_policy=permissions['approval_policy'],
+                      sandbox_mode=permissions['sandbox_mode'])
     argv = []
     for key, value in values.items():
         argv += ['-c', f'{key}={json.dumps(value)}']
@@ -374,7 +375,7 @@ def server_argv(sock, permissions):
 
 
 def terminal_argv(sock, worktree, permissions, thread_id=None):
-    codex = ['codex', *_overrides(permissions), '--remote', 'unix://' + sock]
+    codex = ['codex', *_overrides(permissions, bool(thread_id)), '--remote', 'unix://' + sock]
     if thread_id:
         codex += ['resume', thread_id]
     return ['gnome-terminal', '--wait', '--working-directory=' + worktree, '--', *codex]

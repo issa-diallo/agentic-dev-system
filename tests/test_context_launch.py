@@ -421,6 +421,17 @@ class LaunchTests(unittest.TestCase):
         self.assertEqual(self.runtime.count('rpc', 'turn/start'), 1)
         argv = [call[2] for call in self.runtime.calls if call[:2] == ('spawn', 'terminal')][-1]
         self.assertIn('fresh-thread-113', argv)
+        first = [call[2] for call in self.runtime.calls if call[:2] == ('spawn', 'terminal')][0]
+        sock = self.runtime.state()['socket']
+        self.assertEqual(argv[argv.index('--') + 1:],
+                         ['codex', '-c', 'model="gpt-6.1-sol"',
+                          '-c', 'model_reasoning_effort="high"',
+                          '--remote', 'unix://' + sock, 'resume', 'fresh-thread-113'])
+        for arg in argv:
+            self.assertNotIn('approval_policy', arg)
+            self.assertNotIn('sandbox_mode', arg)
+        self.assertIn('approval_policy="never"', first)
+        self.assertIn('sandbox_mode="danger-full-access"', first)
 
     def test_l6_terminal_rpc_failure_and_interrupt_remain_explicit_and_safe(self):
         self.runtime.fail = 'terminal'
