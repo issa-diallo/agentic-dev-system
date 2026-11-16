@@ -23,6 +23,7 @@ MAX_EVENTS = 100000
 MAX_HEADERS = 16384
 IDENT = re.compile(r'[A-Za-z0-9._:/-]{1,128}')
 METHOD = re.compile(r'[A-Za-z0-9._/-]{1,80}')
+READ_METHODS = ('thread/read', 'thread/turns/list')
 
 
 class CaptureError(Exception):
@@ -95,8 +96,34 @@ def _embedded(turns):
     return entries
 
 
-def _summary(direction, message):
-    """Filtered metadata of one JSON-RPC message; ValueError if not a JSON-RPC object."""
+def _read_turns(method, result):
+    """[{id, status}] of the turns of a positive thread/read or thread/turns/list result, or
+    None when the schema-required shape is absent: result object; thread/read: thread object
+    with an id and a turns array; turns/list: data array; each Turn an object with id,
+    status and an items array (an empty array is legitimate)."""
+    if not isinstance(result, dict):
+        return None
+    if method == 'thread/read':
+        thread = result.get('thread')
+        if not isinstance(thread, dict) or _ident(thread.get('id')) is None:
+            return None
+        turns = thread.get('turns')
+    else:
+        turns = result.get('data')
+    if not isinstance(turns, list):
+        return None
+    read = []
+    for turn in turns:
+        if not (isinstance(turn, dict) and _ident(turn.get('id')) is not None
+                and _word(turn.get('status')) and isinstance(turn.get('items'), list)):
+            return None
+        read.append({'id': _ident(turn['id']), 'status': _word(turn['status'])})
+    return read
+
+
+def _summary(direction, message, request_method=None):
+    """Filtered metadata of one JSON-RPC message; ValueError if not a JSON-RPC object.
+    `request_method` is the method of the correlated client request, for responses only."""
     if not isinstance(message, dict):
         raise ValueError('shape')
     params, result = _dict(message.get('params')), _dict(message.get('result'))
@@ -135,6 +162,17 @@ def _summary(direction, message):
     listed = [t if isinstance(t, dict) else {'items': None}
               for thread in threads if isinstance(thread.get('turns'), list)
               for t in thread['turns']]
+    if request_method == 'thread/turns/list' and event.get('ok') is True:
+        # Only this correlated response carries turns under result.data (other listings differ).
+        data = result.get('data')
+        listed += ([t if isinstance(t, dict) else {'items': None} for t in data]
+                   if isinstance(data, list) else [{'items': None}])
+    if request_method in READ_METHODS and event.get('ok') is True:
+        read = _read_turns(request_method, message.get('result'))
+        if read is None:
+            event['read_invalid'] = True     # required shape absent: never proof of a read
+        else:
+            event['read_turns'] = read
     embedded = _embedded(turns + listed)
     if embedded:
         event['turn_items'] = embedded
@@ -158,6 +196,7 @@ class CaptureLog:
         self._lock = threading.Lock()
         self._events, self._errors = [], set()
         self._connections, self._seq = {}, 0
+        self._requests = {}      # (connection, id) -> client request method; None if ambiguous
 
     def error(self, code):
         with self._lock:
@@ -168,7 +207,11 @@ class CaptureLog:
         try:
             if name is None or direction not in ('client', 'server'):
                 raise ValueError('shape')
-            event = _summary(direction, message)
+            method = None
+            if direction == 'server' and isinstance(message, dict) and 'method' not in message:
+                with self._lock:
+                    method = self._requests.get((name, _ident(message.get('id'))))
+            event = _summary(direction, message, method)
         except ValueError:
             return self.error('invalid-message')
         with self._lock:
@@ -186,6 +229,9 @@ class CaptureLog:
             if len(self._events) >= MAX_EVENTS:
                 self._errors.add('capture-overflow')
                 return
+            if direction == 'client' and event.get('kind') == 'request' and 'id' in event:
+                key = (name, event['id'])
+                self._requests[key] = None if key in self._requests else event['method']
             self._seq += 1
             event.update(seq=self._seq, mono_ms=int(time.monotonic() * 1000),
                          utc=datetime.now(timezone.utc).isoformat(timespec='milliseconds'))

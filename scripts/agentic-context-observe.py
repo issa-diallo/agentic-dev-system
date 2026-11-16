@@ -21,6 +21,7 @@ AUXILIARY_NOTIFICATIONS = {
     'item/completed', 'item/agentMessage/delta', 'item/reasoning/summaryTextDelta',
     'item/reasoning/summaryPartAdded', 'item/reasoning/textDelta', 'turn/moderationMetadata'}
 UNLOAD_METHODS = ('thread/unsubscribe', 'thread/closed')
+READ_METHODS = ('thread/read', 'thread/turns/list')
 AUXILIARY_ITEMS = {'agentMessage', 'userMessage', 'reasoning'}
 RECEIPT_KEYS = ('transition_id', 'phase', 'thread_id', 'turn_id', 'attempts')
 
@@ -165,6 +166,11 @@ def _event_valid(event):
             and _optional(item, 'output_sha256', digest)
             and _optional(item, 'output_ambiguous', flag) for item in items)):
         return False
+    read = event.get('read_turns', [])
+    if not (isinstance(read, list) and all(
+            isinstance(turn, dict) and _is_ident(turn.get('id')) and text(turn.get('status'))
+            for turn in read) and _optional(event, 'read_invalid', flag)):
+        return False
     return (all(_optional(event, key, _is_ident) for key in ('id', 'thread', 'turn', 'item_id'))
             and all(_optional(event, key, text) for key in ('item', 'phase', 'client', 'status'))
             and all(_optional(event, key, digest) for key in ('output_sha256', 'name_sha256'))
@@ -195,6 +201,32 @@ def _answer(events, request):
 def _plain_items(event):
     """Every embedded item of this event is a known non-tool kind."""
     return all(item.get('type') in AUXILIARY_ITEMS for item in event.get('turn_items', []))
+
+
+def _tui_ready(events, connection, before):
+    """The connection opened with a successful codex-tui initialize, answered before `before`."""
+    first = next((e for e in events if e['connection'] == connection), None)
+    answer = _answer(events, first) if first and first['kind'] == 'request' else None
+    return bool(first and first['direction'] == 'client' and first.get('method') == 'initialize'
+                and first.get('client') == 'codex-tui' and answer and answer['seq'] < before)
+
+
+def _read_proven(read, reply, aux, turn):
+    """One read pair is tool-free, of the naming turn only, and its reply proves its structure:
+    the schema-required body, every turn read being the single completed naming turn."""
+    scoped = lambda e: (e.get('turn') in (None, turn) and e.get('status') in (None, 'completed')
+                        and 'item' not in e and _plain_items(e))
+    turns = reply.get('read_turns') if reply else None
+    return bool(reply and scoped(read) and scoped(reply) and reply.get('thread') in (None, aux)
+                and isinstance(turns, list) and not reply.get('read_invalid') and len(turns) <= 1
+                and all(t.get('id') == turn and t.get('status') == 'completed' for t in turns))
+
+
+def _reads(events, aux):
+    """Client reads of the auxiliary thread, each with its unique successful answer (or None)."""
+    reads = [e for e in events if e.get('thread') == aux and e['direction'] == 'client'
+             and e['kind'] == 'request' and e.get('method') in READ_METHODS]
+    return [(read, _answer(events, read)) for read in reads]
 
 
 def _unload_valid(events, mine, start, ask, turn, done):
@@ -249,7 +281,13 @@ def _prove_naming(events, start, product):
     # Embedded items of the two responses carry the same tool-free requirement.
     if not all(_plain_items(e) for e in (answer, turn_answer)):
         return None, 'activity'
+    reads = _reads(events, aux)
+    if not all(_read_proven(read, reply, aux, turn) for read, reply in reads):
+        return None, 'activity'
+    exempt = {id(e) for pair in reads for e in pair if e}
     for event in events:
+        if id(event) in exempt:
+            continue                 # each pair is proven after the naming, below
         involved = event.get('thread') == aux or (
             event['connection'] == start['connection'] and event['direction'] == 'server'
             and event['kind'] == 'request' and event.get('thread') is None)
@@ -268,7 +306,7 @@ def _prove_naming(events, start, product):
                 and event.get('item', 'agentMessage') in AUXILIARY_ITEMS
                 and _plain_items(event)):
             return None, 'activity'
-    mine = [e for e in events if e.get('thread') == aux]
+    mine = [e for e in events if e.get('thread') == aux and id(e) not in exempt]
     for method in ('thread/started', 'turn/started', 'turn/completed'):
         if len([e for e in mine if e.get('method') == method]) > 1:
             return None, 'activity'          # a lifecycle step happens once
@@ -291,7 +329,7 @@ def _prove_naming(events, start, product):
     # Check canonical identity before type/phase: relabelling the same item cannot hide
     # a contradiction. Other nonfinal items remain legitimate on this auxiliary turn.
     final_identity = {'id': identity, 'type': 'agentMessage', 'phase': 'final_answer'}
-    seen = {id(e): e for e in mine + [answer, turn_answer]}
+    seen = {id(e): e for e in mine + [answer, turn_answer] + [e for pair in reads for e in pair]}
     for event in seen.values():
         representations = [(item, True) for item in event.get('turn_items', [])]
         if 'item' in event:
@@ -314,8 +352,13 @@ def _prove_naming(events, start, product):
     names = [e for e in connection if e['direction'] == 'client' and e['kind'] == 'request'
              and e.get('method') == 'thread/name/set' and e.get('thread') == product
              and e.get('name_sha256') == title and e['seq'] > done[0]['seq']]
-    if len(names) != 1 or not _answer(events, names[0]):
+    naming = _answer(events, names[0]) if len(names) == 1 else None
+    if not naming:
         return None, 'name'
+    # Reads come only after the product's positive naming, on a qualified TUI connection.
+    if not all(read['seq'] > naming['seq'] and _tui_ready(events, read['connection'], read['seq'])
+               for read, _ in reads):
+        return None, 'activity'
     return {'thread_id': aux, 'connection': start['connection'], 'turn_id': turn,
             'title_sha256': title, 'proof': 'tui-naming-chain'}, None
 

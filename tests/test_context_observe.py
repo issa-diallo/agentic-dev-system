@@ -1010,6 +1010,525 @@ def recipe_append(steps, *rows):
     return list(steps) + list(rows)
 
 
+class PostNamingReadTests(ObserverFixture):
+    """#124 AC1–4 / RM1–5: reads never substitute for positive naming proof."""
+    METHODS = ('thread/read', 'thread/turns/list')
+
+    def prefix(self, closed=False):
+        steps = recipe_steps()
+        return steps if closed else recipe_until(steps, 'status-late')
+
+    def feed(self, steps):
+        for _, connection, direction, message in steps:
+            self.log.message(connection, direction, copy.deepcopy(message))
+        self.assertEqual(self.log.report()['errors'], [], 'Use valid capture evidence')
+        self.save_capture()
+
+    def initialize_steps(self, connection='tui-2'):
+        return [_step(label, direction, message, connection)
+                for label, (direction, message) in zip(
+                    ('read-init', 'read-init-ack', 'read-initialized'),
+                    naming_exchange()[:3])]
+
+    def read_steps(self, method, connection='tui-2', identifier='aux-read-124', items=None):
+        if items is None:
+            steps = recipe_steps()
+            items = [dict(steps[_index(steps, 'final-completed')][3]['params']['item'])]
+        # Turn ids are present in real protocol responses; reading one is not a new turn.
+        turns = [{'id': AUXILIARY_TURN, 'status': 'completed', 'items': items}]
+        result = {
+            'thread/read': {'thread': {'id': AUXILIARY, 'ephemeral': True, 'turns': turns}},
+            'thread/turns/list': {'data': turns, 'nextCursor': None},
+        }[method]
+        params = {'threadId': AUXILIARY}
+        if method == 'thread/read':
+            params['includeTurns'] = True
+        return [
+            _step('aux-read', 'client', request(identifier, method, params), connection),
+            _step('aux-read-ack', 'server', {'id': identifier, 'result': result}, connection),
+        ]
+
+    def checkpoint(self, closed=False):
+        self.log = recipe_log(self.capture, self.prefix(closed))
+        self.runtime.loaded = [PRODUCT] if closed else [PRODUCT, AUXILIARY]
+        self.save_capture()
+        before = self.snapshot()
+        self.assertEqual(before['verdict'], 'PASS', before['reasons'])
+        return before
+
+    def reconnect_reads(self, steps):
+        self.log.close('tui-1')
+        self.feed(steps)
+
+    def assert_read_pass(self, before):
+        after = self.verify(before)
+        self.assertEqual(after['verdict'], 'PASS', after['reasons'])
+        expected_raw = 'BLOCKED' if AUXILIARY in self.runtime.loaded else 'PASS'
+        self.assertEqual(after['raw_verdict'], expected_raw, after['raw_reasons'])
+        self.assertEqual(after['loaded_threads'], self.runtime.loaded)
+        if expected_raw == 'BLOCKED':
+            self.assertIn('loaded-set', after['raw_reasons'])
+        self.assertEqual([row['thread_id'] for row in after['auxiliary_threads']], [AUXILIARY])
+        self.assertEqual((after['counts']['task_started'], after['counts']['task_complete']),
+                         (1, 1))
+        self.assert_private(self.log.report())
+        self.assert_private(after)
+
+    def test_124_ac1_completed_unsubscribe_snapshot_reconnect_two_successful_reads(self):
+        before = self.checkpoint()
+        self.assertTrue(before['auxiliary_threads'][0]['loaded'])
+        self.assertEqual(before['raw_verdict'], 'BLOCKED')
+        self.reconnect_reads(self.initialize_steps()
+                             + self.read_steps('thread/read', identifier='read-124')
+                             + self.read_steps('thread/turns/list', identifier='turns-124'))
+        self.assert_read_pass(before)
+
+    def test_124_rm2_each_read_on_original_or_reconnected_tui_including_after_closed(self):
+        for method in self.METHODS:
+            for closed, connection in ((False, 'tui-1'), (False, 'tui-2'), (True, 'tui-2')):
+                with self.subTest(method=method, closed=closed, connection=connection):
+                    before = self.checkpoint(closed)
+                    steps = self.read_steps(method, connection)
+                    if connection == 'tui-2':
+                        self.reconnect_reads(self.initialize_steps() + steps)
+                    else:
+                        self.feed(steps)
+                    self.assert_read_pass(before)
+
+    def test_124_rm2_successful_reads_accept_empty_or_consistent_nonfinal_item_summaries(self):
+        final = self.read_steps('thread/read')[1][3]['result']['thread']['turns'][0]['items'][0]
+        summaries = {
+            'empty': [],
+            'nonfinal and final': [
+                {'id': 'read-reasoning-124', 'type': 'reasoning', 'summary': [PROMPT]},
+                {'id': 'read-comment-124', 'type': 'agentMessage',
+                 'phase': 'commentary', 'text': PROMPT}, final],
+        }
+        for method in self.METHODS:
+            for label, items in summaries.items():
+                with self.subTest(method=method, content=label):
+                    before = self.checkpoint()
+                    self.reconnect_reads(self.initialize_steps()
+                                         + self.read_steps(method, items=items))
+                    self.assert_read_pass(before)
+
+    def test_124_ac4_real_recipe_read_success_then_turns_list_error_stays_blocked(self):
+        before = self.checkpoint()
+        steps = self.initialize_steps() + self.read_steps('thread/read', identifier='read-124')
+        steps += self.read_steps('thread/turns/list', identifier='turns-124')
+        # Edit the last response, reproducing #121's failed turns/list, not its private text.
+        steps[-1] = _step('turns-error', 'server', {
+            'id': 'turns-124', 'error': {'code': -32000, 'message': ERROR}}, 'tui-2')
+        self.reconnect_reads(steps)
+        self.assert_blocked(self.verify(before))
+        self.assert_private(self.log.report())
+
+    def test_124_rm3_each_read_requires_unique_later_server_success_same_id_and_connection(self):
+        for method in self.METHODS:
+            pair = self.read_steps(method)
+            variants = {
+                'missing response': pair[:1],
+                'error response': recipe_replace(pair, 'aux-read-ack', message={
+                    'id': 'aux-read-124', 'error': {'code': -1, 'message': ERROR}}),
+                'wrong response id': recipe_edit(pair, 'aux-read-ack',
+                                                  lambda m: m.update(id='wrong-id')),
+                'wrong response connection': recipe_replace(pair, 'aux-read-ack',
+                                                             connection='tui-3'),
+                'wrong response direction': recipe_replace(pair, 'aux-read-ack',
+                                                            direction='client'),
+                'response before request': list(reversed(pair)),
+                'duplicate response': pair + [pair[1]],
+                'duplicate request id': [pair[0]] + pair,
+                'server request': recipe_replace(pair, 'aux-read', direction='server'),
+                'notification is not request': recipe_edit(pair, 'aux-read',
+                                                            lambda m: m.pop('id')),
+            }
+            for label, steps in variants.items():
+                with self.subTest(method=method, variant=label):
+                    before = self.checkpoint()
+                    self.reconnect_reads(self.initialize_steps()
+                                         + self.initialize_steps('tui-3') + steps)
+                    self.assert_blocked(self.verify(before))
+                    self.assert_private(self.log.report())
+
+    def test_124_rm3_same_read_id_on_two_initialized_connections_is_not_ambiguous(self):
+        for method in self.METHODS:
+            with self.subTest(method=method):
+                before = self.checkpoint()
+                self.reconnect_reads(self.initialize_steps('tui-2')
+                                     + self.initialize_steps('tui-3')
+                                     + self.read_steps(method, 'tui-2')[:1]
+                                     + self.read_steps(method, 'tui-3')
+                                     + self.read_steps(method, 'tui-2')[1:])
+                self.assert_read_pass(before)
+
+    def test_124_rm2_read_connection_must_initialize_as_tui_with_prior_success(self):
+        init = self.initialize_steps()
+        for method in self.METHODS:
+            pair = self.read_steps(method)
+            variants = {
+                'no initialize': pair,
+                'initialize unacknowledged': init[:1] + pair,
+                'initialize other client': recipe_edit(init, 'read-init',
+                    lambda m: m['params']['clientInfo'].update(name='observer')) + pair,
+                'initialize without clientInfo': recipe_edit(init, 'read-init',
+                    lambda m: m['params'].pop('clientInfo')) + pair,
+                'initialize server direction': recipe_replace(init, 'read-init',
+                                                               direction='server') + pair,
+                'initialize notification': recipe_edit(init, 'read-init',
+                                                         lambda m: m.pop('id')) + pair,
+                'initialize error': recipe_replace(init, 'read-init-ack', message={
+                    'id': 1, 'error': {'code': -1, 'message': ERROR}}) + pair,
+                'initialize wrong ack id': recipe_edit(init, 'read-init-ack',
+                                                        lambda m: m.update(id=999)) + pair,
+                'initialize ack other connection': recipe_replace(init, 'read-init-ack',
+                                                                  connection='tui-3') + pair,
+                'initialize ack client direction': recipe_replace(init, 'read-init-ack',
+                                                                  direction='client') + pair,
+                'read before initialize': pair + init,
+                'read before initialize ack': init[:1] + pair + init[1:],
+                'initialize ack before request': [init[1], init[0], init[2]] + pair,
+            }
+            for label, steps in variants.items():
+                with self.subTest(method=method, variant=label):
+                    before = self.checkpoint()
+                    self.reconnect_reads(steps)
+                    self.assert_blocked(self.verify(before))
+
+    def test_124_rm1_read_before_name_ack_cannot_be_retroactively_proven(self):
+        for method in self.METHODS:
+            for anchor in ('name', 'name-ack'):
+                with self.subTest(method=method, before=anchor):
+                    before = self.checkpoint()
+                    steps = self.prefix()
+                    offset = _index(steps, anchor)
+                    steps[offset:offset] = self.read_steps(method, 'tui-1')
+                    self.log = recipe_log(self.capture, steps)
+                    self.save_capture()
+                    self.assert_blocked(self.snapshot())
+                    self.assert_blocked(self.verify(before))
+
+    def test_124_rm1_read_never_replaces_missing_naming_evidence(self):
+        for method in self.METHODS:
+            for absent in ('start-ack', 'final-completed', 'turn-completed', 'name-ack'):
+                with self.subTest(method=method, missing=absent):
+                    before = self.checkpoint()
+                    self.log = recipe_log(self.capture, recipe_without(self.prefix(), absent))
+                    self.reconnect_reads(self.initialize_steps() + self.read_steps(method))
+                    self.assert_blocked(self.snapshot())
+                    self.assert_blocked(self.verify(before))
+
+    def test_124_ac2_auxiliary_first_seen_after_snapshot_still_blocks_with_good_reads(self):
+        self.log = capture_exchange(self.capture, naming_exchange()[:3])
+        self.runtime.loaded = [PRODUCT]
+        self.save_capture()
+        before = self.snapshot()
+        self.assertEqual(before['verdict'], 'PASS', before['reasons'])
+        self.feed(recipe_without(self.prefix(), 'init', 'init-ack', 'initialized'))
+        self.runtime.loaded = [PRODUCT, AUXILIARY]
+        self.reconnect_reads(self.initialize_steps() + self.read_steps('thread/read'))
+        self.assert_blocked(self.verify(before))
+
+    def test_124_rm4_reads_do_not_authorize_other_methods_turns_or_tools(self):
+        forbidden = [
+            ('client', request('resume-124', 'thread/resume', {'threadId': AUXILIARY})),
+            ('client', request('turn-124', 'turn/start', {'threadId': AUXILIARY})),
+            ('client', request('subscribe-124', 'thread/subscribe', {'threadId': AUXILIARY})),
+            ('client', request('other-124', 'thread/archive', {'threadId': AUXILIARY})),
+            ('server', request('tool-124', 'item/tool/call', {'threadId': AUXILIARY})),
+            ('server', _turn_event('turn/started', AUXILIARY, OTHER_TURN, 'inProgress')),
+            ('server', _aux_item('item/completed', {'id': 'tool-124',
+                'type': 'commandExecution', 'command': PROMPT, 'aggregatedOutput': ERROR})),
+        ]
+        for method in self.METHODS:
+            for direction, message in forbidden:
+                with self.subTest(read=method, forbidden=message['method']):
+                    before = self.checkpoint()
+                    self.reconnect_reads(self.initialize_steps() + self.read_steps(method)
+                                         + [_step('forbidden', direction, message, 'tui-2')])
+                    self.assert_blocked(self.verify(before))
+                    self.assert_private(self.log.report())
+
+    def test_124_rm4_reads_after_closed_do_not_reopen_subscription(self):
+        for method in self.METHODS:
+            for event in ('thread/status/changed', 'thread/tokenUsage/updated'):
+                with self.subTest(read=method, event=event):
+                    before = self.checkpoint(closed=True)
+                    self.reconnect_reads(self.initialize_steps() + self.read_steps(method))
+                    # Even formerly allowed lifecycle metadata cannot follow closed.
+                    self.feed([_step('late-event', 'server', notification(event, {
+                        'threadId': AUXILIARY, 'status': {'type': 'active'}}), 'tui-2')])
+                    self.assert_blocked(self.verify(before))
+
+    def test_124_rm4_reads_after_unsubscribe_still_allow_original_close(self):
+        for method in self.METHODS:
+            with self.subTest(method=method):
+                before = self.checkpoint()
+                self.feed(self.read_steps(method, 'tui-1'))
+                steps = recipe_steps()
+                self.feed(steps[_index(steps, 'status-late'):])
+                self.runtime.loaded = [PRODUCT]
+                self.assert_read_pass(before)
+
+    def test_124_rm4_auxiliary_rollout_after_reads_is_still_forbidden(self):
+        for method in self.METHODS:
+            for location in (self.sessions, self.home / 'archived_sessions'):
+                with self.subTest(method=method, location=location.name):
+                    before = self.checkpoint()
+                    self.reconnect_reads(self.initialize_steps() + self.read_steps(method))
+                    location.mkdir(parents=True, exist_ok=True)
+                    path = location / ('rollout-124-' + AUXILIARY + '.jsonl')
+                    write_json(path, {'type': 'session_meta', 'payload': {'id': AUXILIARY}})
+                    self.assert_blocked(self.verify(before))
+                    path.unlink()
+
+    def test_124_rm4_read_content_preserves_item_and_final_consistency_guards(self):
+        final = self.read_steps('thread/read')[1][3]['result']['thread']['turns'][0]['items'][0]
+        variants = {
+            'tool': {'id': 'tool-124', 'type': 'commandExecution',
+                     'command': PROMPT, 'aggregatedOutput': ERROR},
+            'unknown item': {'id': 'unknown-124', 'type': 'futureItem', 'text': PROMPT},
+            'contradictory output': dict(final, text=TITLE + '!'),
+            'second final': dict(final, id='second-final-124'),
+            'ambiguous final': dict(final, text=json.dumps({'a': TITLE, 'b': PROMPT})),
+            'same id different phase': dict(final, phase='commentary', text=PROMPT),
+            'same id different type': {'id': final['id'], 'type': 'reasoning', 'text': PROMPT},
+        }
+        for method in self.METHODS:
+            for label, item in variants.items():
+                with self.subTest(method=method, content=label):
+                    before = self.checkpoint()
+                    self.reconnect_reads(self.initialize_steps()
+                                         + self.read_steps(method, items=[item]))
+                    self.assert_blocked(self.verify(before))
+                    self.assert_private(self.log.report())
+
+    def test_124_rm4_rm5_capture_retains_read_item_metadata_and_hashes_without_text(self):
+        final = self.read_steps('thread/read')[1][3]['result']['thread']['turns'][0]['items'][0]
+        items = [final, {'id': 'read-tool-124', 'type': 'commandExecution',
+                         'command': PROMPT, 'cwd': PROMPT, 'aggregatedOutput': ERROR}]
+        for method in self.METHODS:
+            with self.subTest(method=method):
+                log = recipe_log(self.capture, self.initialize_steps()
+                                 + self.read_steps(method, items=items))
+                report = log.report()
+                self.assertEqual(report['errors'], [])
+                self.assert_private(report)
+                response = report['events'][-1]
+                embedded = {item['id']: item for item in response.get('turn_items', [])}
+                self.assertEqual(set(embedded), {final['id'], 'read-tool-124'})
+                self.assertEqual(embedded['read-tool-124']['type'], 'commandExecution')
+                self.assertEqual(embedded[final['id']]['phase'], 'final_answer')
+                self.assertEqual(embedded[final['id']]['output_sha256'],
+                                 hashlib.sha256(TITLE.encode()).hexdigest())
+                self.assertIs(embedded[final['id']]['output_ambiguous'], False)
+
+    def test_124_rm5_turns_data_extraction_is_scoped_to_request_method_and_connection(self):
+        pair = self.read_steps('thread/turns/list', identifier='shared-id-124')
+        unrelated = request('shared-id-124', 'thread/list', {'cursor': PROMPT})
+        response = copy.deepcopy(pair[1][3])
+        log = recipe_log(self.capture, self.initialize_steps('tui-2')
+                         + self.initialize_steps('tui-3') + pair[:1]
+                         + [_step('unrelated', 'client', unrelated, 'tui-3'),
+                            _step('unrelated-ack', 'server', response, 'tui-3')]
+                         + pair[1:])
+        report = log.report()
+        self.assert_private(report)
+        unrelated_ack, turns_ack = report['events'][-2:]
+        self.assertFalse(unrelated_ack.get('turn_items'))
+        self.assertTrue(turns_ack.get('turn_items'),
+                        'Correlated turns/list must retain item safety evidence')
+
+    # --- #124 correction 1 (M1/M2): a read must prove its structure and its single turn ---
+
+    def mutated_read(self, method, edit, identifier='aux-read-124'):
+        """Valid read pair whose response `result` (or request message) is changed by `edit`."""
+        steps = self.read_steps(method, identifier=identifier)
+        edit(method, steps[0][3], steps[1][3])
+        return steps
+
+    @staticmethod
+    def read_turns(method, response):
+        result = response['result']
+        return result['thread']['turns'] if method == 'thread/read' else result['data']
+
+    @staticmethod
+    def read_container(method, response, value):
+        if method == 'thread/read':
+            response['result']['thread']['turns'] = value
+        else:
+            response['result']['data'] = value
+
+    def blocked_reads(self, cases):
+        for method in self.METHODS:
+            for label, edit in cases.items():
+                with self.subTest(method=method, read=label):
+                    before = self.checkpoint()
+                    self.reconnect_reads(self.initialize_steps()
+                                         + self.mutated_read(method, edit))
+                    self.assert_blocked(self.verify(before))
+                    self.assert_private(self.log.report())
+
+    def test_124_m1_malformed_read_bodies_are_invalid_proof_not_empty_turns(self):
+        def turn(change):
+            return lambda method, _, response: change(self.read_turns(method, response)[0])
+
+        def drop(key):
+            return turn(lambda t: t.pop(key))
+
+        def put(key, value):
+            return turn(lambda t: t.__setitem__(key, value))
+
+        def result(value):
+            return lambda method, _, response: response.__setitem__('result', value)
+
+        def container(value):
+            return lambda method, _, response: self.read_container(method, response, value)
+
+        def listed(value):
+            return lambda method, _, response: self.read_turns(method, response).append(value)
+
+        self.blocked_reads({
+            'turn without items': drop('items'), 'turn without id': drop('id'),
+            'turn without status': drop('status'),
+            'items null': put('items', None), 'items object': put('items', {}),
+            'items boolean': put('items', True), 'items string': put('items', 'x'),
+            'id null': put('id', None), 'id object': put('id', {}), 'id boolean': put('id', True),
+            'status null': put('status', None), 'status object': put('status', {}),
+            'status boolean': put('status', False),
+            'result null': result(None), 'result empty object': result({}),
+            'result array': result([]), 'result string': result('x'),
+            'turns container null': container(None), 'turns container object': container({}),
+            'turns container boolean': container(True), 'turns container string': container('x'),
+            'turn element null': listed(None), 'turn element string': listed('x'),
+            'turn element array': listed([]),
+            'extra turn without items': listed({'id': AUXILIARY_TURN, 'status': 'completed'}),
+        })
+        # thread/read specifics: the thread object itself, then its identity.
+        for label, thread in {'thread null': None, 'thread array': [], 'thread empty': {},
+                              'thread without id': {'turns': []},
+                              'thread without turns': {'id': AUXILIARY}}.items():
+            with self.subTest(method='thread/read', read=label):
+                before = self.checkpoint()
+                self.reconnect_reads(self.initialize_steps() + self.mutated_read(
+                    'thread/read', lambda m, _, r, t=thread: r['result'].__setitem__('thread', t)))
+                self.assert_blocked(self.verify(before))
+        # turns/list specifics: data absent.
+        with self.subTest(method='thread/turns/list', read='data absent'):
+            before = self.checkpoint()
+            self.reconnect_reads(self.initialize_steps() + self.mutated_read(
+                'thread/turns/list', lambda m, _, r: r['result'].pop('data')))
+            self.assert_blocked(self.verify(before))
+
+    def test_124_m2_read_turn_identity_status_and_extra_turns_must_match_naming_turn(self):
+        def turn(change):
+            return lambda method, _, response: change(self.read_turns(method, response)[0])
+
+        def listed(value):
+            return lambda method, _, response: self.read_turns(method, response).append(value)
+
+        def response_turn(value):
+            return lambda method, _, response: response['result'].__setitem__('turn', value)
+
+        def request_params(**params):
+            return lambda method, ask, _: ask['params'].update(params)
+
+        self.blocked_reads({
+            'other turn id': turn(lambda t: t.__setitem__('id', OTHER_TURN)),
+            'in progress': turn(lambda t: t.__setitem__('status', 'inProgress')),
+            'failed': turn(lambda t: t.__setitem__('status', 'failed')),
+            'interrupted': turn(lambda t: t.__setitem__('status', 'interrupted')),
+            'second other turn empty': listed(
+                {'id': OTHER_TURN, 'status': 'completed', 'items': []}),
+            'second other turn in progress': listed(
+                {'id': OTHER_TURN, 'status': 'inProgress', 'items': []}),
+            'second same turn in progress': listed(
+                {'id': AUXILIARY_TURN, 'status': 'inProgress', 'items': []}),
+            'second same turn duplicate': listed(
+                {'id': AUXILIARY_TURN, 'status': 'completed', 'items': []}),
+            'response turn other': response_turn(
+                {'id': OTHER_TURN, 'status': 'completed', 'items': []}),
+            'response turn in progress': response_turn(
+                {'id': AUXILIARY_TURN, 'status': 'inProgress', 'items': []}),
+            'response turn other and in progress': response_turn(
+                {'id': OTHER_TURN, 'status': 'inProgress', 'items': []}),
+            'request turn id other': request_params(turnId=OTHER_TURN),
+            'request turn other': request_params(
+                turn={'id': OTHER_TURN, 'status': 'completed', 'items': []}),
+            'request turn in progress': request_params(
+                turn={'id': AUXILIARY_TURN, 'status': 'inProgress', 'items': []}),
+            'request tool item': request_params(
+                item={'id': 'req-tool-124', 'type': 'commandExecution', 'command': PROMPT}),
+            'request unknown embedded turn': request_params(
+                turn={'id': AUXILIARY_TURN, 'status': 'completed', 'items': [
+                    {'id': 'req-tool-125', 'type': 'commandExecution', 'command': PROMPT}]}),
+        })
+
+    def test_124_m1_m2_legitimate_reads_without_items_or_with_consistent_turn_stay_pass(self):
+        def container(value):
+            return lambda method, _, response: self.read_container(method, response, value)
+
+        def response_turn(value):
+            return lambda method, _, response: response['result'].__setitem__('turn', value)
+
+        done = {'id': AUXILIARY_TURN, 'status': 'completed'}
+        cases = {
+            'empty turns': container([]),
+            'original turn without items': container([dict(done, items=[])]),
+            'original turn with final summary': lambda *_: None,
+            'consistent response turn': response_turn(dict(done, items=[])),
+        }
+        for method in self.METHODS:
+            for label, edit in cases.items():
+                with self.subTest(method=method, read=label):
+                    before = self.checkpoint()
+                    self.reconnect_reads(self.initialize_steps()
+                                         + self.mutated_read(method, edit))
+                    self.assert_read_pass(before)
+
+    def test_124_m2_capture_keeps_read_turn_metadata_and_observer_rejects_invalid_forms(self):
+        for method in self.METHODS:
+            with self.subTest(method=method, check='capture'):
+                log = recipe_log(self.capture, self.initialize_steps()
+                                 + self.read_steps(method))
+                report = log.report()
+                self.assert_private(report)
+                response = report['events'][-1]
+                self.assertEqual(response['read_turns'],
+                                 [{'id': AUXILIARY_TURN, 'status': 'completed'}])
+                self.assertFalse(response.get('read_invalid'))
+                bad = self.mutated_read(
+                    method, lambda m, _, r: self.read_turns(m, r)[0].pop('status'))
+                invalid = recipe_log(self.capture, self.initialize_steps() + bad).report()
+                self.assertIs(invalid['events'][-1].get('read_invalid'), True)
+        marks = {
+            'read_turns missing': lambda e: e.pop('read_turns'),
+            'read_turns string': lambda e: e.__setitem__('read_turns', 'x'),
+            'read_turns object': lambda e: e.__setitem__('read_turns', {}),
+            'read_turns null': lambda e: e.__setitem__('read_turns', None),
+            'read_turns other id': lambda e: e.__setitem__(
+                'read_turns', [{'id': OTHER_TURN, 'status': 'completed'}]),
+            'read_turns in progress': lambda e: e.__setitem__(
+                'read_turns', [{'id': AUXILIARY_TURN, 'status': 'inProgress'}]),
+            'read_turns without status': lambda e: e.__setitem__(
+                'read_turns', [{'id': AUXILIARY_TURN}]),
+            'read_turns element string': lambda e: e.__setitem__('read_turns', ['x']),
+            'read_turns bad id type': lambda e: e.__setitem__(
+                'read_turns', [{'id': {}, 'status': 'completed'}]),
+            'read_invalid flag': lambda e: e.__setitem__('read_invalid', True),
+            'read_invalid string': lambda e: e.__setitem__('read_invalid', 'no'),
+        }
+        for method in self.METHODS:
+            for label, edit in marks.items():
+                with self.subTest(method=method, mark=label):
+                    before = self.checkpoint()
+                    self.reconnect_reads(self.initialize_steps() + self.read_steps(method))
+                    report = self.log.report()
+                    edit(report['events'][-1])
+                    self.save_capture(report)
+                    self.assert_blocked(self.verify(before))
+
+
 class RecipeObserverTests(ObserverFixture):
     """Real recipe: naming chain interleaved with product events (synthetic ids)."""
     def use(self, steps):
