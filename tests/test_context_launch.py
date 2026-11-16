@@ -1126,9 +1126,11 @@ class CanonicalPlanPromptTests(unittest.TestCase):
         handoff_digest = hashlib.sha256(Path(self.request['handoff']).read_bytes()).hexdigest()
         self.assertEqual(self.request['handoff_sha256'], handoff_digest)
         self.assertIn(handoff_digest, prompt)
+        handoff_line = next(line for line in prompt.splitlines() if handoff_digest in line)
         # Accept French/English prose or code, without prescribing a label or command.
-        self.assertRegex(prompt, r'(?is)(?:handoff.*(?:brut|raw)|(?:brut|raw).*handoff)')
-        self.assertRegex(prompt, r'(?i)octets|bytes|read_bytes\s*\(|[\'"]rb[\'"]')
+        self.assertRegex(handoff_line, r'(?i)\bsha[-_ ]?256\b')
+        self.assertRegex(handoff_line, r'(?i)\b(?:brut(?:e)?s?|raw)\b')
+        self.assertRegex(handoff_line, r'(?i)octets|bytes|read_bytes\s*\(|[\'"]rb[\'"]')
 
     def test_m6e_canonical_prompt_preserves_compact_safe_resume_markers(self):
         prompt = self._submitted_prompt()
