@@ -40,6 +40,21 @@ liste de threads après initialisation ; pas de prompt, reprise, contrôle d’a
 ou validation de gate. Transport borné et neutralisation des caractères terminal.
 Les indisponibilités restent explicites ; les états runtime ne deviennent pas des PASS.
 
+Mode facultatif de renouvellement automatique du contexte : `scripts/agentic-context.py`
+(opt-in, Linux, systemd --user/cgroup v2) pilote des générations Codex dans des unités
+transitoires par mission/génération/rôle, le contrôleur restant hors des frontières. État
+privé versionné par mission, mutations RPC journalisées et à envoi unique, admission durable
+fermée avant retraite, fermeture prouvée par cgroup ou reçu systemd, jamais par PID ou
+timeout. Réutilise mesure, sauvegarde et lanceur existants ; contrat dans
+[CONTEXT](../agentic/CONTEXT.md). Runtime incompatible : BLOCKED, flux manuel inchangé.
+Worktree réservé durablement (mission/état/requête) ; infrastructure attestée à la création ;
+bootstrap prouvé par lectures complètes (textes, pas seulement empreintes) observées dans
+l'historique du tour et, sous l'enveloppe Codex, dans le retour d'outil reçu par le modèle,
+pas par le JSON de l'agent. Sous-cgroupes inventoriés, membership indécidable refusé,
+environnement effectif du service contrôlé par le wrapper, TUI perdu rouvert (même génération).
+Crash du lanceur après identification du thread et avant soumission : même session reprise
+après revalidation positive, jamais de recréation ; ambiguïté ou session perdue : BLOCKED.
+
 Une seule copie canonique des règles détaillées ; obligations conservées dans
 AGENTS et renvois conditionnels obligatoires. Aucun secret dans les artefacts.
 Réseau seulement pour recherches et publication explicitement demandée.

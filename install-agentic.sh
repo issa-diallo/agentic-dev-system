@@ -105,6 +105,7 @@ V2_RESOURCES=(
   scripts/agentic-brief.py
   scripts/agentic-checkpoint.py
   scripts/agentic-context-launch.py
+  scripts/agentic-context.py
   scripts/agentic-gates.py
   scripts/agentic-detect.py
   scripts/agentic-prepare.py
