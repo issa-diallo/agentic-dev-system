@@ -871,6 +871,17 @@ def succeeded(tasks, dry_run):
                for t in tasks.values())
 
 
+def context_controller(args):
+    """Additive entry to the opt-in controller. Its subscription gate (check_subscription,
+    honoring run.subscription_only of the request's config) runs before any inference."""
+    spec = importlib.util.spec_from_file_location(
+        'agentic_context', Path(__file__).with_name('agentic-context.py'))
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module.main([args.verb, '--request', args.request] + (['--once'] if args.once else []))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='action', required=True)
@@ -900,6 +911,10 @@ def main():
     fast.add_argument('--no-review-red', dest='review_red', action='store_false')
     fast.add_argument('--green-only', action='store_true', help='resume after the red tests review')
     fast.add_argument('--worktree-root')
+    context = sub.add_parser('context', help='opt-in context renewal controller (#114)')
+    context.add_argument('verb', choices=('run', 'status'))
+    context.add_argument('--request', required=True, help='explicit controller request JSON')
+    context.add_argument('--once', action='store_true', help='run a single step')
     note = sub.add_parser('attempt', parents=[common])
     note.add_argument('--task-id', required=True)
     note.add_argument('--outcome', required=True)
@@ -907,6 +922,8 @@ def main():
     note.add_argument('--diagnosis-kind')
     note.add_argument('--diagnosis')
     args = parser.parse_args()
+    if args.action == 'context':
+        return context_controller(args)
     try:
         if args.action == 'inventory':
             result = build_inventory(load_config(args.config or default_config()))[0]

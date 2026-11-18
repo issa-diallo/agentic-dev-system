@@ -57,6 +57,42 @@ de ses worktrees. Le premier essai JSONL sur ce socket expirait ; le handshake H
 Upgrade101 a confirmé le transport nécessaire. La V1 ne pilote pas les agents,
 ne modifie pas Codex et ne déduit aucun gate de l’état d’exécution.
 
+## Contrôleur facultatif de renouvellement du contexte — 2026-11-16
+
+**Contexte.** Le flux manuel (mesure, checkpoint, lanceur) exige un humain à chaque
+transition, et les anciens écrivains ne sont prouvés arrêtés ni par PID ni par timeout.
+
+**Décision.** Ajouter `scripts/agentic-context.py`, opt-in, qui possède le dispatch de
+ses générations dans des unités systemd utilisateur (`ExitType=cgroup`,
+`RemainAfterExit=yes`, `SendSIGKILL=no`), avec admission durable, état privé journalisé
+avant effet et réconciliation positive des mutations. Il réutilise l'observateur, la
+sauvegarde et le lanceur ; seul `turn/start`/`turn/steer` du lanceur est rendu à envoi
+unique. Dépendance Linux explicite ; runtime incompatible : BLOCKED.
+
+**Preuves positives.** Réservation persistante du worktree liée mission/état/requête ;
+infrastructure = identité attestée à la création (pid/starttime/argv ; un seul NUL terminal
+de cmdline retiré) plus l'enfant direct `codex-code-mode-host` (exe et SHA256 relevés à
+l'admission), jamais des drapeaux de ligne de commande ; sous-cgroupes inclus dans
+l'inventaire, membership relu avant signal ; bootstrap prouvé par la commande
+`bootstrap-read` dont la sortie COMPLÈTE (textes des instructions et du handoff) est observée
+dans l'historique du tour et dans le retour d'outil du rollout de ce thread (pas par le JSON
+de l'agent) ; environnement du service vérifié dans le wrapper (pas seulement le parent) ;
+reconnexion du TUI depuis `working` après preuve de fermeture ; création identifiée avant la
+promotion du journal du lanceur reprise par observation positive, sinon BLOCKED ; crash avec
+thread identifié avant `submitting` : reprise de la même session après revalidation positive,
+sans recréation. Qualifié :
+binaire natif ELF Codex 0.169.0 uniquement.
+
+**Alternatives.** Scans PID/`/proc` (non autoritatifs) ; pilotage du TUI ordinaire (ni
+admission ni descendance) ; adoption d'une session existante sur `writers_stopped`.
+Rejetées.
+
+**Conséquences.** Renouvellement sans humain, au prix d'une dépendance systemd/cgroup v2
+et gnome-terminal. Un timeout ne tue rien : BLOCKED persistant, diagnostic manuel.
+HEAD/plan/configuration figés pendant la mission. Le schéma `thread/read` et le
+comportement du terminal restent à qualifier par la recette réelle. Rollback : ne pas
+activer, ou arrêter `run` au point sûr ; aucune suppression d'état ni de checkpoint.
+
 ## Related
 
 

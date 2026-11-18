@@ -30,6 +30,7 @@ QUALIFIED_CODEX = '0.169.0'
 MODEL, EFFORT = 'gpt-6.1-sol', 'high'
 OWNER_ENV = 'AGENTIC_CONTEXT_LAUNCH_OWNER'
 MAX_ATTEMPTS = 2         # server starts before submission, including the first one
+ONE_SHOT_METHODS = ('turn/start', 'turn/steer', 'thread/name/set')
 MAX_PROMPT = 8192
 MAX_FILE = 1024 * 1024
 ROLLOUT_LIMIT = 8 * 1024 * 1024
@@ -51,6 +52,16 @@ class LaunchError(Exception):
 
 class UnidentifiedCreation(LaunchError):
     """Process creation succeeded but its identity is unknown (undecidable outcome)."""
+
+
+class AmbiguousHistory(LaunchError):
+    """The identified session cannot be proven free of a first prompt (history found, absent,
+    malformed or unreadable). Never a recreation: the session is kept, nothing is submitted."""
+
+
+class RpcRefused(LaunchError):
+    """The server answered a JSON-RPC error; `unsupported` is True only for -32601."""
+    unsupported = False
 
 
 def _load(name):
@@ -590,7 +601,7 @@ class RealBackend:
                     return self._exchange(proxy, method, params)
             except self.ws.TransportError as error:
                 last = error
-                if time.monotonic() + 1 >= deadline or method == 'turn/start':
+                if time.monotonic() + 1 >= deadline or method in ONE_SHOT_METHODS:
                     raise TimeoutError('Transport Codex indisponible.') from None
                 time.sleep(.5)
 
@@ -695,7 +706,11 @@ def _rpc(backend, endpoint, method, params, owner=None):
         raise LaunchError('Serveur dédié absent ou terminé : endpoint non réclamé.')
     try:
         result = backend.rpc(endpoint, method, params)
-    except (OSError, RuntimeError, ValueError, TimeoutError):
+    except RuntimeError as error:
+        refused = RpcRefused(f'RPC {method} indisponible ou refusé.')
+        refused.unsupported = str(error).rstrip('.').endswith(' -32601')
+        raise refused from None
+    except (OSError, ValueError, TimeoutError):
         raise LaunchError(f'RPC {method} indisponible ou refusé.') from None
     if not isinstance(result, dict):
         raise LaunchError(f'Réponse {method} invalide.')
@@ -738,20 +753,114 @@ def _identify(backend, transition, request, permissions):
             raise LaunchError('Thread neuf non identifié avant délai.')
         time.sleep(.5)
     transition.set(thread_id=listed[0], phase='identified')
-    thread = _rpc(backend, sock, 'thread/read',
-                  {'threadId': state['thread_id'], 'includeTurns': False},
-                  state['server']).get('thread')
-    if (not isinstance(thread, dict) or thread.get('id') != state['thread_id']
-            or os.path.realpath(str(thread.get('cwd'))) != os.path.realpath(worktree)
-            or thread.get('turns') not in ([], None)
-            or (thread.get('status') or {}).get('type') != 'idle'):
-        raise LaunchError('Thread neuf non conforme (cwd, tours ou statut).')
-    config = _rpc(backend, sock, 'config/read',
-                  {'includeLayers': False, 'cwd': worktree}, state['server']).get('config')
+    _verify(backend, transition, request, permissions, record_config_failure=True)
+
+
+def _read_thread(backend, state, include_turns):
+    return _rpc(backend, state['socket'], 'thread/read',
+                {'threadId': state['thread_id'], 'includeTurns': include_turns},
+                state['server']).get('thread')
+
+
+def _own_idle_thread(thread, state, worktree):
+    return (isinstance(thread, dict) and thread.get('id') == state['thread_id']
+            and os.path.realpath(str(thread.get('cwd'))) == os.path.realpath(worktree)
+            and isinstance(thread.get('status'), dict)
+            and thread['status'].get('type') == 'idle')
+
+
+def _history_is_empty(backend, state, worktree):
+    """True: the full read lists an explicit empty history on the expected idle thread.
+    False: the server says the history is not materialized yet (-32601). Any turn, any
+    malformed answer or unavailable transport prevents a decision about this session."""
+    try:
+        thread = _read_thread(backend, state, True)
+    except RpcRefused as error:
+        if error.unsupported:
+            return False
+        raise
+    if not _own_idle_thread(thread, state, worktree) or not isinstance(thread.get('turns'), list):
+        raise AmbiguousHistory('Historique du thread non prouvable (réponse absente, '
+                               'étrangère ou malformée) : BLOCKED, aucune soumission.')
+    if thread['turns']:
+        raise AmbiguousHistory('Historique déjà présent sur la session identifiée : BLOCKED, '
+                               'session conservée, aucune soumission ni recréation.')
+    return True
+
+
+def _history_name(state):
+    """Deterministic, secret-free title of the owned thread (no nonce, path or handoff)."""
+    token = hashlib.sha256(f"{state['transition_id']}:{state['thread_id']}".encode()).hexdigest()
+    return 'Agentic context ' + token[:12]
+
+
+def _materialize_history(backend, state, worktree):
+    """Name the owned, empty, untitled thread so its history exists (no turn, no thread).
+    Only after a positive revalidation: same worker, expected single thread, identity/cwd/idle,
+    no first-prompt signal, and a title that is absent (or already OUR title: lost response)."""
+    _require_owned_session(backend, state)
+    meta = _read_thread(backend, state, False)
+    if not _own_idle_thread(meta, state, worktree) or meta.get('turns') not in ([], None):
+        raise AmbiguousHistory('Thread non conforme avant nommage : BLOCKED.')
+    name = _history_name(state)
+    current = meta.get('name')
+    if current == name:
+        return                  # our own earlier naming (lost response): never mutate twice
+    if current not in (None, ''):
+        raise AmbiguousHistory('Thread déjà nommé par une autre source : jamais renommé, '
+                               'historique indécidable, BLOCKED.')
+    try:
+        _rpc(backend, state['socket'], 'thread/name/set',
+             {'threadId': state['thread_id'], 'name': name}, state['server'])
+    except LaunchError:
+        raise AmbiguousHistory('Nommage du thread non confirmé : BLOCKED, session '
+                               'conservée, aucune recréation.') from None
+
+
+def _require_empty_history(backend, state, worktree):
+    if not _history_is_empty(backend, state, worktree):
+        _materialize_history(backend, state, worktree)
+        if not _history_is_empty(backend, state, worktree):
+            raise AmbiguousHistory('Historique du thread indisponible après nommage : '
+                                   'BLOCKED, session conservée, aucune soumission.')
+
+
+def _verify(backend, transition, request, permissions, *, record_config_failure=False):
+    """Verify the full history and effective configuration before the first prompt."""
+    state, worktree = transition.state, request['worktree']
+    _require_empty_history(backend, state, worktree)
     expected = {'model': MODEL, 'model_reasoning_effort': EFFORT, **permissions}
-    if not isinstance(config, dict) or any(config.get(k) != v for k, v in expected.items()):
-        raise LaunchError('Modèle, effort ou permissions effectifs différents : refus.')
+    try:
+        config = _rpc(backend, state['socket'], 'config/read',
+                      {'includeLayers': False, 'cwd': worktree}, state['server']).get('config')
+        if not isinstance(config, dict) or any(config.get(k) != v for k, v in expected.items()):
+            raise LaunchError('Modèle, effort ou permissions effectifs différents : refus.')
+    except LaunchError:
+        if record_config_failure:
+            transition.set(config_failed=True)
+        raise
     transition.set(phase='verified', effective=expected)
+
+
+def _require_owned_session(backend, state):
+    """Check the recorded server, TUI and unique thread before acting on this session."""
+    server, terminal, thread = state.get('server'), state.get('terminal'), state.get('thread_id')
+    if (not isinstance(thread, str) or not thread or not state.get('socket')
+            or not isinstance(server, dict) or not isinstance(terminal, dict)):
+        raise LaunchError('Session identifiée incomplète : BLOCKED, aucune nouvelle création.')
+    if not backend.alive(server) or not backend.alive(terminal):
+        raise LaunchError('Session identifiée absente ou non possédée : BLOCKED, '
+                          'aucune nouvelle création.')
+    if _loaded(backend, state) != [thread]:
+        raise LaunchError('Thread attendu absent, remplacé ou accompagné : BLOCKED, '
+                          'aucune nouvelle création.')
+    try:
+        evidence = backend.submission_evidence(copy_for_evidence(state))
+    except (OSError, ValueError):
+        raise LaunchError('Absence de prompt non prouvable : BLOCKED.') from None
+    if evidence is not None:
+        raise LaunchError('Prompt déjà présent sur la session identifiée : BLOCKED, '
+                          'aucune seconde soumission.')
 
 
 def _submit(backend, transition, request, permissions):
@@ -811,13 +920,45 @@ def _reconnect(backend, transition, request, permissions):
     transition.set(terminal=identity, phase='submitted')
 
 
+def _recover_creation(backend, transition, kind):
+    """A backend with a durable ownership boundary may positively observe a creation recorded
+    before the journal was promoted. Identified: promoted to the phase it announced. Provably
+    absent: back to the phase before it. Unknown/unsupported: unchanged, so BLOCKED stays."""
+    recover = getattr(backend, 'recover_creation', None)
+    if recover is None:
+        return False
+    state = transition.state
+    try:
+        found = recover(kind, copy_for_recovery(state))
+    except (OSError, subprocess.SubprocessError):
+        return False
+    if isinstance(found, dict) and found.get('unit'):
+        if state['phase'] == 'reconnecting':
+            transition.set(terminal=found, phase='submitted')
+        else:
+            transition.set(**{kind: found, 'phase': kind + '_started'})
+        return True
+    if found == 'none':
+        if state['phase'] == 'reconnecting':
+            transition.set(terminal=state.get('prior_terminal'), phase='submitted')
+        else:
+            transition.set(phase=after_failure(state['phase']))
+        return True
+    return False
+
+
+def copy_for_recovery(state):
+    return {k: state.get(k) for k in ('transition_id', 'attempts', 'server', 'terminal',
+                                      'prior_terminal', 'phase')}
+
+
 def _start(backend, transition, request, permissions):
     state = transition.state
     if state['attempts'] >= MAX_ATTEMPTS:
         raise LaunchError('Récupération bornée épuisée avant soumission : BLOCKED.')
     sock = _short_socket(state['transition_id'], state['nonce'], state['attempts'] + 1)
     transition.set(attempts=state['attempts'] + 1, socket=sock, server=None, terminal=None,
-                   thread_id=None, effective=None)
+                   thread_id=None, effective=None, config_failed=False)
     _spawn(backend, transition, 'server', server_argv(sock, permissions),
            request['worktree'], 'server_spawning', 'server_started')
     # Fresh-server proof BEFORE any TUI exists: a dedicated, owned, live server must load
@@ -847,8 +988,11 @@ def launch(request, backend=None, reconnect=False):
                 _reconcile_submitting(backend, transition)
                 return _receipt(transition.state)
             if phase == 'reconnecting':
-                raise LaunchError('Création de terminal de reconnexion non identifiée : '
-                                  'BLOCKED, aucune seconde création.')
+                if not _recover_creation(backend, transition, 'terminal'):
+                    raise LaunchError('Création de terminal de reconnexion non identifiée : '
+                                      'BLOCKED, aucune seconde création.')
+                phase = transition.state['phase']
+                state = transition.state
             if phase == 'submitted':
                 if reconnect:
                     _reconnect(backend, transition, request, permissions)
@@ -856,6 +1000,18 @@ def launch(request, backend=None, reconnect=False):
             if reconnect:
                 raise LaunchError('Aucun thread matérialisé : reconnexion refusée.')
             _check_probe(backend)
+            if phase in ('identified', 'verified'):
+                _require_owned_session(backend, state)
+                # Older journals used presubmit_failed for any RPC failure. Its cause is
+                # unknown, so those sessions follow the same exact-thread resume as a crash.
+                if state.get('config_failed') is not True:
+                    _verify(backend, transition, request, permissions)
+                    _submit(backend, transition, request, permissions)
+                    return _receipt(transition.state)
+                # Recheck the old thread at retirement time, even after a known config error.
+                _require_empty_history(backend, state, request['worktree'])
+            if phase in ('server_spawning', 'terminal_spawning'):
+                _recover_creation(backend, transition, phase.split('_')[0])
             _stop_owned(backend, transition)
             _cleanup_socket(state.get('socket'))
         else:

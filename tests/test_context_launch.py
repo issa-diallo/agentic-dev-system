@@ -50,6 +50,15 @@ class RuntimeBoundary:
         self.fail = None
         self.evidence = None
         self.stop_confirmed = True
+        # Thread history as the real server holds it: includeTurns:false always hides it,
+        # includeTurns:true really lists it (or -32601 before the history is materialized).
+        self.history = []
+        self.histories = {}
+        self.materialized = True
+        self.name = None
+        self.name_lost = False
+        self.name_materializes = True
+        self.full_read = None
         self.entered = None
         self.release = None
         self.config = {'model': 'gpt-6.1-sol', 'model_reasoning_effort': 'high',
@@ -88,9 +97,15 @@ class RuntimeBoundary:
             terminal = self.state().get('terminal')
             return {'data': ['fresh-thread-113'] if terminal and self.alive(terminal) else []}
         if method == 'thread/read':
-            assert params['includeTurns'] is False
-            return {'thread': {'id': 'fresh-thread-113', 'cwd': self.request['worktree'],
-                               'turns': [], 'status': {'type': 'idle'}}}
+            return {'thread': self.read_thread(params)}
+        if method == 'thread/name/set':
+            if self.name_materializes:
+                self.materialized = True
+            self.name = params['name']
+            if self.name_lost:
+                self.name_lost = False
+                raise TimeoutError('response lost after the effect ' + SECRET)
+            return {}
         if method == 'config/read':
             return {'config': copy.deepcopy(self.config)}
         if method == 'turn/start':
@@ -100,6 +115,18 @@ class RuntimeBoundary:
             assert state['nonce'] in json.dumps(params)
             return {'turn': {'id': 'turn-113'}}
         return {}
+
+    def read_thread(self, params):
+        assert isinstance(params['includeTurns'], bool)
+        thread = {'id': params['threadId'], 'cwd': self.request['worktree'],
+                  'status': {'type': 'idle'}, 'name': self.name}
+        if params['includeTurns'] is False:
+            thread['turns'] = []                     # never proof of an empty history
+            return thread
+        if not self.materialized:
+            raise RuntimeError('Erreur RPC Codex -32601.')    # list_turns is not supported yet
+        thread['turns'] = copy.deepcopy(self.histories.get(params['threadId'], self.history))
+        return self.full_read(thread) if self.full_read else thread
 
     def alive(self, identity):
         return self.processes.get(identity['pid']) == identity
@@ -379,7 +406,7 @@ class LaunchTests(unittest.TestCase):
         self.assertEqual(self.runtime.count('rpc', 'turn/start'), 1)
 
     def test_l5_presubmit_recovery_requires_confirmed_owned_process_stop(self):
-        self.runtime.fail = 'thread/read'
+        self.runtime.fail = 'config/read'
         self.blocked()
         self.runtime.fail = None
         self.runtime.stop_confirmed = False
@@ -392,7 +419,7 @@ class LaunchTests(unittest.TestCase):
         self.assertEqual(self.runtime.count('rpc', 'turn/start'), 1)
 
     def test_l5_recovery_is_bounded_before_submission(self):
-        self.runtime.fail = 'thread/read'
+        self.runtime.fail = 'config/read'
         self.blocked()
         self.blocked()
         self.assertEqual(self.runtime.count('spawn', 'server'), 2)
@@ -401,7 +428,7 @@ class LaunchTests(unittest.TestCase):
         self.assertEqual(self.runtime.count('rpc', 'turn/start'), 0)
 
     def test_l5_reused_pid_does_not_authorize_kill_or_recovery(self):
-        self.runtime.fail = 'thread/read'
+        self.runtime.fail = 'config/read'
         self.blocked()
         self.runtime.fail = None
         identity = self.runtime.state()['server']
@@ -1154,6 +1181,603 @@ class CanonicalPlanPromptTests(unittest.TestCase):
         self.assertIn(self.runtime.state()['nonce'], prompt)
         self.assertLess(len(prompt.encode('utf-8')), 8192)
         self.assertNotIn(SECRET, prompt)
+
+
+class Crash(BaseException):
+    """Simulated death of the launcher process (not a handled error)."""
+
+
+class DistinctRuntime(RuntimeBoundary):
+    """Every terminal creation materializes its OWN thread id (thread-1, thread-2, ...), so a
+    recreated session can never be mistaken for the resumed one."""
+    def __init__(self, request):
+        super().__init__(request)
+        self.threads = {}
+        self.listed = None
+        self.read_override = {}
+
+    def spawn(self, kind, argv, cwd, state_path):
+        identity = super().spawn(kind, argv, cwd, state_path)
+        if kind == 'terminal':
+            self.threads[identity['pid']] = 'thread-%d' % (len(self.threads) + 1)
+        return identity
+
+    def current_thread(self):
+        terminal = self.state().get('terminal')
+        if terminal and self.alive(terminal):
+            return self.threads[terminal['pid']]
+        return None
+
+    def rpc(self, endpoint, method, params):
+        if self.fail == method:       # injected failures keep the base runtime's semantics
+            return super().rpc(endpoint, method, params)
+        if method == 'thread/loaded/list' and self.listed is not None:
+            self.calls.append(('rpc', method, copy.deepcopy(params)))
+            return {'data': list(self.listed)}
+        if method == 'thread/loaded/list':
+            self.calls.append(('rpc', method, copy.deepcopy(params)))
+            thread = self.current_thread()
+            return {'data': [thread] if thread else []}
+        if method == 'thread/read':
+            self.calls.append(('rpc', method, copy.deepcopy(params)))
+            thread = self.read_thread(params)
+            for key, value in self.read_override.items():
+                if key != 'turns' or params['includeTurns'] is True:
+                    thread[key] = value
+            return {'thread': thread}
+        if method == 'turn/start':
+            self.calls.append(('rpc', method, copy.deepcopy(params)))
+            state = self.state()
+            assert state['phase'] == 'submitting'
+            assert state['thread_id'] == params['threadId'] == self.current_thread()
+            return {'turn': {'id': 'turn-' + params['threadId']}}
+        return super().rpc(endpoint, method, params)
+
+
+class SessionResumeTests(unittest.TestCase):
+    """#114 M8 / RM5, AC10: a crash after the thread is identified (journal identified or
+    verified) and BEFORE submitting resumes EXACTLY that session: same server, socket,
+    thread and live TUI, one prompt. Anything not positively revalidated blocks with no new
+    creation and no signal."""
+    setUpClass = classmethod(LaunchTests.setUpClass.__func__)
+    git = LaunchTests.git
+    launch = LaunchTests.launch
+    blocked = LaunchTests.blocked
+
+    def setUp(self):
+        LaunchTests.setUp(self)
+        self.runtime = DistinctRuntime(self.request)
+
+    def crash_after(self, phase):
+        original = self.api._Transition.set
+
+        def crashing(transition, **changes):
+            original(transition, **changes)
+            if changes.get('phase') == phase:
+                raise Crash()
+
+        with mock.patch.object(self.api._Transition, 'set', crashing):
+            with self.assertRaises(Crash):
+                self.launch()
+        state = self.runtime.state()
+        self.assertEqual(state['phase'], phase)
+        self.assertEqual(state['thread_id'], 'thread-1')
+        self.assertEqual(self.runtime.count('rpc', 'turn/start'), 0)
+        return state
+
+    def assert_no_new_effect(self, before):
+        self.assertEqual(self.runtime.count('spawn', 'server'), 1)
+        self.assertEqual(self.runtime.count('spawn', 'terminal'), 1)
+        self.assertEqual(self.runtime.count('stop'), 0)
+        self.assertEqual(self.runtime.count('rpc', 'turn/start'), 0)
+        after = self.runtime.state()
+        for key in ('server', 'terminal', 'socket', 'thread_id', 'attempts', 'nonce'):
+            self.assertEqual(after[key], before[key], key)
+
+    def test_m8_identified_or_verified_crash_resumes_exact_session_with_one_prompt(self):
+        for phase in ('identified', 'verified'):
+            with self.subTest(phase=phase):
+                self.setUp()
+                before = self.crash_after(phase)
+                receipt = self.launch()
+                self.assertEqual(receipt['phase'], 'submitted')
+                self.assertEqual(receipt['thread_id'], 'thread-1')
+                self.assertEqual(receipt['turn_id'], 'turn-thread-1')
+                self.assertEqual(self.runtime.count('spawn', 'server'), 1)
+                self.assertEqual(self.runtime.count('spawn', 'terminal'), 1)
+                self.assertEqual(self.runtime.count('stop'), 0)
+                self.assertEqual(self.runtime.count('rpc', 'turn/start'), 1)
+                after = self.runtime.state()
+                for key in ('server', 'terminal', 'socket', 'thread_id', 'attempts', 'nonce'):
+                    self.assertEqual(after[key], before[key], key)
+                self.assertEqual(after['attempts'], 1)
+                self.assertTrue(self.runtime.alive(after['server']))
+                self.assertTrue(self.runtime.alive(after['terminal']))
+                params = next(call[2] for call in self.runtime.calls
+                              if call[:2] == ('rpc', 'turn/start'))
+                self.assertEqual(params['threadId'], 'thread-1')
+                self.assertIn(after['nonce'], json.dumps(params))
+                methods = [call[1] for call in self.runtime.calls if call[0] == 'rpc']
+                tail = methods[methods.index('turn/start') - 3:methods.index('turn/start')]
+                self.assertEqual(tail, ['thread/loaded/list', 'thread/read', 'config/read'])
+                again = self.launch()
+                self.assertEqual(again['turn_id'], receipt['turn_id'])
+                self.assertEqual(self.runtime.count('rpc', 'turn/start'), 1)
+                self.assertEqual(self.runtime.count('spawn'), 2)
+
+    def test_m8_resume_never_trusts_the_journal_alone(self):
+        def thread_absent(runtime):
+            runtime.listed = []
+
+        def thread_replaced(runtime):
+            runtime.listed = ['thread-replaced']
+
+        def extra_thread(runtime):
+            runtime.listed = ['thread-1', 'thread-extra']
+
+        def already_has_turns(runtime):
+            runtime.read_override = {'turns': [{'id': 'turn-old'}]}
+
+        def already_active(runtime):
+            runtime.read_override = {'status': {'type': 'active'}}
+
+        def other_cwd(runtime):
+            runtime.read_override = {'cwd': '/somewhere/else'}
+
+        def other_thread_read(runtime):
+            runtime.read_override = {'id': 'thread-replaced'}
+
+        def permissions_changed(runtime):
+            runtime.config['sandbox_mode'] = 'read-only'
+
+        def approval_changed(runtime):
+            runtime.config['approval_policy'] = 'on-request'
+
+        def model_changed(runtime):
+            runtime.config['model'] = 'other-model'
+
+        def effort_changed(runtime):
+            runtime.config['model_reasoning_effort'] = 'low'
+
+        def prompt_already_present(runtime):
+            state = runtime.state()
+            runtime.evidence = {'thread_id': state['thread_id'], 'turn_id': 'turn-early',
+                                'nonce': state['nonce']}
+
+        def server_dead(runtime):
+            del runtime.processes[runtime.state()['server']['pid']]
+
+        def tui_gone(runtime):
+            del runtime.processes[runtime.state()['terminal']['pid']]
+
+        def server_pid_reused(runtime):
+            identity = runtime.state()['server']
+            runtime.processes[identity['pid']] = dict(identity, starttime='foreign-reused')
+
+        def tui_pid_reused(runtime):
+            identity = runtime.state()['terminal']
+            runtime.processes[identity['pid']] = dict(identity, starttime='foreign-reused')
+
+        for phase in ('identified', 'verified'):
+            for mutate in (thread_absent, thread_replaced, extra_thread, already_has_turns,
+                           already_active, other_cwd, other_thread_read, permissions_changed,
+                           approval_changed, model_changed, effort_changed,
+                           prompt_already_present, server_dead, tui_gone, server_pid_reused,
+                           tui_pid_reused):
+                with self.subTest(phase=phase, case=mutate.__name__):
+                    self.setUp()
+                    before = self.crash_after(phase)
+                    mutate(self.runtime)
+                    self.blocked()
+                    self.blocked()
+                    self.assert_no_new_effect(before)
+
+    def test_m8_transient_absence_blocks_then_same_session_resumes(self):
+        before = self.crash_after('verified')
+        self.runtime.listed = []
+        self.blocked()
+        self.assert_no_new_effect(before)
+        self.runtime.listed = None
+        self.assertEqual(self.launch()['thread_id'], 'thread-1')
+        self.assertEqual(self.runtime.count('spawn'), 2)
+        self.assertEqual(self.runtime.count('rpc', 'turn/start'), 1)
+
+    def test_m8_submitting_and_unknown_outcome_stay_closed_without_new_session(self):
+        self.runtime.fail = 'turn/start'
+        self.blocked()
+        self.assertEqual(self.runtime.state()['phase'], 'submitting')
+        self.runtime.fail = None
+        before = self.runtime.state()
+        self.blocked()
+        self.blocked()
+        self.assertEqual(self.runtime.count('spawn', 'server'), 1)
+        self.assertEqual(self.runtime.count('spawn', 'terminal'), 1)
+        self.assertEqual(self.runtime.count('stop'), 0)
+        self.assertEqual(self.runtime.count('rpc', 'turn/start'), 1)
+        self.assertEqual(self.runtime.state()['thread_id'], before['thread_id'])
+
+    def test_m8_crash_before_identification_still_never_reuses_an_unknown_thread(self):
+        original = self.api._Transition.set
+
+        def crashing(transition, **changes):
+            original(transition, **changes)
+            if changes.get('phase') == 'terminal_started':
+                raise Crash()
+
+        with mock.patch.object(self.api._Transition, 'set', crashing):
+            with self.assertRaises(Crash):
+                self.launch()
+        self.assertIsNone(self.runtime.state().get('thread_id'))
+        self.assertEqual(self.launch()['phase'], 'submitted')
+        self.assertEqual(self.runtime.count('rpc', 'turn/start'), 1)
+        self.assertEqual(self.runtime.count('stop'), 2)
+        self.assertEqual(self.runtime.state()['thread_id'], 'thread-2')
+
+    def test_m8_explicit_identification_failure_keeps_stop_then_recreate_recovery(self):
+        self.runtime.fail = 'config/read'
+        self.blocked()
+        self.assertEqual(self.runtime.state()['thread_id'], 'thread-1')
+        self.runtime.fail = None
+        self.assertEqual(self.launch()['thread_id'], 'thread-2')
+        self.assertEqual(self.runtime.count('spawn', 'server'), 2)
+        self.assertEqual(self.runtime.count('rpc', 'turn/start'), 1)
+
+
+USER_TURN = {'id': 'turn-old', 'status': 'completed',
+             'items': [{'type': 'userMessage',
+                        'content': [{'type': 'text', 'text': 'ancien prompt sans repère'}]}]}
+
+
+class HistoryProofTests(unittest.TestCase):
+    """#114 M9 / RM5, AC10: a session without a first prompt must be PROVEN so by a full
+    history read (includeTurns:true, explicit turns:[]). includeTurns:false, a missing nonce,
+    a null path or an absent journal prove nothing. Any history or ambiguity keeps the session,
+    submits nothing, creates nothing, on the first start AND on every retry."""
+    setUpClass = classmethod(LaunchTests.setUpClass.__func__)
+    git = LaunchTests.git
+    launch = LaunchTests.launch
+    blocked = LaunchTests.blocked
+    crash_after = SessionResumeTests.crash_after
+    assert_no_new_effect = SessionResumeTests.assert_no_new_effect
+
+    def setUp(self):
+        LaunchTests.setUp(self)
+        self.runtime = DistinctRuntime(self.request)
+
+    def entries(self):
+        return ('start', 'identified', 'verified')
+
+    def enter(self, entry, arm):
+        """Reach the pre-submit session by a first start or by a crash resume, arm the fault
+        just before the decision, and return the journal to compare against."""
+        if entry == 'start':
+            arm()
+            return None
+        before = self.crash_after(entry)
+        arm()
+        return before
+
+    def refuse(self, entry, arm, retries=2):
+        before = self.enter(entry, arm)
+        self.blocked()
+        if before is None:
+            before = self.runtime.state()
+            self.assertEqual(before['thread_id'], 'thread-1')
+            self.assertIn(before['phase'], ('identified', 'verified'))
+        for _ in range(retries):
+            self.blocked()
+        self.assert_no_new_effect(before)
+        self.assertEqual(self.runtime.state()['phase'], before['phase'])
+        return before
+
+    def full_reads(self):
+        return [i for i, call in enumerate(self.runtime.calls)
+                if call[:2] == ('rpc', 'thread/read') and call[2]['includeTurns'] is True]
+
+    def test_ac10_prior_user_turn_without_nonce_is_refused_on_start_and_every_retry(self):
+        for entry in self.entries():
+            with self.subTest(entry=entry):
+                self.setUp()
+                self.refuse(entry, lambda: setattr(self.runtime, 'history', [USER_TURN]))
+                self.assertTrue(self.full_reads())
+
+    def test_ac10_explicitly_empty_history_submits_once_on_the_same_session(self):
+        for entry in self.entries():
+            with self.subTest(entry=entry):
+                self.setUp()
+                before = self.enter(entry, lambda: None)
+                receipt = self.launch()
+                self.assertEqual(receipt['thread_id'], 'thread-1')
+                self.assertEqual(self.runtime.count('rpc', 'turn/start'), 1)
+                self.assertEqual(self.runtime.count('spawn', 'server'), 1)
+                self.assertEqual(self.runtime.count('spawn', 'terminal'), 1)
+                self.assertEqual(self.runtime.count('stop'), 0)
+                self.assertEqual(self.runtime.count('rpc', 'thread/name/set'), 0)
+                turn = next(i for i, call in enumerate(self.runtime.calls)
+                            if call[:2] == ('rpc', 'turn/start'))
+                self.assertTrue([i for i in self.full_reads() if i < turn],
+                                'includeTurns:true must be read BEFORE the only prompt')
+                if before:
+                    self.assertEqual(self.runtime.state()['nonce'], before['nonce'])
+                self.assertEqual(self.launch()['turn_id'], receipt['turn_id'])
+                self.assertEqual(self.runtime.count('rpc', 'turn/start'), 1)
+
+    def test_ac10_unmaterialized_history_is_named_then_reread_without_new_session(self):
+        for entry in self.entries():
+            with self.subTest(entry=entry):
+                self.setUp()
+                self.enter(entry, lambda: setattr(self.runtime, 'materialized', False))
+                receipt = self.launch()
+                self.assertEqual(receipt['thread_id'], 'thread-1')
+                naming = [call for call in self.runtime.calls
+                          if call[:2] == ('rpc', 'thread/name/set')]
+                self.assertEqual(len(naming), 1)
+                params = naming[0][2]
+                self.assertEqual(set(params), {'threadId', 'name'})
+                self.assertEqual(params['threadId'], 'thread-1')
+                nonce = self.runtime.state()['nonce']
+                for private in (nonce, SECRET, self.request['handoff'], self.request['state']):
+                    self.assertNotIn(private, params['name'])
+                self.assertTrue(params['name'].strip() and len(params['name']) < 100)
+                index = self.runtime.calls.index(naming[0])
+                turn = next(i for i, call in enumerate(self.runtime.calls)
+                            if call[:2] == ('rpc', 'turn/start'))
+                reads = self.full_reads()
+                self.assertTrue(any(i < index for i in reads), 'first full read attempt')
+                self.assertTrue(any(index < i < turn for i in reads),
+                                'a full read must succeed AFTER naming and before the prompt')
+                self.assertEqual(self.runtime.count('rpc', 'turn/start'), 1)
+                self.assertEqual(self.runtime.count('spawn', 'server'), 1)
+                self.assertEqual(self.runtime.count('spawn', 'terminal'), 1)
+                self.assertEqual(self.runtime.count('stop'), 0)
+
+    def test_ac10_naming_is_refused_on_any_ambiguous_or_foreign_thread(self):
+        def user_named():
+            self.runtime.materialized = False
+            self.runtime.name = 'Titre choisi par la personne'
+
+        def other_named():
+            self.runtime.materialized = False
+            self.runtime.name = 'Agentic context deadbeef'
+
+        def nonce_present():
+            self.runtime.materialized = False
+            state = self.runtime.state()
+            self.runtime.evidence = {'thread_id': state['thread_id'], 'turn_id': 'turn-early',
+                                     'nonce': state['nonce']}
+
+        def foreign_thread():
+            self.runtime.materialized = False
+            self.runtime.read_override = {'id': 'thread-foreign'}
+
+        def other_cwd():
+            self.runtime.materialized = False
+            self.runtime.read_override = {'cwd': '/somewhere/else'}
+
+        def not_idle():
+            self.runtime.materialized = False
+            self.runtime.read_override = {'status': {'type': 'active'}}
+
+        def extra_thread():
+            self.runtime.materialized = False
+            self.runtime.listed = ['thread-1', 'thread-extra']
+
+        for entry in ('identified', 'verified'):
+            for arm in (user_named, other_named, nonce_present, foreign_thread, other_cwd,
+                        not_idle, extra_thread):
+                with self.subTest(entry=entry, case=arm.__name__):
+                    self.setUp()
+                    self.refuse(entry, arm)
+                    self.assertEqual(self.runtime.count('rpc', 'thread/name/set'), 0)
+
+    def test_ac10_user_named_new_thread_is_never_renamed_on_first_start(self):
+        self.runtime.materialized = False
+        self.runtime.name = 'Titre choisi par la personne'
+        self.refuse('start', lambda: None)
+        self.assertEqual(self.runtime.count('rpc', 'thread/name/set'), 0)
+        self.assertEqual(self.runtime.name, 'Titre choisi par la personne')
+
+    def test_ac10_lost_naming_response_is_examined_without_a_second_mutation(self):
+        for entry in self.entries():
+            with self.subTest(entry=entry):
+                self.setUp()
+                self.enter(entry, lambda: (setattr(self.runtime, 'materialized', False),
+                                           setattr(self.runtime, 'name_lost', True)))
+                self.blocked()
+                self.assertEqual(self.runtime.count('rpc', 'thread/name/set'), 1)
+                self.assertEqual(self.runtime.count('rpc', 'turn/start'), 0)
+                self.assertEqual(self.runtime.count('spawn', 'server'), 1)
+                self.assertEqual(self.runtime.count('spawn', 'terminal'), 1)
+                self.assertEqual(self.launch()['thread_id'], 'thread-1')
+                self.assertEqual(self.runtime.count('rpc', 'thread/name/set'), 1)
+                self.assertEqual(self.runtime.count('rpc', 'turn/start'), 1)
+                self.assertEqual(self.runtime.count('spawn', 'server'), 1)
+                self.assertEqual(self.runtime.count('spawn', 'terminal'), 1)
+                self.assertEqual(self.runtime.count('stop'), 0)
+
+    def test_ac10_naming_failure_before_effect_keeps_the_session_then_retries_idempotently(self):
+        for entry in self.entries():
+            with self.subTest(entry=entry):
+                self.setUp()
+                before = self.enter(entry, lambda: (
+                    setattr(self.runtime, 'materialized', False),
+                    setattr(self.runtime, 'fail', 'thread/name/set')))
+                self.blocked()
+                before = before or self.runtime.state()
+                self.assertEqual(self.runtime.state()['thread_id'], 'thread-1')
+                self.assert_no_new_effect(before)
+                self.runtime.fail = None
+                self.assertEqual(self.launch()['thread_id'], 'thread-1')
+                names = [call[2]['name'] for call in self.runtime.calls
+                         if call[:2] == ('rpc', 'thread/name/set')]
+                self.assertEqual(len(set(names)), 1)
+                self.assertEqual(self.runtime.count('rpc', 'turn/start'), 1)
+                self.assertEqual(self.runtime.count('spawn', 'server'), 1)
+                self.assertEqual(self.runtime.count('spawn', 'terminal'), 1)
+
+    def test_ac10_history_still_unreadable_after_naming_is_refused_without_recreation(self):
+        for entry in self.entries():
+            with self.subTest(entry=entry):
+                self.setUp()
+                self.refuse(entry, lambda: (setattr(self.runtime, 'materialized', False),
+                                            setattr(self.runtime, 'name_materializes', False)))
+                self.assertLessEqual(self.runtime.count('rpc', 'thread/name/set'), 1)
+
+    def test_ac10_failed_malformed_or_absent_full_read_never_proves_emptiness(self):
+        def without(key):
+            return lambda thread: {k: v for k, v in thread.items() if k != key}
+
+        def replaced(**changes):
+            return lambda thread: dict(thread, **changes)
+
+        cases = {'turns_none': replaced(turns=None), 'turns_absent': without('turns'),
+                 'turns_text': replaced(turns='[]'), 'turns_mapping': replaced(turns={}),
+                 'turns_with_none': replaced(turns=[None]),
+                 'thread_none': lambda thread: None, 'thread_empty': lambda thread: {},
+                 'thread_text': lambda thread: 'idle',
+                 'other_id': replaced(id='thread-foreign'),
+                 'other_cwd': replaced(cwd='/somewhere/else'),
+                 'not_idle': replaced(status={'type': 'active'}),
+                 'status_absent': without('status')}
+        for entry in self.entries():
+            for name, hook in cases.items():
+                with self.subTest(entry=entry, case=name):
+                    self.setUp()
+                    self.refuse(entry, lambda: setattr(self.runtime, 'full_read', hook))
+
+    def test_ac10_configuration_failure_rechecks_old_history_before_bounded_recreation(self):
+        self.runtime.fail = 'config/read'
+        self.blocked()
+        self.runtime.fail = None
+        self.runtime.calls.clear()
+        self.assertEqual(self.launch()['thread_id'], 'thread-2')
+        stop = next(i for i, call in enumerate(self.runtime.calls) if call[0] == 'stop')
+        self.assertTrue(any(i < stop and self.runtime.calls[i][2]['threadId'] == 'thread-1'
+                            for i in self.full_reads()))
+        self.assertEqual(self.runtime.count('spawn', 'server'), 1)  # one replacement
+        self.assertEqual(self.runtime.count('rpc', 'turn/start'), 1)
+
+    def test_ac10_history_found_on_a_recreated_session_is_not_recreated_again(self):
+        self.runtime.fail = 'config/read'
+        self.blocked()
+        self.runtime.fail = None
+        self.runtime.histories['thread-2'] = [USER_TURN]
+        self.blocked()
+        servers = self.runtime.count('spawn', 'server')
+        self.assertEqual(servers, 2)
+        self.blocked()
+        self.blocked()
+        self.assertEqual(self.runtime.count('spawn', 'server'), servers)
+        self.assertEqual(self.runtime.count('rpc', 'turn/start'), 0)
+
+
+    def test_ac10_history_timeout_preserves_original_thread_until_readable(self):
+        for prior_turn in (False, True):
+            with self.subTest(prior_turn=prior_turn):
+                self.setUp()
+                self.runtime.histories['thread-1'] = [USER_TURN] if prior_turn else []
+                self.runtime.fail = 'thread/read'
+                self.blocked()
+                before = self.runtime.state()
+                self.blocked()
+                self.assert_no_new_effect(before)
+                self.runtime.fail = None
+                if prior_turn:
+                    self.blocked()
+                    self.blocked()
+                    self.assert_no_new_effect(before)
+                else:
+                    self.assertEqual(self.launch()['thread_id'], before['thread_id'])
+                    self.assertEqual(self.launch()['turn_id'], 'turn-thread-1')
+                    self.assertEqual(self.runtime.count('rpc', 'turn/start'), 1)
+                    self.assertEqual(self.runtime.count('stop'), 0)
+                    self.assertEqual(self.runtime.count('spawn'), 2)
+                self.assertEqual({self.runtime.calls[i][2]['threadId'] for i in self.full_reads()},
+                                 {'thread-1'})
+
+    def test_ac10_lost_full_read_after_naming_preserves_history_and_identity(self):
+        self.runtime.materialized = False
+        self.runtime.histories['thread-1'] = [USER_TURN]
+        with mock.patch.object(self.runtime, 'full_read', side_effect=TimeoutError):
+            self.blocked()
+        before = self.runtime.state()
+        self.assertEqual(self.runtime.count('rpc', 'thread/name/set'), 1)
+        self.blocked()
+        self.blocked()
+        self.assert_no_new_effect(before)
+
+    def test_ac10_legacy_presubmit_marker_requires_original_history(self):
+        for phase in ('identified', 'verified'):
+            for prior_turn in (False, True):
+                with self.subTest(phase=phase, prior_turn=prior_turn):
+                    self.setUp()
+                    before = self.crash_after(phase)
+                    before['presubmit_failed'] = True  # ambiguous marker from older journals
+                    Path(self.request['state']).write_text(json.dumps(before))
+                    self.runtime.histories['thread-1'] = [USER_TURN] if prior_turn else []
+                    self.runtime.fail = 'thread/read'
+                    self.blocked()
+                    self.assert_no_new_effect(before)
+                    self.runtime.fail = None
+                    if prior_turn:
+                        self.blocked()
+                        self.assert_no_new_effect(before)
+                    else:
+                        self.assertEqual(self.launch()['thread_id'], 'thread-1')
+                        self.assertEqual(self.runtime.count('stop'), 0)
+                        self.assertEqual(self.runtime.count('rpc', 'turn/start'), 1)
+
+    def test_ac10_config_failure_cannot_retire_a_thread_with_new_or_unknown_history(self):
+        self.runtime.fail = 'config/read'
+        self.blocked()
+        before = self.runtime.state()
+        self.runtime.fail = 'thread/read'
+        self.blocked()
+        self.assert_no_new_effect(before)
+        self.runtime.fail = None
+        self.runtime.histories['thread-1'] = [USER_TURN]
+        self.blocked()
+        self.assert_no_new_effect(before)
+
+
+class ControllerMutationRetryTests(unittest.TestCase):
+    """#114 C4/RM5: response loss on either mutation must not send twice."""
+    def test_mutations_are_one_shot_on_lost_rpc_response(self):
+        for method in ('turn/start', 'turn/steer', 'thread/name/set'):
+            with self.subTest(method=method):
+                api = load_api()
+                backend = api.RealBackend()
+                sent = []
+
+                class LostResponse:
+                    def __init__(self, *args):
+                        self.current = None
+
+                    def __enter__(self):
+                        return self
+
+                    def __exit__(self, *args):
+                        return False
+
+                    def send_json(self, message):
+                        self.current = message
+                        if message.get('method') == method:
+                            sent.append(copy.deepcopy(message))
+
+                    def read_json(self):
+                        if self.current['method'] == 'initialize':
+                            return {'id': self.current['id'], 'result': {}}
+                        raise backend.ws.TransportError('response lost after send ' + SECRET)
+
+                with mock.patch.object(backend.ws, 'WebSocketProxy', LostResponse), \
+                     mock.patch.object(api.time, 'sleep'), \
+                     mock.patch.object(api.time, 'monotonic', side_effect=[0, 0, 10]):
+                    with self.assertRaises(TimeoutError) as caught:
+                        backend.rpc('/fixture.sock', method, {
+                            'threadId': 'fixture-thread', 'expectedTurnId': 'fixture-turn',
+                            'input': [{'type': 'text', 'text': 'nonce-114'}]}, timeout=5)
+                self.assertEqual(len(sent), 1, 'Mutating RPC re-sent after unknown outcome')
+                self.assertNotIn(SECRET, str(caught.exception))
 
 
 if __name__ == '__main__':

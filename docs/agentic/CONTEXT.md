@@ -53,6 +53,138 @@ concernées. Les checkpoints/handoffs personnels restent locaux, exclus de Git.
 Changer les préfixes peut modifier la réutilisation du cache ; aucune garantie
 sur le quota Codex ne découle du [cache API](https://developers.openai.com/api/docs/guides/prompt-caching).
 
+## Renouvellement automatique du contexte (opt-in)
+
+Contrôleur facultatif `scripts/agentic-context.py` : il observe une mission qu'il a
+lui-même créée, puis renouvelle sa session Codex au point sûr. Aucune activation par
+l'installation ; sans requête explicite, le flux manuel (checkpoint puis lanceur) reste
+inchangé. Une session existante n'est jamais adoptée sur la seule affirmation
+`writers_stopped` : chaque génération, la zéro comprise, naît d'un terminal géré.
+
+**Prérequis.** Linux, `systemd --user` (>= 250), cgroup v2, `gnome-terminal`, Codex
+0.169.0, affichage graphique, abonnement (`run.subscription_only` de la configuration
+de la requête est vérifié par `check_subscription` du runner avant toute inférence).
+Sinon : BLOCKED avant tout lancement ni création d'unité ; seuls le journal du contrôleur,
+son diagnostic et la réservation du worktree sont écrits (et peuvent changer).
+
+**Requête JSON** : celle du lanceur `agentic-context-launch.py` (mêmes champs) plus
+`mission_id`. `state` doit être privé, ignoré par Git,
+sous le worktree. Un seul contrôleur par worktree : verrou canonique pendant un pas, et
+réservation persistante `<git-common-dir>/agentic-context/*.claim` liée à mission, fichier
+d'état et requête. Une autre mission est refusée avant tout lancement, après `step()` comme
+après redémarrage ; une réservation sans fichier d'état n'est jamais écrasée. Elle n'est
+libérée ni par timeout, ni par absence de PID, ni par la phase `completed` seule : après
+fermeture confirmée de toutes les unités `agentic-ctx-*`, l'opérateur supprime le `.claim`.
+
+**Commandes.**
+```
+python3 scripts/agentic-context.py run --request REQUETE.json [--once]
+python3 scripts/agentic-context.py status --request REQUETE.json   # lecture seule
+python3 scripts/agentic-run.py context run|status --request REQUETE.json   # même contrôleur
+```
+
+**Cycle.** Mesure du dernier contexte (jamais le cumul) : < 120 s, sinon récupération
+bornée (2 tentatives persistées) puis BLOCKED. À >= 40 % : demande de handoff (steer si
+un tour est actif), attente du point sûr (tour inactif, aucun outil, processus de
+l'unité limités à l'infrastructure), validation et sauvegarde atomique, fermeture
+durable de l'admission, arrêt gracieux (SIGTERM) de l'infrastructure possédée, preuve
+de fermeture cgroup/systemd, puis nouveau terminal. >= 50 % est signalé
+(`target_exceeded`), pas garanti. Chaque nouvelle génération doit remettre un reçu de
+bootstrap vérifié (identité, Git, plan, handoff, permissions, modifications) et une
+mesure < 40 % avant son premier tour métier. Handoff invalide : 2 corrections au plus.
+
+**Preuve de bootstrap.** Le JSON écrit par l'agent n'est qu'une déclaration. Le contrôleur
+exige dans l'historique runtime (`thread/read`, même thread, tour de bootstrap `completed`)
+un `commandExecution` terminé (code 0, cwd exact) de
+`python3 scripts/agentic-context.py bootstrap-read --worktree W --instructions I --handoff H
+--nonce T`, dont la sortie complète égale le document que le contrôleur reconstruit lui-même :
+textes complets des instructions et du handoff (pas seulement leurs SHA256), branche, HEAD,
+modifications, et chaque fichier requis (AGENTS.md du worktree s'il existe, skill `start-ticket`)
+tant que le document reste sous la borne visible (24 000 octets UTF-8 d'enveloppe comprise,
+échappements JSON inclus ; refus avant impression au-delà). Un fichier qui ne tient pas est
+annoncé avec son nombre de parties et doit être lu par `bootstrap-file --path P --part K
+--nonce T` (parties de 5 000 caractères) : toute partie manquante, tronquée ou étrangère refuse
+le reçu. Au checkpoint, avant de fermer la génération, le contrôleur vérifie que le prochain
+bootstrap tient dans ces bornes ; sinon BLOCKED, propriétaire et checkpoint conservés.
+Codex 0.169.0 enveloppe la commande dans `/bin/bash -lc` avec la source
+`unifiedExecStartup`. Dans le journal du même thread et du même tour, le contrôleur relie
+l’identifiant de commande, les arguments et le répertoire à l’appel code-mode `exec`
+qui les a exécutés. Le répertoire peut être un chemin absolu ou son URI locale exacte.
+Pour chaque commande, le retour de cet appel doit contenir le code de sortie zéro et
+l’intégralité de la sortie vérifiée dans `thread/read`. Un appel peut rendre plusieurs
+parties ensemble. Une attribution ambiguë ou une sortie tronquée bloque la validation.
+Le contrôleur vérifie aussi le modèle, l’effort et les permissions effectives par
+`config/read`. Si seul le champ des permissions reprend la forme abrégée reconnue de
+l’interface Codex, le contrôleur peut demander au même thread au repos de rectifier le reçu
+une seule fois. Il journalise cette demande avant envoi, attend la fin de ce tour et
+revérifie le reçu avant la mesure de contexte et le démarrage du travail.
+La forme directe (sans enveloppe) n'existe que dans les fixtures de test.
+Cela prouve des lectures complètes observées, pas la compréhension ; le plan n'est pas relu.
+Seuls AGENTS.md et le skill sont garantis chargés : les autres règles déclenchées restent à la
+charge de l'agent via le skill.
+
+**Frontières.** Sont de l'infrastructure : les processus attestés à la création (pid,
+starttime, argv exact enregistrés par le wrapper `admit-exec` ; le NUL terminal unique de
+`/proc/PID/cmdline` est retiré, un vrai argument vide est conservé) et, pour un serveur
+`codex` natif, son enfant direct `codex-code-mode-host` (exe et SHA256 du fichier homonyme de
+la même release, relevés à l'admission puis revérifiés ; ni comm ni flags n'accordent rien).
+Tout autre membre du cgroup, sous-cgroupes compris (inventaire borné de l'arbre), bloque
+quiescence et retrait, de même qu'un membership illisible, disparu ou changeant : il est relu
+après épinglage et avant tout signal, jamais assimilé à une liste vide. Les shells persistants
+sont fermés par l'agent avant le handoff ; leur disparition est prouvée par la quiescence. Le
+wrapper refuse, avant `exec`, un environnement effectif (celui que `systemd --user` fournit
+réellement) qui contient un nom de facturation/endpoint ou un réglage de routage interdit par
+la politique abonnement ; refus à texte fixe, sans valeur, rien n'est neutralisé. Le
+nettoyage `systemctl stop` revalide l'invocation et la fermeture. Un serveur/terminal créé et
+identifié avant la promotion du journal du lanceur est repris par observation positive (un
+seul serveur, un seul TUI) ; une création inconnue reste BLOCKED. Un crash du lanceur avec
+journal `identified` ou `verified` (thread connu, avant `submitting`) reprend EXACTEMENT cette
+session : mêmes serveur, socket, thread et TUI vivant, sans nouvelle création ni signal. Le
+journal n'est jamais cru seul : propriété/processus des deux unités, thread attendu unique,
+aucun tour ni prompt existant, cwd, modèle, effort et permissions sont revérifiés avant l'unique
+soumission ; session disparue ou ambiguïté : BLOCKED. Un échec explicite d'identification garde
+l'arrêt confirmé puis la recréation bornée ; `submitting` reste fermé sans preuve positive.
+
+**Garanties.** Chaque mutation (`turn/start`, `turn/steer`) est journalisée avant l'envoi,
+avec nonce, et envoyée une fois ; un résultat inconnu est réconcilié par preuve positive
+ou la mission est BLOCKED. Aucun SIGKILL, `cgroup.kill` ni transfert sur timeout. Unités
+`SendSIGKILL=no`, `ExitType=cgroup`, `RemainAfterExit=yes`, sans `RuntimeMaxSec`. Les
+copies précédentes de checkpoint sont conservées (aucune purge) ; disque plein : BLOCKED.
+Pas de progrès (HEAD, modifications, prochaine action inchangés) : BLOCKED.
+
+**Limites.** HEAD, branche, plan ou configuration modifiés pendant la mission :
+BLOCKED (réconciliation humaine). BLOCKED est persistant ; l'état et le checkpoint
+sont conservés pour diagnostic. Un brouillon `IMPLEMENTATION_COMPLETE` engage la
+finalisation avant la prochaine mesure de contexte. Le contrôleur attend la fin du
+tour identifié et la quiescence de ses processus. Si la structure du handoff est
+invalide, il peut demander deux rectifications de forme au plus sur le même thread.
+Chaque demande possède un nonce journalisé avant envoi. Les fichiers métier et le
+checkpoint de référence sont vérifiés pendant la rectification. Après la sauvegarde
+atomique du document validé, le contrôleur ferme l’admission et vérifie la fermeture
+des unités de la dernière génération avant de déclarer `completed`. Les gates qualité
+gardent leur propre verdict.
+
+Un ancien blocage de mesure après la fin du travail peut reprendre cette finalisation.
+La reprise exige le brouillon final dont l’empreinte figurait dans le journal, le
+checkpoint d’origine intact et le dernier dispatch terminé sur la même session
+possédée. Le diagnostic historique est conservé. Le schéma exact des
+réponses `thread/read` n'est établi que par la recette réelle, et la route qualifiée est celle du
+binaire natif ELF 0.169.0 installé (aucun wrapper Node, aucune prise en charge universelle).
+En phase `working`, si le serveur et le thread de la génération sont positivement identifiés et
+si le seul ancien TUI est prouvé terminé (unité `exited`, même invocation), le contrôleur
+rouvre un TUI de la même génération et du même thread, sans prompt ; intention et essais
+(2 au plus) sont persistés avant l'effet, une création interrompue est reprise par observation
+positive ; serveur perdu, identité changée ou état inconnu : BLOCKED. Les descendants
+métier du TUI (hors infrastructure attestée) empêchent le retrait : la mission reste en
+attente puis BLOCKED, jamais de kill. La fenêtre du terminal
+peut rester ouverte après la fin du TUI jusqu'au nettoyage de l'unité. Le sandbox des outils
+dépend d'un prérequis d'environnement (profil AppArmor de `/usr/bin/bwrap` chargé par
+l'opérateur) que le contrôleur n'installe ni ne modifie.
+
+**Rollback.** Interrompre `run` (aucun effet sur la session en cours), garder le
+checkpoint, puis fermer l'unité `agentic-ctx-*` listée dans `boundary.json` seulement
+après preuve de fermeture ; revenir au flux manuel. Ne pas supprimer l'état.
+
 ## Mesurer sans promettre
 
 Comparer une même tâche, version, modèle/niveau, outils, fichiers et critères,
