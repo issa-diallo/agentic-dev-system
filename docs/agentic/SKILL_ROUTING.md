@@ -2,8 +2,9 @@
 
 `scripts/agentic-skills.py` découvre les skills réellement disponibles dans les
 racines fournies et sélectionne leurs métadonnées selon la tâche, les fichiers et
-la phase. Python 3, bibliothèque standard uniquement ; aucune installation de
-skills, aucun accès réseau ni modification de configuration personnelle.
+la phase. Pour une mission avec catalogue, il consulte aussi les métadonnées du magasin
+Git du projet. La sélection utilise Python 3 et sa bibliothèque standard, sans
+accès réseau, installation ou modification de configuration.
 
 ```bash
 python3 scripts/agentic-skills.py select \
@@ -25,6 +26,65 @@ Le provider conserve `equivalent_paths` et les copies en bibliothèque indiquent
 `duplicate_of`. Les descriptions ou tiers différents restent des choix distincts.
 `root_index` trace la priorité de chaque source. Une racine manquante ou une métadonnée
 invalide produit un diagnostic, sans exposer le contenu du fichier.
+
+## Sélection des références du catalogue
+
+En installation partagée, lancer le script depuis la racine de la méthode. En LOCAL,
+son chemin commence par `.agentic-local/scripts/`. `--repo` désigne le projet
+ou un de ses worktrees et `--agent` l’adaptateur réel. L’inventaire du projet tient
+compte du statut des dépendances. La commande fonctionne hors ligne.
+
+```bash
+python3 scripts/agentic-skills.py select --repo . --agent codex \
+  --task "Créer une landing page SaaS commerciale" --file app/Page.tsx
+python3 scripts/agentic-skills.py select --repo . --agent claude \
+  --task "Examiner la page produit" --need seo-page
+```
+
+Après installation des extraits concernés, la première commande choisit
+`anthropic/frontend-design` en principal et `marketing/copywriting` en complément.
+Une demande d’audit SEO de cette landing page choisit `claude-seo/seo-page`.
+Mesurer son trafic ne déclenche aucun des trois. Les mêmes règles s’appliquent à tous les projets.
+
+- Chaque groupe de `triggers` doit fournir une expression présente dans la mission.
+  Le routeur normalise la casse, les accents et la ponctuation, puis compare des mots
+  entiers. Les chemins `--file` corroborent les déclencheurs. Une extension seule
+  ne déclenche aucune référence gérée.
+- L’orchestrateur peut traduire son analyse en une ou plusieurs capacités `--need`.
+  Un besoin explicite dispense de retrouver ses synonymes dans la phrase. Les
+  exclusions, l’installation, l’activation et la compatibilité restent obligatoires.
+- Les besoins explicites passent en premier, puis la priorité décroissante, le nombre
+  de chemins concordants et l’identifiant stable. Une capacité conserve un seul
+  fournisseur. Trois compétences de mission au maximum sont retenues, avec un rôle
+  `primary`, puis `complementary`. Les conventions CORE explicitement déclarées par
+  le projet passent en premier et restent hors de ce plafond.
+- Dès qu’un fournisseur géré est disponible pour le harnais, les fournisseurs des racines historiques complètent les besoins
+  attestés par la tâche ou la phase. Un fournisseur générique qui recouvre déjà une
+  capacité sélectionnée reste en bibliothèque, sauf capacité supplémentaire demandée
+  dans l’objectif, la phase ou les besoins explicites. Par exemple, la revue
+  d’un contrat OpenAPI complète une revue de sécurité. Une exclusion de domaine
+  comme « sans interface » vaut aussi pour les fournisseurs historiques de ce domaine.
+  Les fournisseurs de contexte, mémoire et coordination sont rapprochés de leurs
+  équivalents historiques. Un projet neuf ou sans référence gérée compatible garde
+  la sélection historique par chemins et phase.
+- Le résultat indique les besoins sans fournisseur dans `missing_capabilities`.
+  Un adaptateur inconnu du skill, une installation absente, un retrait du catalogue ou
+  une désactivation rendent la référence inéligible. Les chemins ou noms identifiés
+  comme provenant de Superpowers sont écartés, y compris au chargement historique.
+  Pour une racine personnelle réorganisée, vérifier la provenance avant de la fournir.
+
+Le champ `path` d’une entrée `managed: true` contient son identifiant qualifié.
+`commit` et `extracted_sha256` lient la référence à la révision et au contenu audités.
+Le contrôle du magasin au moment du chargement doit recevoir ce SHA et le harnais.
+Un résultat `selected` n’observe ni lecture du contenu ni utilisation. Les décisions
+et raisons peuvent être conservées dans le handoff courant du framework.
+
+Pour tester le sélecteur et les scénarios de Packing Factory, DossierClé, CustomsFlow,
+Doc2XML et Agentic Dev System sur les deux adaptateurs :
+
+```bash
+python3 -m unittest discover -s tests -p 'test_skill*.py'
+```
 
 ## Convention de nommage des skills et des agents
 
@@ -111,7 +171,9 @@ Les prérequis de sandbox et les limites de validation restent ceux du skill.
 ## Preuves et intégration
 
 L'interface importable expose `discover(roots)`,
-`select(task, files, roots, phase='BUILD')` et `load(path)`. Toutes retournent des
+`select(task, files, roots, phase='BUILD', *, managed=(), agent=None, needs=())` et
+`load(path)` pour les fichiers historiques. L’argument `managed` accepte les entrées
+du magasin du projet. Toutes retournent des
 objets JSON compatibles avec le Scheduler. La sélection renvoie `selected`,
 `library`, `missing_capabilities`, `diagnostics`, `loaded: []` et
 `applied: NOT_OBSERVED`. Chaque sélection comprend chemin, tier, capacités et
