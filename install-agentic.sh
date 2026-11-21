@@ -101,6 +101,7 @@ V2_RESOURCES=(
   scripts/agentic-quality.py
   scripts/agentic-codex.sh
   scripts/agentic-run.py
+  scripts/agentic-skill-store.py
   scripts/agentic-onboard.py
   scripts/agentic-analysis.py
   scripts/agentic-brief.py
