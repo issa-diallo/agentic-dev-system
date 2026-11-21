@@ -63,6 +63,8 @@ PREPARE ──> BUILD ──> SHIP ──> READY_FOR_HUMAN
 | **BUILD** | Implémentation isolée, tests, `Verify`, revue **indépendante** de l'auteur | Fin de processus ≠ validation ; défaut `Major/Critical` bloquant |
 | **SHIP** | Contrôler scope, SHA et preuves fraîches, Lead Tech selon risque, CI et checklist du ticket | Fusion **uniquement** après autorisation applicable |
 
+En PREPARE, les modèles V1 restent disponibles pour reprendre un travail existant. Pour une nouvelle mission, les documents Research/Design/Plan sont facultatifs et peuvent alimenter les six rubriques de préparation.
+
 Les livrables temporaires (briefs, plans, preuves, handoffs) restent hors des PR applicatives. Une PR vise une capacité autonome, avec worktree/owner séparé pour les changements non triviaux.
 
 ### Trois échelles, un socle de qualité
