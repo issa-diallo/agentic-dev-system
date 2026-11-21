@@ -10,6 +10,7 @@ import copy
 import fcntl
 import hashlib
 import importlib.util
+import inspect
 import json
 import math
 import os
@@ -285,10 +286,7 @@ class Scheduler:
                    'routing_fingerprint': self.routing_fingerprint,
                    'skills': {'selected': [], 'loaded': [], 'applied': []},
                    'model_requested': None}
-        if skills and self.skill_roots:
-            context['skills']['selection'] = skills.select(
-                delegation['objective'], delegation['files'], self.skill_roots)
-            context['skills']['selected'] = context['skills']['selection']['selected']
+        skill_agent = None
         if models and self.models is not None:
             classification = self._classification(unit, delegation)
             classification.update(role=role, phase=phase)
@@ -327,7 +325,25 @@ class Scheduler:
                 explicit_effort = 'effort' in selection
             context.update(model_routing=routing, model_requested=routing['recommendation'],
                            model_effort_required=explicit_effort)
+            model_id = context['model_requested']['model']
+            skill_agent = next(m.get('skill_agent') for m in inventory['models'] if m['id'] == model_id)
+        sealed = delegation.get('analysis') or delegation.get('review_context')
+        if skills and self.skill_roots and not sealed:
+            selection = self._select_skills(skills, delegation, phase, skill_agent)
+            context['skills'].update(selection=selection, selected=selection['selected'])
         return context
+
+    def _select_skills(self, skills, delegation, phase, agent):
+        objective, files = delegation['objective'], delegation['files']
+        # Installations may preserve an older customized selector or omit a module.
+        if agent and 'managed' in inspect.signature(skills.select).parameters:
+            script = Path(__file__).resolve().with_name('agentic-skill-store.py')
+            catalog = script.parents[1] / 'skills/catalog.json'
+            if script.is_file() and not script.is_symlink() and catalog.is_file():
+                rows = module('skill-store').inventory(delegation['worktree'])
+                task = '\n'.join([objective, *delegation['acceptance']])
+                return skills.select(task, files, self.skill_roots, phase, managed=rows, agent=agent)
+        return skills.select(objective, files, self.skill_roots, phase)
 
     def _prepare_analysis(self, task, unit, delegation, plan_sha256):
         if (self.double_analysis['enabled'] and task.get('mission_index') == 0
@@ -445,7 +461,7 @@ class Scheduler:
         require(task['state'] == 'ASSIGNED' or (blocked and task.get('owner')
                                               and task.get('agent_id') is None),
                 'launch receipt requires ASSIGNED or unresolved blocked launch')
-        require({item['path'] for item in task['skills']['selected']}
+        require({item['path'] for item in task['skills']['selected'] if not item.get('managed')}
                 <= {item['path'] for item in task['skills']['loaded']},
                 'selected skills must be loaded before launch')
         require(isinstance(observation, dict) and observation.get('launch_observed') is True
@@ -1039,7 +1055,7 @@ class Scheduler:
             return self._load_skills(task)
 
     def _load_skills(self, task):
-        selected = task['skills']['selected']
+        selected = [row for row in task['skills']['selected'] if not row.get('managed')]
         if not selected:
             return []
         skills = module('skills', True)

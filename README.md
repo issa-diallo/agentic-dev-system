@@ -118,6 +118,29 @@ Ce sont des **niveaux de méthode selon le risque**, **pas** des interrupteurs q
 - `subscription_only` interdit les chemins API configurés, **mais ne garantit pas** l'absence de dépassement facturé par le fournisseur : désactiver séparément les dépassements payants dans les comptes et vérifier les quotas. Aucun fallback API silencieux.
 - **Tickets de consolidation ouverts :** [#127 — missions successives](https://github.com/issa-diallo/agentic-dev-system/issues/127) puis [#128 — boucle corrective](https://github.com/issa-diallo/agentic-dev-system/issues/128). Leur création ne signifie pas que les options sont actives ou validées partout.
 
+## Compétences spécialisées par projet
+
+Codex et Claude Code partagent un catalogue de compétences spécialisées pour le design, la rédaction commerciale, le SEO, la revue défensive, le diagnostic et la gestion du contexte. Le catalogue précise les extraits compatibles et la situation de Remotion. Les règles de l’orchestrateur s’appliquent à chaque usage. [Catalogue et tableau de disponibilité](docs/agentic/SKILL_CATALOG.md)
+
+Depuis la racine d’un projet équipé en LOCAL, ces commandes installent explicitement un extrait audité et testent sa sélection. Pour une installation partagée, utiliser `method=.`.
+
+~~~bash
+method=.agentic-local
+python3 "$method/scripts/agentic-skill-store.py" install marketing/copywriting --repo .
+python3 "$method/scripts/agentic-skills.py" select --repo . --agent codex \
+  --root "$method/skills" --task "Rédiger la promesse commerciale de la landing page"
+~~~
+
+En **conversation directe**, dès qu’il prend en charge une mission selon la méthode, l’orchestrateur lance `select` avec l’objectif, la phase, les fichiers et le harnais courant (`codex` ou `claude`). Le tableau `selected` justifie le choix. L’agent peut ensuite appeler `load` avec l’identifiant, `--expect` et `--commit` de cette sélection pour lire le passage nécessaire. Un résultat vide est valable, par exemple pour une automatisation métier sans besoin de design. [Routage et tests](docs/agentic/SKILL_ROUTING.md)
+
+Avec **quick** ou **delegate**, le runner prépare les références pour le preset réellement retenu. Le magasin est propre au dépôt et partagé entre ses worktrees. Un skill installé devient sélectionnable par défaut selon sa compatibilité et son activation locale. Le chargement reste à la demande. Le handoff peut décrire un usage concret ; la décision de revue et la validation humaine suivent le workflow habituel. [Installation, désactivation et mise à jour](docs/agentic/SKILL_INSTALL.md) · [Délégation](docs/agentic/DELEGATION.md)
+
+**Permissions en délégation Claude Code.** Avec le preset Claude standard et les permissions par défaut du runner, chaque référence sélectionnée reçoit une permission Bash exacte, limitée à `load` avec son worktree, son harnais, son commit et son empreinte. L’interpréteur isolé et le script de la méthode doivent être extérieurs au worktree d’écriture. Les chemins contenant des métacaractères de permission gardent la lecture sous contrôle explicite. Si le script du magasin est un lien symbolique, le runner conserve le routage historique des skills locaux.
+
+Une liste explicite `run.allowed_tools` conserve ses restrictions. Pour y autoriser une lecture donnée, préparer le brief avec `delegate <plan.json> --dry-run`, examiner la ligne de chargement du `brief.md` dans les journaux Git privés du runner, puis ajouter à la liste `Bash(COMMANDE)` en remplaçant `COMMANDE` par la ligne complète, à condition que son chemin soit sûr et sans joker. Le projet peut aussi conserver le refus et l’agent signalera la limite. Aucune règle personnelle n’est écrite. [Permissions Bash de Claude Code](https://code.claude.com/docs/en/permissions#use-specifiers-for-fine-grained-control)
+
+Les harnais personnalisés et les sessions d’analyse ou de revue à dossier fermé gardent leurs entrées prévues. Dans une session outillée, la sortie de `load` atteste une lecture ; Verify peut confronter l’usage déclaré au changement livré. Pour une reprise, le checkpoint conserve l’identifiant, le commit, l’empreinte et le résultat utile.
+
 ## Configuration par projet
 
 En installation LOCAL, le chemin habituel est **`<projet>/.agentic-local/agentic.config.json`**, exclu de Git. Le [template](docs/agentic/templates/agentic.config.json) décrit un **exemple initial**, pas une photographie de toutes les installations. Une installation partagée ou une configuration explicite peut utiliser un autre chemin : **conserver celui renvoyé par l'onboarding**.

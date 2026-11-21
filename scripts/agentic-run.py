@@ -136,6 +136,10 @@ def build_inventory(config, which=shutil.which):
             continue
         keep = {k: entry[k] for k in ('id', 'efforts', 'cost_rank', 'tiers', 'max_level',
                                      'harness', 'provider', 'available', 'enabled', 'modalities') if k in entry}
+        # A configured harness name may be an alias or an arbitrary argv wrapper.
+        preset = harness.get('preset')
+        if preset in ('claude', 'codex') and harness == {'preset': preset}:
+            keep['skill_agent'] = preset
         models.append(keep)
         index[entry['id']] = {**entry, 'harness_config': harness}
     return {'models': models, 'runtime_overrides': True}, index
@@ -330,6 +334,17 @@ def tool_rules(config, commands):
         'Bash(%s)' % shlex.join(command) for command in commands]
 
 
+def claude_skill_rule(command, worktree):
+    """Authorize one pinned read using the isolated interpreter and trusted method script."""
+    if not all(re.fullmatch(r'[a-zA-Z0-9_./ -]+', arg) for arg in command):
+        return None  # Claude's permission matcher interprets '*' even inside shell quotes.
+    for executable in (Path(command[0]), Path(command[3])):
+        if (executable.is_symlink() or not executable.is_file()
+                or executable.resolve().is_relative_to(worktree)):
+            return None
+    return 'Bash(' + shlex.join(command) + ')'
+
+
 def claude_result(harness, text):
     """Return only a structured result emitted by the Claude CLI, never handoff claims."""
     if harness.get('preset') != 'claude' or 'argv' in harness:
@@ -435,12 +450,23 @@ class ProcessAdapter:
         directory = self.run_dir / pr / (time.strftime('%Y%m%dT%H%M%S') + '-' + launch_id)
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         commands = self.commands(task) if callable(self.commands) else list(self.commands)
-        prompt = self.brief.render(task['delegation'], commands, task.get('skill_instructions'))
+        tree = Path(task['delegation']['worktree']).resolve()
+        references = [(row, self.brief.skill_read_command(row, preset, tree))
+                      for row in task.get('skills', {}).get('selected', []) if row.get('managed')]
+        options = {'references': references} if references else {}
+        prompt = self.brief.render(task['delegation'], commands, task.get('skill_instructions'),
+                                   **options)
         (directory / 'brief.md').write_text(prompt)
+        tools = tool_rules(self.config, commands)
+        if harness == {'preset': 'claude'} and 'allowed_tools' not in run:
+            for _, read in references:
+                rule = claude_skill_rule(read, tree)
+                if rule:
+                    tools.append(rule)
         argv = build_argv(harness, {
             'prompt': prompt, 'model': entry['model'], 'effort': request['effort'],
             'worktree': task['delegation']['worktree'], 'max_turns': run.get('max_turns', 40),
-            'tools': tool_rules(self.config, commands), 'read_only': read_only, 'analysis': analyzing,
+            'tools': tools, 'read_only': read_only, 'analysis': analyzing,
             'review_context': reviewing})
         job = {'pr': pr, 'dir': directory, 'harness': harness, 'entry': entry, 'request': request,
                'argv': [a if a != prompt else '<brief.md>' for a in argv],
