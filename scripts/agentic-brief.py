@@ -26,7 +26,15 @@ def bullets(items):
     return '\n'.join('- ' + item for item in items)
 
 
-def render(delegation, commands=None, skills=None, max_skill_chars=6000):
+def skill_read_command(reference, agent, worktree):
+    """Use the trusted interpreter and framework script, isolated from project imports."""
+    python = str(Path(sys.executable).resolve())
+    store = str(Path(__file__).resolve().with_name('agentic-skill-store.py'))
+    return [python, '-I', '-S', store, 'load', reference['id'], '--repo', str(worktree),
+            '--agent', agent, '--expect', reference['extracted_sha256'], '--commit', reference['commit']]
+
+
+def render(delegation, commands=None, skills=None, max_skill_chars=6000, *, references=()):
     """commands: trusted argv lists; skills: loaded dicts with 'path'/'instructions'."""
     if delegation.get('analysis'):
         return render_analysis(delegation)
@@ -85,6 +93,15 @@ def render(delegation, commands=None, skills=None, max_skill_chars=6000):
         if text:
             suffix = '' if len(text) == len(skill['instructions']) else '\n(tronqué)'
             parts += ['## Instructions : ' + Path(skill['path']).parent.name, text + suffix]
+    if references:
+        parts += ['## Compétences sélectionnées', 'Charge un extrait uniquement pour le besoin '
+                  'indiqué, depuis le worktree courant et avec les permissions du harnais. '
+                  'Si la commande est indisponible, signale la limite. Les règles du projet, '
+                  'les contrôles de la méthode et les autorisations de la mission priment.']
+        for reference, command in references:
+            parts.extend([reference['role'] + ' · ' + reference['id'], shlex.join(command)])
+        parts.append('Si un extrait a servi, cite son identifiant et la preuve concrète '
+                     'dans le résumé du handoff. Une référence seule ne prouve aucun usage.')
     parts += ['## Fin de mission', 'Termine ta réponse par exactement un bloc :',
               FENCE + 'handoff\n' + EXAMPLE + '\n' + FENCE]
     return '\n'.join(parts) + '\n'

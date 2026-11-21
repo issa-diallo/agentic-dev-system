@@ -52,11 +52,10 @@ Double analyse HIGH/EXTRA_HIGH optionnelle : [contrat](DOUBLE_ANALYSIS.md).
 
 ## Brief, handoff, gates
 
-Le brief contient l'objectif, les critères, la **liste exhaustive des fichiers**, les
-commandes exactes, les interdits et les skills sélectionnés. L'agent répond par un bloc
-`handoff` JSON (statut, résumé, fichiers, tests, blockers). Cette réponse est une
-déclaration : seules les gates décident. Sans bloc valide, la tâche reste COMPLETED si le
-processus a réussi, et les gates tranchent.
+Le brief fixe objectif, AC, fichiers autorisés (liste exhaustive), commandes, interdits et
+[skills sélectionnés](SKILL_ROUTING.md). Charger les extraits gérés à la demande via la
+commande épinglée. Le bloc JSON `handoff` déclare statut, résumé, fichiers, tests, blockers.
+Sans bloc valide, un processus réussi reste COMPLETED. Les gates tranchent.
 
 | Gate | Échec quand |
 |---|---|
