@@ -83,6 +83,7 @@ V2_RESOURCES=(
   rules/core/prefer-declarative-mapping.md
   docs/agentic/MODEL_ROUTING.md
   docs/agentic/SKILL_ROUTING.md
+  docs/agentic/SKILL_CATALOG.md
   docs/agentic/RUNTIME.md
   docs/agentic/DELEGATION.md
   docs/agentic/DOUBLE_ANALYSIS.md
@@ -116,6 +117,7 @@ V2_RESOURCES=(
   claude/agents/explorer.md
   claude/agents/implementer.md
   claude/agents/reviewer.md
+  skills/catalog.json
   skills/api-design-backend-security/SKILL.md
   skills/database-migrations/SKILL.md
   skills/frontend-patterns/SKILL.md
