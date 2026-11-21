@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """Discover scoped skill metadata and route capabilities without loading instructions."""
 import argparse
+from fnmatch import fnmatchcase
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
 import re
+import sqlite3
+import subprocess
+import unicodedata
 
 
 # Each capability has task triggers, file triggers, and skill metadata matches.
@@ -134,6 +139,13 @@ def _metadata(path):
     return {**result, "path": str(path), "tier": tier}
 
 
+def _excluded_origin(value):
+    """Recognize the collection namespace in a path, repository or skill name."""
+    prefixes = ("superpowers:", "superpowers@", "superpowers-", "superpowers.")
+    return any(part in ("superpowers", "using-superpowers") or part.startswith(prefixes)
+               for part in re.split(r"[/\\]", str(value).casefold()))
+
+
 def discover(roots):
     """Discover only supplied roots; canonical paths deduplicate links and loops."""
     pending = list(reversed([(index, Path(root).expanduser())
@@ -142,8 +154,10 @@ def discover(roots):
     while pending:
         root_index, path = pending.pop()
         try:
+            if _excluded_origin(path):
+                continue
             path = path.resolve()
-            if path in visited:
+            if _excluded_origin(path) or path in visited:
                 continue
             visited.add(path)
             if path.is_file() and path.name == "SKILL.md":
@@ -162,7 +176,9 @@ def discover(roots):
     skills = []
     for path in sorted(candidates, key=lambda path: (candidates[path], str(path))):
         try:
-            skills.append({**_metadata(path), "root_index": candidates[path]})
+            entry = _metadata(path)
+            if not _excluded_origin(entry["name"]):
+                skills.append({**entry, "root_index": candidates[path]})
         except (ValueError, OSError, UnicodeError):
             diagnostics.append({"path": str(path), "error": "invalid skill metadata"})
     return {"skills": skills, "diagnostics": sorted(diagnostics, key=lambda item: item["path"])}
@@ -219,7 +235,7 @@ def _providers(skill, context):
     return providers
 
 
-def select(task, files, roots, phase="BUILD"):
+def _legacy_select(task, files, roots, phase):
     """Return actual available paths and explain unavailable requested capabilities."""
     phase = phase.upper()
     if phase not in ("PREPARE", "BUILD", "VERIFY", "REVIEW", "SHIP", "HANDOFF"):
@@ -253,12 +269,147 @@ def select(task, files, roots, phase="BUILD"):
             "diagnostics": inventory["diagnostics"], "loaded": [], "applied": "NOT_OBSERVED"}
 
 
+# CORE remains a project decision. Mission-specific references share a small budget.
+ON_DEMAND_LIMIT = 3
+LEGACY_CAPABILITIES = {"context-optimization": "context", "memory": "context",
+                       "multi-agent": "parallel"}
+
+
+def _words(value):
+    plain = "".join(c for c in unicodedata.normalize("NFKD", value.casefold())
+                    if not unicodedata.combining(c))
+    return " " + " ".join(re.findall(r"[^\W_]+", plain)) + " "
+
+
+def _matches(term, objective):
+    phrase = _words(term)
+    return bool(phrase.strip()) and phrase in objective
+
+
+def _managed_reasons(row, objective, files, needs):
+    capability = row["capability"]
+    if capability in needs:
+        reasons = ["need:" + capability]
+    else:
+        reasons = []
+        for group in row["triggers"]:
+            term = next((term for term in group if _matches(term, objective)), None)
+            if term is None:
+                return []
+            reasons.append("task:" + term)
+        if not reasons:
+            return []
+    reasons.extend("file:" + path for path in files
+                   if any(fnmatchcase(path, pattern) for pattern in row["files"]))
+    return reasons
+
+
+def _managed_candidates(rows, task, files, agent, needs):
+    objective = _words(task)
+    candidates, requested = [], set(needs)
+    available, excluded = False, set()
+    for row in rows:
+        if row["status"] not in ("approved", "blocked"):
+            continue  # A removed pin retains attribution but no longer has routing metadata.
+        if any(_excluded_origin(row[field]) for field in ("id", "repo", "name", "path")):
+            continue
+        usable = (row["status"] == "approved" and agent in row["agents"]
+                  and all(row[key] is True for key in ("enabled", "available", "installed")))
+        available = available or usable
+        if any(_matches(term, objective) for term in row["excludes"]):
+            excluded.add(row["capability"])
+            continue
+        reasons = _managed_reasons(row, objective, files, needs)
+        if not reasons:
+            continue
+        capability = row["capability"]
+        requested.add(capability)
+        if not usable:
+            continue
+        item = {key: row[key] for key in ("id", "name", "description", "capability",
+                                          "commit", "extracted_sha256")}
+        item.update(managed=True, path=row["id"], tier="ON_DEMAND", capabilities=[capability],
+                    reasons=reasons, state="SELECTED")
+        evidence_count = sum(reason.startswith("file:") for reason in reasons)
+        rank = (capability not in needs, -row["priority"], -evidence_count, row["id"])
+        candidates.append((rank, item))
+    ranked = [item for _, item in sorted(candidates, key=lambda pair: pair[0])]
+    return ranked, requested, available, excluded
+
+
+def select(task, files, roots, phase="BUILD", *, managed=(), agent=None, needs=()):
+    """Route reviewed installed references alongside providers in explicit legacy roots."""
+    files = [str(path).replace("\\", "/") for path in files]
+    result = _legacy_select(task, files, roots, phase)
+    if not managed and not needs:
+        return result
+    needs = set(needs)
+    candidates, requested, available, excluded = _managed_candidates(managed, task, files, agent, needs)
+    legacy = result["selected"]
+    requested.update(set(result["missing_capabilities"]) - excluded)
+    if not available and not excluded:
+        covered = {cap for item in legacy for cap in item["capabilities"]}
+        result["missing_capabilities"] = sorted(requested - covered)
+        return result
+    requirements = _requirements(task, files, phase.upper())
+    intent = set(_requirements(task, [], phase.upper())) | needs
+    selected = [item for item in legacy if item["tier"] == "CORE"]
+    covered = {cap for item in selected for cap in item["capabilities"]}
+    used = 0
+    for item in candidates + [entry for entry in legacy if entry["tier"] != "CORE"]:
+        if item.get("managed"):
+            useful = set(item["capabilities"]) - covered
+        else:
+            useful = set(item["capabilities"]) - covered - excluded
+            if available:
+                useful &= intent
+            # In a focused task, FastAPI/Django identifies the stack. An additional backend
+            # provider requires actual backend work before loading its generic instructions.
+            if candidates and "backend" not in needs and not re.search(r"\b(backend|server)\b", task, re.I):
+                useful.discard("backend")
+        requested.update(useful)
+        if not useful or (available and used >= ON_DEMAND_LIMIT):
+            if not item.get("managed"):
+                result["library"].append({**item, "tier": "LIBRARY", "state": "AVAILABLE"})
+            continue
+        if not item.get("managed"):
+            caps = [cap for cap in item["capabilities"] if cap in useful]
+            reasons = [why for cap in caps for why in requirements[cap]]
+            item = {**item, "capabilities": caps, "reasons": list(dict.fromkeys(reasons))}
+        selected.append(item)
+        used += 1
+        covered.update(useful)
+        if item.get("managed") and item["capability"] in LEGACY_CAPABILITIES:
+            covered.add(LEGACY_CAPABILITIES[item["capability"]])
+    for index, item in enumerate(selected):
+        item["role"] = "primary" if index == 0 else "complementary"
+    result["selected"] = selected
+    result["missing_capabilities"] = sorted(requested - covered)
+    return result
+
+
+def _project_inventory(repo):
+    script = Path(__file__).with_name("agentic-skill-store.py")
+    spec = importlib.util.spec_from_file_location("agentic_skill_store", script)
+    store = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(store)
+    try:
+        return store.inventory(repo)
+    except (subprocess.CalledProcessError, sqlite3.Error) as error:
+        raise ValueError("project inventory unavailable") from error
+
+
 def load(path):
     """Read instructions explicitly and return evidence of this read, not application."""
+    if _excluded_origin(path):
+        raise ValueError("excluded skill collection")
     path = Path(path).expanduser().resolve()
+    if _excluded_origin(path):
+        raise ValueError("excluded skill collection")
     if path.name != "SKILL.md":
         raise ValueError("load requires a SKILL.md path")
-    _metadata(path)
+    if _excluded_origin(_metadata(path)["name"]):
+        raise ValueError("excluded skill collection")
     content = path.read_bytes()
     return {"path": str(path), "state": "LOADED", "sha256": hashlib.sha256(content).hexdigest(),
             "bytes": len(content), "instructions": content.decode("utf-8"),
@@ -270,18 +421,25 @@ def main():
     commands = parser.add_subparsers(dest="command", required=True)
     for command in ("discover", "select"):
         child = commands.add_parser(command)
-        child.add_argument("--root", action="append", required=True)
+        child.add_argument("--root", action="append", required=command == "discover", default=[])
         if command == "select":
             child.add_argument("--task", required=True)
             child.add_argument("--file", action="append", default=[])
             child.add_argument("--phase", default="BUILD")
+            child.add_argument("--repo", help="Git project with a managed skill store")
+            child.add_argument("--agent", help="actual agent adapter (codex or claude)")
+            child.add_argument("--need", action="append", default=[], help="required capability")
     commands.add_parser("load").add_argument("path")
     args = parser.parse_args()
     try:
         if args.command == "discover":
             result = discover(args.root)
         elif args.command == "select":
-            result = select(args.task, args.file, args.root, args.phase)
+            if args.repo and not args.agent:
+                raise ValueError("project selection requires an agent adapter")
+            managed = _project_inventory(args.repo) if args.repo else ()
+            result = select(args.task, args.file, args.root, args.phase, managed=managed,
+                            agent=args.agent, needs=args.need)
         else:
             result = load(args.path)
     except (ValueError, OSError, UnicodeError, RuntimeError):
